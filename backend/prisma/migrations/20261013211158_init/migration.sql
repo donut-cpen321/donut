@@ -115,6 +115,15 @@ CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
 CREATE UNIQUE INDEX "courts_googlePlaceId_key" ON "courts"("googlePlaceId");
 
 -- CreateIndex
+CREATE INDEX "user_availabilities_userId_idx" ON "user_availabilities"("userId");
+
+-- CreateIndex
+CREATE INDEX "games_courtId_idx" ON "games"("courtId");
+
+-- CreateIndex
+CREATE INDEX "game_users_userId_idx" ON "game_users"("userId");
+
+-- CreateIndex
 CREATE INDEX "_CourtToUser_B_index" ON "_CourtToUser"("B");
 
 -- AddForeignKey
