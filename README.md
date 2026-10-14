@@ -83,17 +83,29 @@ Set at least:
    npm install
    ```
 
-2. **Development** (TypeScript with auto-reload):
+2. Generate the Prisma client. The client is written to `backend/src/generated/` and is not committed, so run this before `npm run dev`, `npm run build`, or `npm run typecheck`:
+
+   ```bash
+   npm run generate
+   ```
+
+3. **Development** (TypeScript with auto-reload):
 
    ```bash
    npm run dev
    ```
 
-3. **Production build** (optional):
+4. **Production build** (optional):
 
    ```bash
    npm run build
    npm start
+   ```
+
+   Typecheck without emitting files:
+
+   ```bash
+   npm run typecheck
    ```
 
 ### Option 2: Run with Docker Compose

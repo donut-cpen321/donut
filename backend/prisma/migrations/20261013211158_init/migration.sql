@@ -30,7 +30,7 @@ CREATE TABLE "users" (
 CREATE TABLE "user_ratings" (
     "userId" UUID NOT NULL,
     "sport" "Sport" NOT NULL,
-    "rating" DOUBLE PRECISION NOT NULL DEFAULT 1200,
+    "rating" DOUBLE PRECISION NOT NULL DEFAULT 1500,
     "gamesPlayed" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "user_ratings_pkey" PRIMARY KEY ("userId","sport")
@@ -59,6 +59,8 @@ CREATE TABLE "user_availabilities" (
     "endTime" TIME(0) NOT NULL,
 
     CONSTRAINT "user_availabilities_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "user_availabilities_exactly_one_kind_constraint"
+        CHECK (("weekday" IS NOT NULL) <> ("date" IS NOT NULL))
 );
 
 -- CreateTable

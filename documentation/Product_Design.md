@@ -20,7 +20,6 @@ The app has three tabs.
 | --- | --- |
 | **Discover** | Browse games: a feed of upcoming games and a calendar of all games. |
 | **Play** | Create a game, post availability, see your current game and enter its score. |
-| **Profile** | Per-sport ratings, donuts ([§8](#8-donuts-rewards)) and match history. |
 
 ## 3. Discover tab
 
@@ -140,7 +139,7 @@ E_A  = 1 / (1 + 10^((R_B - R_A) / 400))
 R_A' = R_A + K * (S_A - E_A)        S_A = 1 for a win, 0 for a loss
 ```
 
-`K` is larger for new players and shrinks as they play more games, so new ratings settle quickly. The starting rating and `K` values are still open ([§11](#11-open-questions)).
+`K` is larger for new players and shrinks as they play more games, so new ratings settle quickly. The starting rating and `K` values are still open.
 
 ### 7.3. Future: Glicko
 
