@@ -103,6 +103,7 @@ model UserAvailability {
   // One-to-many relation between User and UserAvailability
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId])
   @@map("user_availabilities")
 }
 
@@ -122,6 +123,7 @@ model Game {
   players GameUser[]
   rounds  GameRound[]
 
+  @@index([courtId])
   @@map("games")
 }
 
@@ -138,6 +140,7 @@ model GameUser {
   // One-to-many relation between User and GameUser
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId])
   @@id([gameId, userId])
   @@map("game_users")
 }
