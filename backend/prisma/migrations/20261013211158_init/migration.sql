@@ -58,7 +58,7 @@ CREATE TABLE "user_availabilities" (
     "startTime" TIME(0) NOT NULL,
     "endTime" TIME(0) NOT NULL,
 
-    CONSTRAINT "user_availabilities_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "user_availabilities_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "user_availabilities_exactly_one_kind_constraint"
         CHECK (("weekday" IS NOT NULL) <> ("date" IS NOT NULL))
 );

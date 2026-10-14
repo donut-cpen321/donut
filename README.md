@@ -92,6 +92,7 @@ Set at least:
 3. **Development** (TypeScript with auto-reload):
 
    ```bash
+   npx prisma migrate deploy
    npm run dev
    ```
 
