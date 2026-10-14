@@ -124,3 +124,6 @@ Set at least:
 ## Additional Setup
 
 _Please specify any other additional setup steps non-specific to either frontend nor backend_
+
+- This is where additional setup will go
+- These points are part of an example PR for coderabbit
