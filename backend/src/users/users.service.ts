@@ -36,11 +36,18 @@ export async function login(
     return;
   }
 
+  const email = payload.email?.trim() ?? '';
+  const name = payload.name?.trim() ?? '';
+  if (email === '' || name === '') {
+    res.status(400).json({ error: 'Google profile must include name and email' });
+    return;
+  }
+
   const user = await createUser({
     googleSub: payload.sub,
-    username: payload.email, // temporary until user sets their username with onboarding
-    name: payload.name,
-    email: payload.email,
+    username: email, // temporary until user sets their username with onboarding
+    name,
+    email,
   });
 
   console.log(user);
