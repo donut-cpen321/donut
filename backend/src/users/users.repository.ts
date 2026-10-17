@@ -31,10 +31,8 @@ export async function createUser(input: {
   email: string;
 }) {
   try {
-    return await prisma.user.upsert({
-      where: { googleSub: input.googleSub },
-      create: input,
-      update: {},
+    return await prisma.user.create({
+      data: input,
       select: loginUserSelect,
     });
   } catch (error) {

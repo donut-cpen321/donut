@@ -14,14 +14,14 @@ export async function login(
 ): Promise<void> {
   const { idToken } = req.body;
   if (typeof idToken !== 'string' || idToken.trim() === '') {
-    res.status(400).json({ message: 'A Google ID token is required' });
+    res.status(400).json({ error: 'A Google ID token is required' });
     return;
   }
 
   const payload = await validateToken(idToken);
   
   if (payload === null) {
-    res.status(401).json({ message: 'Invalid Google ID token' });
+    res.status(401).json({ error: 'Invalid Google ID token' });
     return;
   }
 
@@ -45,6 +45,6 @@ export async function login(
     return;
   }
 
-    res.status(500).json({message: 'Something went wrong, please try again later. (Database update failed)'});
+    res.status(500).json({error: 'Something went wrong, please try again later. (Database update failed)'});
     return;
 }

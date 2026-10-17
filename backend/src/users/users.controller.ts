@@ -5,7 +5,6 @@ import { login } from './users.service';
 export const usersRouter = Router();
 
 usersRouter.use((req: Request, res: Response, next: NextFunction) => {
-    console.log("user request");
     next();
 })
 
