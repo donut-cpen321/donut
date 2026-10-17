@@ -50,8 +50,6 @@ export async function login(
     email,
   });
 
-  console.log(user);
-
   if (user !== null) {
     res.status(201).json({ message: 'New user created', username: user.username });
     return;
