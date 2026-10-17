@@ -6,13 +6,17 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Copy the rest of the application
 COPY . .
 
-# sets process.env.PORT
+# Generate the Prisma migrations
+RUN npx prisma generate
+
+# Set the environment variables
 ENV PORT=3000 
 ENV NODE_ENV=development
 
-# documents that the container listens on port 3000
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+# Apply pending migrations, then start the application
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run dev"]

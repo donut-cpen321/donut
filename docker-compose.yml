@@ -12,18 +12,24 @@ services:
     env_file:
       - path: ./backend/.env
     environment:
-      MONGODB_URI: mongodb://mongo:27017/cpen321
+      DATABASE_URL: postgresql://donut:donut@postgres:5432/donut
     depends_on:
-      mongo:
+      postgres:
         condition: service_healthy
 
-  mongo:
-    image: mongo:7
+  postgres:
+    image: postgres:17
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: donut
+      POSTGRES_PASSWORD: donut
+      POSTGRES_DB: donut
+    ports:
+      - "5432:5432"
     volumes:
-      - mongo-data:/data/db
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "pg_isready", "-U", "donut"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,4 +37,4 @@ services:
 
 
 volumes:
-  mongo-data:
+  postgres-data:

@@ -10,6 +10,12 @@ if (Number.isNaN(port) || port < 1 || port > 65535) {
   throw new Error(`Invalid PORT: ${rawPort}`);
 }
 
+const databaseUrl = process.env.DATABASE_URL;
+if (databaseUrl === undefined || databaseUrl === '') {
+  throw new Error('Missing DATABASE_URL');
+}
+
 export const env = {
   port,
+  databaseUrl,
 } as const;
