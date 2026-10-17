@@ -36,6 +36,13 @@ export async function createUser(input: {
       select: loginUserSelect,
     });
   } catch (error) {
-    return null;
+    // If the unique constraint is violated (user already exists), return the existing user
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return findUserByGoogleSub(input.googleSub);
+    }
+    throw error;
   }
 }
