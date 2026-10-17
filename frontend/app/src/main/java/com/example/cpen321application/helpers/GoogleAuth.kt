@@ -5,6 +5,7 @@ import android.content.Intent
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -85,6 +86,10 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
         Log.e("Auth", "Unexpected error during Google Sign-In: ${e.message}", e)
         null
     }
+}
+
+suspend fun signOut(context: Context) {
+    CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
 }
 
 suspend fun loginWithBackend(apiBaseUrl: String, idToken: String): User? = withContext(Dispatchers.IO) {

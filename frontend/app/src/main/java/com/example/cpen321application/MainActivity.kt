@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.example.cpen321application.helpers.User
 import com.example.cpen321application.helpers.loginWithBackend
 import com.example.cpen321application.helpers.signInWithGoogle
+import com.example.cpen321application.helpers.signOut
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import kotlinx.coroutines.launch
 
@@ -126,8 +127,11 @@ fun LoginScreen(
 
             OutlinedButton(
                 onClick = {
-                    user = null
-                    errorMessage = null
+                    coroutineScope.launch {
+                        signOut(context)
+                        user = null
+                        errorMessage = null
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
