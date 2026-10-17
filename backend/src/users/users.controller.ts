@@ -8,6 +8,6 @@ usersRouter.use((req: Request, res: Response, next: NextFunction) => {
     next();
 })
 
-usersRouter.post('/login', (req: Request, res: Response) => {
-    login(req, res);
+usersRouter.post('/login', async (req: Request, res: Response) => {
+    await login(req, res);
 });
