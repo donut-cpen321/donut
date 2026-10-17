@@ -27,7 +27,7 @@ export async function login(
 
   const existingUser = await findUserByGoogleSub(payload.sub);
   if (existingUser) {
-    res.status(200).json({ message: 'Login successful', user: existingUser });
+    res.status(200).json({ message: 'Login successful', username: existingUser.username });
     return;
   }
 
@@ -41,7 +41,7 @@ export async function login(
   console.log(user);
 
   if (user !== null) {
-    res.status(201).json({ message: 'New user created', user: user });
+    res.status(201).json({ message: 'New user created', username: user.username });
     return;
   }
 
