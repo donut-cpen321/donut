@@ -12,6 +12,11 @@ export async function login(
   req: Request<ParamsDictionary, unknown, LoginRequestBody>,
   res: Response,
 ): Promise<void> {
+  if (!req.body) {
+    res.status(400).json({ error: 'Request body is required' });
+    return;
+  }
+
   const { idToken } = req.body;
   if (typeof idToken !== 'string' || idToken.trim() === '') {
     res.status(400).json({ error: 'A Google ID token is required' });
