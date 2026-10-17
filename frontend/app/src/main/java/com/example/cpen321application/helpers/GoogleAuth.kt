@@ -105,7 +105,7 @@ suspend fun loginWithBackend(apiBaseUrl: String, idToken: String): User? = withC
         connection.outputStream.use { it.write(jsonBody.toByteArray()) }
 
         when (val code = connection.responseCode) {
-            HttpURLConnection.HTTP_OK -> {
+            HttpURLConnection.HTTP_OK, HttpURLConnection.HTTP_CREATED -> {
                 val body = connection.inputStream.bufferedReader().use { it.readText() }
                 try {
                     val json = JSONObject(body)
