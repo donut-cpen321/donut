@@ -8,6 +8,25 @@ const SPORT_PARAMS: Record<Sport, SportEloParams> = {
     BADMINTON:  { maxExpectedMargin: 15, marginGrowthRate: 0.005, marginWeight: 0.5, kFactor: 32},
 };
 
+/**
+ * Looks up the Elo parameters for a sport.
+ * Uses fixed keys instead of SPORT_PARAMS[sport], so an unexpected value
+ * (e.g. "__proto__" from untrusted input) can't reach the lookup.
+ *
+ * @param sport - Sport being played
+ * @returns The sport's kFactor, maxExpectedMargin, marginGrowthRate and marginWeight
+ * @throws If the sport is not supported
+ */
+function getSportParams(sport: Sport): SportEloParams {
+    switch (sport) {
+        case Sport.TENNIS:     return SPORT_PARAMS.TENNIS;
+        case Sport.PICKLEBALL: return SPORT_PARAMS.PICKLEBALL;
+        case Sport.BADMINTON:  return SPORT_PARAMS.BADMINTON;
+        default:
+            throw new Error(`Unsupported sport: ${String(sport)}`);
+    }
+}
+
 // determine how many points correspond to a given difference in skill
 // 400 means the stronger side has 10-to-1 odds of winning (standard Elo scale)
 const ELO_SCALE = 400;
@@ -34,7 +53,7 @@ function calculateExpectedOutcome(
  *
  * @param playerARating - Rating of player (or team) A
  * @param playerBRating - Rating of player (or team) B
- * @param sport - Sport being played; selects maxExpectedMargin and marginGrowthRate from SPORT_PARAMS
+ * @param sport - Sport being played; selects maxExpectedMargin and marginGrowthRate
  * @returns Expected points A wins by, between -maxExpectedMargin and +maxExpectedMargin
  *          (negative means B is expected to win)
  */
@@ -44,7 +63,7 @@ function calculateExpectedMargin(
     sport: Sport,
 ): number {
     const ratingGap = playerARating - playerBRating;
-    const { maxExpectedMargin, marginGrowthRate } = SPORT_PARAMS[sport];
+    const { maxExpectedMargin, marginGrowthRate } = getSportParams(sport);
 
     return maxExpectedMargin * Math.tanh(marginGrowthRate * ratingGap);
 }
@@ -56,7 +75,7 @@ function calculateExpectedMargin(
  *
  * @param playerARating - Rating of player (or team average) A, who must be team 0
  * @param playerBRating - Rating of player (or team average) B, who must be team 1
- * @param game - Sport (selects kFactor and marginWeight from SPORT_PARAMS) and round scores
+ * @param game - Sport (selects kFactor and marginWeight) and round scores
  * @returns The amount to add to A's rating (negative if A lost rating)
  */
 function calculateRatingUpdate(
@@ -68,7 +87,7 @@ function calculateRatingUpdate(
     const expectedOutcome = calculateExpectedOutcome(playerARating, playerBRating);
     const expectedMargin = calculateExpectedMargin(playerARating, playerBRating, game.sport);
 
-    const { marginWeight, kFactor } = SPORT_PARAMS[game.sport];
+    const { marginWeight, kFactor } = getSportParams(game.sport);
 
     let teamATotal = 0;
     let teamBTotal = 0;
@@ -121,8 +140,9 @@ function calculateRatingUpdate(
  *                  Doubles: two players on each team.
  * @param game - Sport, format and round scores of the game
  * @returns One RatingChange per player: team 0 players first, then team 1
- * @throws If the player count or team split doesn't match the format, or the
- *         rounds are empty, contain an invalid or tied score, or have no winner
+ * @throws If the player count or team split doesn't match the format, a userId
+ *         appears more than once, a rating isn't finite, or the scores are
+ *         empty, contain an invalid or tied round, or have no winner
  */
 export function calculateELOChange(
     players: PlayerInfo[],
@@ -136,6 +156,11 @@ export function calculateELOChange(
     // check for duplicated player
     if (new Set(players.map(player => player.userId)).size !== players.length) {
         throw new Error('Players must have unique userId values');
+    }
+
+    // check every player rating is finite
+    if (!players.every(p => Number.isFinite(p.rating))) {
+        throw new Error('Player rating not finite');
     }
 
     switch (game.format) {

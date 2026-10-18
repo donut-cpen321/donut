@@ -357,6 +357,32 @@ describe('Unit: calculateELOChange — invalid players', () => {
     expect(() => calculateELOChange(players, validSinglesGame)).toThrow('unique userId');
   });
 
+  // Input: a singles game where one player's rating is NaN, Infinity or -Infinity
+  // Expected behavior: rejected instead of producing NaN or infinite ratings
+  // Expected output: throws "not finite" for each
+  test.each([NaN, Infinity, -Infinity])('Singles with a rating of %p throws', (badRating) => {
+    const players: PlayerInfo[] = [
+      { userId: 'player-a', team: 0, rating: badRating },
+      { userId: 'player-b', team: 1, rating: 1500 },
+    ];
+
+    expect(() => calculateELOChange(players, validSinglesGame)).toThrow('not finite');
+  });
+
+  // Input: a doubles game where one player's rating is NaN, Infinity or -Infinity
+  // Expected behavior: rejected instead of turning the team average and every rating into NaN or infinity
+  // Expected output: throws "not finite" for each
+  test.each([NaN, Infinity, -Infinity])('Doubles with a rating of %p throws', (badRating) => {
+    const players: PlayerInfo[] = [
+      { userId: 'player-a1', team: 0, rating: 1500 },
+      { userId: 'player-a2', team: 0, rating: badRating },
+      { userId: 'player-b1', team: 1, rating: 1500 },
+      { userId: 'player-b2', team: 1, rating: 1500 },
+    ];
+
+    expect(() => calculateELOChange(players, validDoublesGame)).toThrow('not finite');
+  });
+
   // Input: a singles game with 4 players
   // Expected behavior: rejected because singles needs 2 players
   // Expected output: throws "exactly 2 players"
@@ -377,6 +403,19 @@ describe('Unit: calculateELOChange — invalid scores', () => {
     { userId: 'player-a', team: 0, rating: 1500 },
     { userId: 'player-b', team: 1, rating: 1500 },
   ];
+
+  // Input: a singles game with a sport that isn't in the enum (e.g. bad data from a request)
+  // Expected behavior: rejected instead of looking up parameters that don't exist
+  // Expected output: throws "Unsupported sport"
+  test.each(['GOLF', '__proto__'])('Unsupported sport %p throws', (badSport) => {
+    const game: GameInfo = {
+      sport: badSport as Sport,   // bypasses the type check to simulate bad runtime data
+      format: Format.SINGLES,
+      scores: [[6, 3], [6, 4]],
+    };
+
+    expect(() => calculateELOChange(players, game)).toThrow('Unsupported sport');
+  });
 
   // Input: a singles game with no rounds
   // Expected behavior: rejected because there is nothing to score

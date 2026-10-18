@@ -165,6 +165,8 @@ A game is rejected, and no rating changes, if:
 
 - the player count doesn't match the format (2 for singles, 4 for doubles),
 - the players aren't split evenly between the two teams,
+- the same player appears more than once,
+- any player's rating is not a finite number,
 - it has no rounds,
 - any round score is not a non-negative whole number,
 - any round is tied, or
