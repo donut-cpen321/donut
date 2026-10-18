@@ -132,7 +132,7 @@ The same data structure serves all three sports.
 
 ### 7.2. Formula
 
-For side A (team 1) with rating `R_A` against side B (team 2) with rating `R_B`:
+For side A (team 0) with rating `R_A` against side B (team 1) with rating `R_B`:
 
 ```
 ΔR    = R_A - R_B
@@ -148,19 +148,25 @@ R_B'  = R_B - Δ
 - `S_A` is 1 if A wins the match and 0 if A loses. The match winner is the side that wins more rounds (see 6.1).
 - `T_MOV` is A's total points minus B's total points across all rounds. The result uses rounds, but the margin uses points, because points show how close the match really was.
 - `E_MOV` grows with the rating gap but levels off at `α`, so a large gap never predicts an unrealistic blowout.
+- `400` is the standard Elo scale: a 400-point gap gives the stronger side 10-to-1 odds of winning. It is the same for every sport, since changing it would only rescale stored ratings.
 - Because of the margin term, a heavy favorite who wins by less than expected can lose a small amount of rating.
 
 The parameters are set per sport:
 
-| Sport | `K` | `α` | `β` | `λ` |
+| Sport | `K` (kFactor) | `α` (maxExpectedMargin) | `β` (marginGrowthRate) | `λ` (marginWeight) |
 | --- | --- | --- | --- | --- |
 | Tennis | 50 | 6 | 0.0025 | 1.5 |
 | Pickleball | 60 | 8 | 0.0025 | 1.0 |
 | Badminton | 32 | 15 | 0.005 | 0.5 |
 
-A score is rejected, and no rating changes, if:
+Players can be listed in any order; each player's `team` decides which side they are on.
 
+A game is rejected, and no rating changes, if:
+
+- the player count doesn't match the format (2 for singles, 4 for doubles),
+- the players aren't split evenly between the two teams,
 - it has no rounds,
+- any round score is not a non-negative whole number,
 - any round is tied, or
 - both sides won the same number of rounds, so the match has no winner.
 
@@ -180,7 +186,6 @@ We will likely move to **Glicko** (the system chess.com uses). It adds a rating 
 ## 9. Out of scope for now
 
 - Recurring games
-- Better rating system using score margin instead of win/losses only
 - Score confirmation or disputes
 - Glicko ([§7.3](#73-future-glicko))
 - Sports other than tennis, pickleball and badminton

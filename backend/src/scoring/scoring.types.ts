@@ -1,21 +1,18 @@
 // interface for elo calculation
 import { Sport, Format } from '../generated/prisma/client';
 
-export interface RoundScore {
-    team1Score: number;
-    team2Score: number;
-}
+export type RoundScore = [number, number];   // [team 0 score, team 1 score]
 
 export interface PlayerInfo {
     userId: string;
-    team: 1 | 2;
+    team: 0 | 1;
     rating: number;
 }
 
 export interface GameInfo {
     sport: Sport;
     format: Format;
-    score: RoundScore[];
+    rounds: RoundScore[];
 }
 
 export interface RatingChange {
@@ -25,8 +22,8 @@ export interface RatingChange {
 }
 
 export interface SportEloParams {
-    alpha: number;   // max expected margin
-    beta: number;    // how fast expected margin grows with rating gap
-    lambda: number;  // weight of margin surprise
-    k: number;
+    kFactor: number;            // K: how much the win/loss result moves ratings
+    maxExpectedMargin: number;  // α: cap on the predicted margin of victory
+    marginGrowthRate: number;   // β: how fast the predicted margin grows with the rating gap
+    marginWeight: number;       // λ: weight of the margin surprise in the update
 }
