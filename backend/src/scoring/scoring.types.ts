@@ -12,7 +12,7 @@ export interface PlayerInfo {
 export interface GameInfo {
     sport: Sport;
     format: Format;
-    rounds: RoundScore[];
+    scores: RoundScore[];
 }
 
 export interface RatingChange {

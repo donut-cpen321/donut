@@ -16,7 +16,7 @@ describe('Unit: calculateELOChange', () => {
     const game: GameInfo = {
       sport: Sport.TENNIS,
       format: Format.SINGLES,
-      rounds: [[6, 3], [6, 4]],
+      scores: [[6, 3], [6, 4]],
     };
 
     const [changeA, changeB] = calculateELOChange(players, game);
@@ -41,7 +41,7 @@ describe('Unit: calculateELOChange', () => {
     const game: GameInfo = {
       sport: Sport.TENNIS,
       format: Format.SINGLES,
-      rounds: [[6, 4], [7, 5]],
+      scores: [[6, 4], [7, 5]],
     };
 
     const [changeA, changeB] = calculateELOChange(players, game);
@@ -66,7 +66,7 @@ describe('Unit: calculateELOChange', () => {
     const game: GameInfo = {
       sport: Sport.TENNIS,
       format: Format.SINGLES,
-      rounds: [[7, 6], [7, 6]],
+      scores: [[7, 6], [7, 6]],
     };
 
     const [changeA, changeB] = calculateELOChange(players, game);
@@ -87,7 +87,7 @@ describe('Unit: calculateELOChange', () => {
     const game: GameInfo = {
       sport: Sport.PICKLEBALL,
       format: Format.SINGLES,
-      rounds: [[11, 9], [11, 7]],
+      scores: [[11, 9], [11, 7]],
     };
 
     const [changeA, changeB] = calculateELOChange(players, game);
@@ -107,7 +107,7 @@ describe('Unit: calculateELOChange', () => {
     const game: GameInfo = {
       sport: Sport.BADMINTON,
       format: Format.SINGLES,
-      rounds: [[21, 19], [18, 21], [17, 21]],
+      scores: [[21, 19], [18, 21], [17, 21]],
     };
 
     const [changeA, changeB] = calculateELOChange(players, game);
@@ -133,12 +133,12 @@ describe('Unit: calculateELOChange — behavior', () => {
     const narrow = calculateELOChange(players, {
       sport: Sport.PICKLEBALL,
       format: Format.SINGLES,
-      rounds: [[11, 9], [11, 9]],
+      scores: [[11, 9], [11, 9]],
     });
     const blowout = calculateELOChange(players, {
       sport: Sport.PICKLEBALL,
       format: Format.SINGLES,
-      rounds: [[11, 2], [11, 2]],
+      scores: [[11, 2], [11, 2]],
     });
 
     expect(blowout[0]?.ratingAfter).toBeGreaterThan(narrow[0]?.ratingAfter ?? Infinity);
@@ -148,7 +148,7 @@ describe('Unit: calculateELOChange — behavior', () => {
   // Expected behavior: beating a stronger opponent earns more rating
   // Expected output: the upset winner gains more than the favorite
   test('Beating a stronger opponent gives a bigger rating gain', () => {
-    const game: GameInfo = { sport: Sport.PICKLEBALL, format: Format.SINGLES, rounds: [[11, 9], [11, 9]] };
+    const game: GameInfo = { sport: Sport.PICKLEBALL, format: Format.SINGLES, scores: [[11, 9], [11, 9]] };
     const vsWeaker = calculateELOChange(
       [{ userId: 'player-a', team: 0, rating: 1500 }, { userId: 'player-b', team: 1, rating: 1300 }],
       game,
@@ -165,7 +165,7 @@ describe('Unit: calculateELOChange — behavior', () => {
   // Expected behavior: player order does not affect the result; output lists team 0 first
   // Expected output: same rating changes as with team 0 listed first
   test('Singles, player order does not matter', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, rounds: [[6, 3], [6, 4]] };
+    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [[6, 3], [6, 4]] };
     const playerA: PlayerInfo = { userId: 'player-a', team: 0, rating: 1800 };
     const playerB: PlayerInfo = { userId: 'player-b', team: 1, rating: 1500 };
 
@@ -179,7 +179,7 @@ describe('Unit: calculateELOChange — behavior', () => {
   // Expected behavior: player order does not affect the result
   // Expected output: each player gets the same rating change in every order
   test('Doubles, player order does not matter', () => {
-    const game: GameInfo = { sport: Sport.PICKLEBALL, format: Format.DOUBLES, rounds: [[11, 6], [11, 8]] };
+    const game: GameInfo = { sport: Sport.PICKLEBALL, format: Format.DOUBLES, scores: [[11, 6], [11, 8]] };
     const a1: PlayerInfo = { userId: 'player-a1', team: 0, rating: 1700 };
     const a2: PlayerInfo = { userId: 'player-a2', team: 0, rating: 1600 };
     const b1: PlayerInfo = { userId: 'player-b1', team: 1, rating: 1500 };
@@ -216,7 +216,7 @@ describe('Unit: calculateELOChange — doubles', () => {
     const game: GameInfo = {
       sport: Sport.PICKLEBALL,
       format: Format.DOUBLES,
-      rounds: [[11, 6], [11, 8]],
+      scores: [[11, 6], [11, 8]],
     };
 
     const [a1, a2, b1, b2] = calculateELOChange(players, game);
@@ -244,7 +244,7 @@ describe('Unit: calculateELOChange — doubles', () => {
     const game: GameInfo = {
       sport: Sport.BADMINTON,
       format: Format.DOUBLES,
-      rounds: [[19, 21], [21, 15], [16, 21]],
+      scores: [[19, 21], [21, 15], [16, 21]],
     };
 
     const [a1, a2, b1, b2] = calculateELOChange(players, game);
@@ -268,7 +268,7 @@ describe('Unit: calculateELOChange — doubles', () => {
     const game: GameInfo = {
       sport: Sport.TENNIS,
       format: Format.DOUBLES,
-      rounds: [[6, 4], [3, 6], [6, 2]],
+      scores: [[6, 4], [3, 6], [6, 2]],
     };
 
     const [a1, a2, b1, b2] = calculateELOChange(players, game);
@@ -284,12 +284,12 @@ describe('Unit: calculateELOChange — invalid players', () => {
   const validDoublesGame: GameInfo = {
     sport: Sport.PICKLEBALL,
     format: Format.DOUBLES,
-    rounds: [[11, 5], [11, 7]],
+    scores: [[11, 5], [11, 7]],
   };
   const validSinglesGame: GameInfo = {
     sport: Sport.TENNIS,
     format: Format.SINGLES,
-    rounds: [[6, 3], [6, 4]],
+    scores: [[6, 3], [6, 4]],
   };
 
   // Input: three team 0 players and one team 1 player
@@ -372,7 +372,7 @@ describe('Unit: calculateELOChange — invalid players', () => {
   });
 });
 
-describe('Unit: calculateELOChange — invalid rounds', () => {
+describe('Unit: calculateELOChange — invalid scores', () => {
   const players: PlayerInfo[] = [
     { userId: 'player-a', team: 0, rating: 1500 },
     { userId: 'player-b', team: 1, rating: 1500 },
@@ -381,8 +381,8 @@ describe('Unit: calculateELOChange — invalid rounds', () => {
   // Input: a singles game with no rounds
   // Expected behavior: rejected because there is nothing to score
   // Expected output: throws "no round score information"
-  test('Empty rounds throws', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, rounds: [] };
+  test('Empty scores throws', () => {
+    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [] };
 
     expect(() => calculateELOChange(players, game)).toThrow('no round score information');
   });
@@ -391,7 +391,7 @@ describe('Unit: calculateELOChange — invalid rounds', () => {
   // Expected behavior: rejected because rounds cannot tie
   // Expected output: throws "cannot be tied"
   test('A tied round throws', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, rounds: [[6, 3], [5, 5]] };
+    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [[6, 3], [5, 5]] };
 
     expect(() => calculateELOChange(players, game)).toThrow('cannot be tied');
   });
@@ -400,7 +400,7 @@ describe('Unit: calculateELOChange — invalid rounds', () => {
   // Expected behavior: rejected because the match has no winner
   // Expected output: throws "no winner"
   test('Both sides winning the same number of rounds throws', () => {
-    const game: GameInfo = { sport: Sport.BADMINTON, format: Format.SINGLES, rounds: [[21, 15], [18, 21]] };
+    const game: GameInfo = { sport: Sport.BADMINTON, format: Format.SINGLES, scores: [[21, 15], [18, 21]] };
 
     expect(() => calculateELOChange(players, game)).toThrow('no winner');
   });
@@ -413,8 +413,8 @@ describe('Unit: calculateELOChange — invalid rounds', () => {
     ['negative', [[6, 3], [-1, 4]]],
     ['decimal', [[6, 3], [6.5, 4]]],
   ];
-  test.each(invalidRounds)('Round with a %s score throws', (_label, rounds) => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, rounds };
+  test.each(invalidRounds)('Round with a %s score throws', (_label, scores) => {
+    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores };
 
     expect(() => calculateELOChange(players, game)).toThrow('non-negative integer');
   });

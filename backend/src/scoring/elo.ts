@@ -76,7 +76,7 @@ function calculateRatingUpdate(
     let teamAWins = 0;
     let teamBWins = 0;
 
-    for (const round of game.rounds) {
+    for (const round of game.scores) {
         const teamAScore = round[0];
         const teamBScore = round[1];
 
@@ -129,7 +129,7 @@ export function calculateELOChange(
     game: GameInfo,
 ): RatingChange[] {
 
-    if(game.rounds.length === 0){
+    if(game.scores.length === 0){
         throw new Error(`Game has no round score information`);
     }
 
