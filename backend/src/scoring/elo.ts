@@ -133,6 +133,11 @@ export function calculateELOChange(
         throw new Error(`Game has no round score information`);
     }
 
+    // check for duplicated player
+    if (new Set(players.map(player => player.userId)).size !== players.length) {
+        throw new Error('Players must have unique userId values');
+    }
+
     switch (game.format) {
         case Format.SINGLES: {
             if (players.length !== 2) {

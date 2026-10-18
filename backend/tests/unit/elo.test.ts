@@ -345,6 +345,18 @@ describe('Unit: calculateELOChange — invalid players', () => {
     expect(() => calculateELOChange(players, validSinglesGame)).toThrow('one player on each team');
   });
 
+  // Input: a singles game where the same user is listed on both teams
+  // Expected behavior: rejected because one user would get two opposite rating changes
+  // Expected output: throws "unique userId"
+  test('Same user on both teams throws', () => {
+    const players: PlayerInfo[] = [
+      { userId: 'player-a', team: 0, rating: 1500 },
+      { userId: 'player-a', team: 1, rating: 1500 },
+    ];
+
+    expect(() => calculateELOChange(players, validSinglesGame)).toThrow('unique userId');
+  });
+
   // Input: a singles game with 4 players
   // Expected behavior: rejected because singles needs 2 players
   // Expected output: throws "exactly 2 players"
