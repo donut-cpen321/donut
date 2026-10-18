@@ -23,7 +23,7 @@ describe('Mocked: POST /user/login', () => {
     // Input: POST /user/login with invalid token
     // Expected status code: 401
     // Expected behavior: request is rejected; no state is changed
-    // Expected output: { error: "A Google ID token is required" }
+    // Expected output: { error: 'Invalid Google ID token' }
     test('Invalid Token', async () => {
 
     const response = await request(createApp())

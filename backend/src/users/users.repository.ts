@@ -1,4 +1,3 @@
-// Prisma queries for users, courts and availabilities. Only file in users/ that imports db.
 import { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db';
 
@@ -11,38 +10,33 @@ const loginUserSelect = {
 } satisfies Prisma.UserSelect;
 
 
-/* 
- * Finds a user using their googleSub provided by the token validation
+/**
+ * Gets a user (if it exists) using their googleSub provided by the token validation
+ * @param googleSub google's unique identifier for a user
+ * @returns 
  */
-export async function findUserByGoogleSub(googleSub: string) {
-  return prisma.user.findUnique({
+export async function getUserByGoogleSub(googleSub: string) {
+  // I would like to make this typed (e.g. a user class) but am unfamiliar with ts and prisma so some help would be appreciated
+  // TODO: User type/class
+  return await prisma.user.findUnique({
     where: { googleSub },
     select: loginUserSelect,
   });
 }
 
-/* 
+/**
  * Creates a new user in the database following the prisma schema.
+ * @param userData data required by the database for a new user
+ * @returns 
  */
-export async function createUser(input: {
+export async function createUser(userData: {
   googleSub: string;
   username: string;
   name: string;
   email: string;
 }) {
-  try {
-    return await prisma.user.create({
-      data: input,
+  return await prisma.user.create({
+      data: userData,
       select: loginUserSelect,
-    });
-  } catch (error) {
-    // If the unique constraint is violated (user already exists), return the existing user
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      return findUserByGoogleSub(input.googleSub);
-    }
-    throw error;
-  }
+  });
 }
