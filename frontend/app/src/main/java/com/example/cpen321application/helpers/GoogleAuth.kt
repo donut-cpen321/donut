@@ -23,6 +23,12 @@ data class User(
     val username: String
 )
 
+/**
+ * Launches google sign-in
+ * @param context The activity context
+ * @param serverClientId The server client ID obtained from the Google Cloud Console
+ * @return Google authentication token or null if sign-in failed
+ */
 suspend fun signInWithGoogle(context: Context, serverClientId: String): String? {
     if (serverClientId.isBlank()) {
         Log.e("Auth", "GOOGLE_CLIENT_ID is empty! Check local.properties")
@@ -88,10 +94,24 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
     }
 }
 
-suspend fun signOut(context: Context) {
-    CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
-}
 
+/**
+ * Signs out a user from the app
+ * @param context
+ */
+suspend fun signOut(context: Context) {
+    try {
+        CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
+    } catch (e: Exception) {
+        Log.e("Auth", "Failed to clear credentials", e)
+    }
+}
+/**
+ * Logs in a user to the backend
+ * @param apiBaseUrl The base URL of the backend
+ * @param idToken The Google authentication token
+ * @return User object or null if login failed
+ */
 suspend fun loginWithBackend(apiBaseUrl: String, idToken: String): User? = withContext(Dispatchers.IO) {
     val loginUrl = "${apiBaseUrl.trimEnd('/')}/user/login"
     try {

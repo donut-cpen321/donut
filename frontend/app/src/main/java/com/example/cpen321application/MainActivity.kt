@@ -56,6 +56,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Temporary login screen for testing login flow
+ * @param apiBaseUrl The base URL of the backend
+ * @param serverClientId The server client ID obtained from the Google Cloud Console
+ * @param modifier Modifier to apply to the login screen
+ */
 @Composable
 fun LoginScreen(
     apiBaseUrl: String,
