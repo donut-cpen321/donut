@@ -1,4 +1,4 @@
-import { deleteRequests, getCandidates } from '../../src/matchmaking/matchmaking.repository';
+import { claimMatch, getCandidates } from '../../src/matchmaking/matchmaking.repository';
 import {
   findMatches,
   runMatchmaking,
@@ -7,7 +7,7 @@ import {
 
 jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
   getCandidates: jest.fn(),
-  deleteRequests: jest.fn(),
+  claimMatch: jest.fn(),
 }));
 
 function playerStub(userId: string, overrides: Partial<Candidate> = {}): Candidate {
@@ -155,28 +155,46 @@ describe('findMatches', () => {
 // Interface runMatchmaking()
 describe('runMatchmaking', () => {
   beforeEach(() => {
-    jest.mocked(deleteRequests).mockReset();
+    jest.mocked(claimMatch).mockReset();
   });
 
-  // Input: repository returns two compatible candidates and one left over
-  // Expected behavior: candidates are matched and only the matched players leave the queue
-  // Expected output: one match; deleteRequests called with the matched user ids
-  test('Matches candidates and removes them from the queue', async () => {
+  // Input: repository returns two compatible candidates and one left over; the claim succeeds
+  // Expected behavior: the match is claimed so its players leave the queue
+  // Expected output: one match; claimMatch called with it
+  test('Matches candidates and claims the match', async () => {
     jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b'), playerStub('c', { sport: 'BADMINTON' })]);
+    jest.mocked(claimMatch).mockResolvedValue(true);
+
+    const match = { sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] };
+    await expect(runMatchmaking()).resolves.toEqual([match]);
+    expect(claimMatch).toHaveBeenCalledWith(match);
+  });
+
+  // Input: two matches found; the first claim fails because a player left the queue
+  // Expected behavior: each match is claimed on its own; a failed claim does not block the others
+  // Expected output: only the successfully claimed match
+  test('Drops a match whose claim fails and keeps the others', async () => {
+    jest.mocked(getCandidates).mockResolvedValue([
+      playerStub('a'),
+      playerStub('b'),
+      playerStub('c', { sport: 'BADMINTON' }),
+      playerStub('d', { sport: 'BADMINTON' }),
+    ]);
+    jest.mocked(claimMatch).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 
     await expect(runMatchmaking()).resolves.toEqual([
-      { sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] },
+      { sport: 'BADMINTON', format: 'SINGLES', userIds: ['c', 'd'] },
     ]);
-    expect(deleteRequests).toHaveBeenCalledWith(['a', 'b']);
+    expect(claimMatch).toHaveBeenCalledTimes(2);
   });
 
   // Input: repository returns candidates that cannot be matched
   // Expected behavior: everyone stays in the queue
-  // Expected output: []; deleteRequests not called
+  // Expected output: []; claimMatch not called
   test('Leaves the queue untouched when nobody is matched', async () => {
     jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b', { sport: 'BADMINTON' })]);
 
     await expect(runMatchmaking()).resolves.toEqual([]);
-    expect(deleteRequests).not.toHaveBeenCalled();
+    expect(claimMatch).not.toHaveBeenCalled();
   });
 });

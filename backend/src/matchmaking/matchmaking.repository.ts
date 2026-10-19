@@ -1,6 +1,6 @@
 // Queries for overlapping availabilities, nearby courts, close ratings.
 import { prisma } from '../db';
-import type { Candidate } from './matchmaking.service';
+import type { Candidate, Match } from './matchmaking.service';
 
 /**
  * Get all players searching for a game right now and include their rating.
@@ -27,12 +27,29 @@ export async function getCandidates(): Promise<Candidate[]> {
   }));
 }
 
+class MatchUnavailableError extends Error {}
+
 /**
- * Remove players that have been already matched.
- * 
- * @param userIds - List of user IDs to delete.
- * @returns void
+ * Claims a match by removing its players from the queue.
+ *
+ * @param match - The match to claim.
+ * @returns true if every player was still waiting and is now out of the queue.
  */
-export async function deleteRequests(userIds: string[]): Promise<void> {
-  await prisma.matchmakingRequest.deleteMany({ where: { userId: { in: userIds } } });
+export async function claimMatch(match: Match): Promise<boolean> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.matchmakingRequest.deleteMany({
+        where: { userId: { in: match.userIds }, sport: match.sport },
+      });
+
+      // If not all players are still waiting
+      if (count !== match.userIds.length) throw new MatchUnavailableError();
+      
+      // TODO: create the MATCHED game here.
+    });
+    return true;
+  } catch (err) {
+    if (err instanceof MatchUnavailableError) return false;
+    throw err;
+  }
 }

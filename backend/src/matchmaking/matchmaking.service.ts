@@ -1,6 +1,6 @@
 // Finds matches and proposes games (via games.service); cancels unaccepted matches at the deadline.
 import { Format, Sport, type FormatPreference } from '../generated/prisma/enums';
-import { deleteRequests, getCandidates } from './matchmaking.repository';
+import { claimMatch, getCandidates } from './matchmaking.repository';
 
 // Max rating gap inside one match; doubles is wider since teams can balance strong and weak players.
 const MAX_RATING_SPREAD: Record<Format, number> = { SINGLES: 200, DOUBLES: 400 };
@@ -33,8 +33,8 @@ export function findMatches(candidates: Candidate[]): Match[] {
   // List of matches found in this run.
   const matches: Match[] = [];
 
-  const formats = Object.values(Format);
-  const sports = Object.values(Sport);
+  const formats = Object.values(Format) as Format[];
+  const sports = Object.values(Sport) as Sport[];
 
   for (const format of formats) {
     const size = PLAYERS_PER_MATCH[format];
@@ -92,9 +92,11 @@ export async function runMatchmaking(): Promise<Match[]> {
   const candidates = await getCandidates();
   const matches = findMatches(candidates);
 
-  // TODO: create a transaction that creates the MATCHED game and deletes the matchmaking requests.
-  const matchedUserIds = matches.flatMap((m) => m.userIds);
-  if (matchedUserIds.length > 0) await deleteRequests(matchedUserIds);
+  // Claim each match on its own
+  const claimedMatches: Match[] = [];
+  for (const match of matches) {
+    if (await claimMatch(match)) claimedMatches.push(match);
+  }
 
-  return matches;
+  return claimedMatches;
 }
