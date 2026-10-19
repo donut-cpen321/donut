@@ -58,11 +58,12 @@ model User {
   preferredCourts Court[]
   availabilities  UserAvailability[]
   games           GameUser[]
+  matchmakingRequest MatchmakingRequest?
 
   @@map("users")
 }
 
-// One rating per player per sport. A row is created on the player's first game in that sport.
+// One rating per player per sport. A row is created when the player first enters matchmaking or plays in that sport.
 model UserRating {
   userId      String @db.Uuid
   sport       Sport
@@ -71,6 +72,8 @@ model UserRating {
 
   // One-to-many relation between User and UserRating
   user User @relation(fields: [userId], references: [id])
+
+  matchmakingRequests MatchmakingRequest[]
 
   @@id([userId, sport])
   @@map("user_ratings")
@@ -105,6 +108,22 @@ model UserAvailability {
 
   @@index([userId])
   @@map("user_availabilities")
+}
+
+// A player searching for a game right now.
+model MatchmakingRequest {
+  userId    String           @id @db.Uuid
+  sport     Sport
+  format    FormatPreference
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+
+  // One-to-one relation between User and MatchmakingRequest
+  user User @relation(fields: [userId], references: [id])
+
+  // One-to-one relation between UserRating and MatchmakingRequest
+  userRating UserRating @relation(fields: [userId, sport], references: [userId, sport])
+
+  @@map("matchmaking_requests")
 }
 
 model Game {
