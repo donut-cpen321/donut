@@ -4,6 +4,10 @@ import { runMatchmaking } from '../matchmaking/matchmaking.service';
 
 const EVERY_30_SECONDS = '*/30 * * * * *';
 
+/**
+ * Starts the matchmaking job to find new matches every 30 seconds.
+ * @returns Scheduled task for the matchmaking job.
+ */
 export function startMatchmakingJob(): ScheduledTask {
   return cron.schedule(
     EVERY_30_SECONDS,
