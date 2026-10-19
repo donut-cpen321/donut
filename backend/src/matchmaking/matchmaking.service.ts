@@ -1,10 +1,12 @@
 // Finds matches and proposes games (via games.service); cancels unaccepted matches at the deadline.
-import { Format, Sport, type FormatPreference } from '../generated/prisma/enums';
+import type { Format, FormatPreference, Sport } from '../generated/prisma/enums';
 import { claimMatch, getCandidates } from './matchmaking.repository';
 
-// Max rating gap inside one match; doubles is wider since teams can balance strong and weak players.
-const MAX_RATING_SPREAD: Record<Format, number> = { SINGLES: 200, DOUBLES: 400 };
-const PLAYERS_PER_MATCH: Record<Format, number> = { SINGLES: 2, DOUBLES: 4 };
+interface FormatRule {
+  format: Format;
+  size: number;
+  maxRatingSpread: number;
+}
 
 export interface Candidate {
   userId: string;
@@ -20,6 +22,11 @@ export interface Match {
   userIds: string[];
 }
 
+const FORMAT_RULES: FormatRule[] = [
+  { format: 'SINGLES', size: 2, maxRatingSpread: 200 },
+  { format: 'DOUBLES', size: 4, maxRatingSpread: 400 },
+];
+
 /**
  * Finds matches for a list of candidates using a greedy algorithm to find the longest-waiting players. 
  * 
@@ -33,22 +40,20 @@ export function findMatches(candidates: Candidate[]): Match[] {
   // List of matches found in this run.
   const matches: Match[] = [];
 
-  const formats = Object.values(Format) as Format[];
-  const sports = Object.values(Sport) as Sport[];
+  // Only the sports someone is actually waiting for
+  const sports = new Set(candidates.map((c): Sport => c.sport));
 
-  for (const format of formats) {
-    const size = PLAYERS_PER_MATCH[format];
-
+  for (const formatRule of FORMAT_RULES) {
     for (const sport of sports) {
       const sportFilter = (c: Candidate) => c.sport === sport;
-      const formatFilter = (c: Candidate) => c.format === format || c.format === 'EITHER';
+      const formatFilter = (c: Candidate) => c.format === formatRule.format || c.format === 'EITHER';
       const matchedFilter = (c: Candidate) => !matchedUserIds.has(c.userId);
 
       const filter = (c: Candidate) => sportFilter(c) && formatFilter(c) && matchedFilter(c);
       const eligibleCandidates = candidates.filter(filter);
 
       // Not enough candidates to form a match
-      if (eligibleCandidates.length < size) continue;
+      if (eligibleCandidates.length < formatRule.size) continue;
 
       // Create the queue with the oldest candidates first
       const queue = eligibleCandidates.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -61,18 +66,18 @@ export function findMatches(candidates: Candidate[]): Match[] {
         const partners = queue
           .filter((c) => c !== player && !matchedUserIds.has(c.userId))
           .sort((a, b) => Math.abs(a.rating - player.rating) - Math.abs(b.rating - player.rating))
-          .slice(0, size - 1);
+          .slice(0, formatRule.size - 1);
 
         // Not enough players are waiting to form a match
-        if (partners.length < size - 1) break;
+        if (partners.length < formatRule.size - 1) break;
 
         const group = [player, ...partners];
         const ratings = group.map((c) => c.rating);
 
         // If the rating spread is within the allowed range
-        if (Math.max(...ratings) - Math.min(...ratings) <= MAX_RATING_SPREAD[format]) {
+        if (Math.max(...ratings) - Math.min(...ratings) <= formatRule.maxRatingSpread) {
           // Add the match to the list of matches
-          matches.push({ sport, format, userIds: group.map((c) => c.userId) });
+          matches.push({ sport, format: formatRule.format, userIds: group.map((c) => c.userId) });
           // Add the user IDs to the set of matched user IDs
           group.forEach((c) => matchedUserIds.add(c.userId));
         }

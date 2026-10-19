@@ -18,13 +18,15 @@ export async function getCandidates(): Promise<Candidate[]> {
   });
 
   // Map the requests to the Candidate interface.
-  return requests.map(({ userId, sport, format, createdAt, userRating }) => ({
+  const candidates: Candidate[] = requests.map(({ userId, sport, format, createdAt, userRating }) => ({
     userId,
     sport,
     format,
     createdAt,
     rating: userRating.rating,
   }));
+  
+  return candidates;
 }
 
 class MatchUnavailableError extends Error {}

@@ -14,7 +14,7 @@ export function startMatchmakingJob(): ScheduledTask {
     async () => {
       try {
         const matches = await runMatchmaking();
-        if (matches.length > 0) console.log(`Matchmaking found ${matches.length} match(es): `, matches);
+        if (matches.length > 0) console.info(`Matchmaking found ${matches.length} match(es): `, matches);
       } catch (err) {
         console.error('Matchmaking job failed', err);
       }

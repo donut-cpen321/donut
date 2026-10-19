@@ -16,8 +16,8 @@ describe('Mocked: startMatchmakingJob', () => {
     jest.mocked(runMatchmaking).mockReset();
   });
 
-  afterEach(() => {
-    void task.stop();
+  afterEach(async () => {
+    await task.stop();
     jest.useRealTimers();
   });
 
@@ -37,8 +37,8 @@ describe('Mocked: startMatchmakingJob', () => {
   // Expected behavior: the second tick is skipped instead of overlapping
   // Expected output: runMatchmaking called once
   test('Skips a tick while the previous run is still going', async () => {
-    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.mocked(runMatchmaking).mockReturnValue(new Promise(() => {}));
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    jest.mocked(runMatchmaking).mockReturnValue(new Promise(() => undefined));
     task = startMatchmakingJob();
 
     await jest.advanceTimersByTimeAsync(60_000);
@@ -52,7 +52,7 @@ describe('Mocked: startMatchmakingJob', () => {
   // Expected behavior: the error is logged and the job keeps running
   // Expected output: runMatchmaking called twice, error logged
   test('Keeps running after a failed run', async () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest.mocked(runMatchmaking).mockRejectedValueOnce(new Error('db down')).mockResolvedValue([]);
     task = startMatchmakingJob();
 
