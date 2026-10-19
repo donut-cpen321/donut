@@ -6,7 +6,7 @@ import { OAuth2Client, type TokenPayload } from 'google-auth-library';
  * @param idToken google auth token given by the frontend
  * @returns payload with user information provided by google, null if an error occured
  */
-export async function validateToken(idToken: string): Promise<TokenPayload | undefined | null> {
+export async function validateToken(idToken: string): Promise<TokenPayload | null> {
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
   if (!googleClientId) {
@@ -23,7 +23,9 @@ export async function validateToken(idToken: string): Promise<TokenPayload | und
     });
 
     return ticket.getPayload() ?? null;
-  } catch {
+  } catch (e)
+  {
+    console.error(e)
     // TODO: send error information
     return null;
   }

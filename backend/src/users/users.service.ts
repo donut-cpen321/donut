@@ -15,7 +15,7 @@ type LoginRequestBody = {
  * @param res 
  */
 export async function login(
-  req: Request<ParamsDictionary, Record<string, never>, LoginRequestBody>,
+  req: Request<ParamsDictionary, Record<string, string>, LoginRequestBody>,
   res: Response,
 ): Promise<void> {
   if (!req.body) {
@@ -31,10 +31,10 @@ export async function login(
 
   const payload = await validateToken(idToken);
  
-  if (!payload) {
+  if (!payload || !payload.sub) {
     res.status(401).json({ error: 'Invalid Google ID token' });
     return;
-  }
+  } 
 
   const existingUser = await getUserByGoogleSub(payload.sub);
   if (existingUser) {

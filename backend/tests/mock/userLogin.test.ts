@@ -47,6 +47,104 @@ describe('Mocked: POST /user/login', () => {
     expect(mockedGetUserByGoogleSub).not.toHaveBeenCalled();
   });
 
+  test.each([
+    ['missing email', { name: 'New User' }],
+    ['blank email', { email: '   ', name: 'New User' }],
+    ['missing name', { email: 'new.user@example.com' }],
+    ['blank name', { email: 'new.user@example.com', name: '   ' }],
+  ])('Rejects a Google profile with %s', async (_description, fields) => {
+    mockedValidateToken.mockResolvedValue({
+      iss: 'https://accounts.google.com',
+      aud: 'test-google-client-id',
+      sub: 'google-sub-123',
+      ...fields,
+      iat: 1_766_000_000,
+      exp: 1_766_003_600,
+    });
+    mockedGetUserByGoogleSub.mockResolvedValue(null);
+
+    const response = await request(createApp())
+      .post('/user/login')
+      .send({ idToken: 'mock-google-token' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Google profile must include name and email' });
+    expect(mockedCreateUser).not.toHaveBeenCalled();
+  });
+
+  test('Returns a server error when token verification throws', async () => {
+    mockedValidateToken.mockRejectedValue(new Error('Verifier unavailable'));
+
+    const response = await request(createApp())
+      .post('/user/login')
+      .send({ idToken: 'mock-google-token' });
+
+    expect(response.status).toBe(500);
+    expect(mockedGetUserByGoogleSub).not.toHaveBeenCalled();
+  });
+
+  test('Returns a server error when looking up the user fails', async () => {
+    mockedValidateToken.mockResolvedValue({
+      iss: 'https://accounts.google.com',
+      aud: 'test-google-client-id',
+      sub: 'google-sub-123',
+      email: 'new.user@example.com',
+      name: 'New User',
+      iat: 1_766_000_000,
+      exp: 1_766_003_600,
+    });
+    mockedGetUserByGoogleSub.mockRejectedValue(new Error('Database unavailable'));
+
+    const response = await request(createApp())
+      .post('/user/login')
+      .send({ idToken: 'mock-google-token' });
+
+    expect(response.status).toBe(500);
+    expect(mockedCreateUser).not.toHaveBeenCalled();
+  });
+
+  test('Returns a server error when creating a user fails', async () => {
+    mockedValidateToken.mockResolvedValue({
+      iss: 'https://accounts.google.com',
+      aud: 'test-google-client-id',
+      sub: 'google-sub-123',
+      email: 'new.user@example.com',
+      name: 'New User',
+      iat: 1_766_000_000,
+      exp: 1_766_003_600,
+    });
+    mockedGetUserByGoogleSub.mockResolvedValue(null);
+    mockedCreateUser.mockRejectedValue(new Error('Database unavailable'));
+
+    const response = await request(createApp())
+      .post('/user/login')
+      .send({ idToken: 'mock-google-token' });
+
+    expect(response.status).toBe(500);
+    expect(mockedCreateUser).toHaveBeenCalledTimes(1);
+  });
+
+  test('Handles a duplicate-user race during creation as a server error', async () => {
+    mockedValidateToken.mockResolvedValue({
+      iss: 'https://accounts.google.com',
+      aud: 'test-google-client-id',
+      sub: 'google-sub-123',
+      email: 'new.user@example.com',
+      name: 'New User',
+      iat: 1_766_000_000,
+      exp: 1_766_003_600,
+    });
+    mockedGetUserByGoogleSub.mockResolvedValue(null);
+    mockedCreateUser.mockRejectedValue(new Error('Unique constraint failed'));
+
+    const response = await request(createApp())
+      .post('/user/login')
+      .send({ idToken: 'mock-google-token' });
+
+    expect(response.status).toBe(500);
+    expect(mockedCreateUser).toHaveBeenCalledTimes(1);
+  });
+
   test('Creates a user with the validated Google profile', async () => {
     const googleProfile: TokenPayload = {
       iss: 'https://accounts.google.com',

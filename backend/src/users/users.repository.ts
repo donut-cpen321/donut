@@ -9,6 +9,9 @@ const loginUserSelect = {
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
+type LoginUser = Prisma.UserGetPayload<{ select: typeof loginUserSelect }>;
+type NewUserData = Pick<Prisma.UserCreateInput, 'googleSub' | 'username' | 'name' | 'email'>;
+
 
 /**
  * Gets a user (if it exists) using their googleSub provided by the token validation
@@ -16,8 +19,6 @@ const loginUserSelect = {
  * @returns 
  */
 export async function getUserByGoogleSub(googleSub: string) {
-  // I would like to make this typed (e.g. a user class) but am unfamiliar with ts and prisma so some help would be appreciated
-  // TODO: User type/class
   return await prisma.user.findUnique({
     where: { googleSub },
     select: loginUserSelect,
@@ -29,12 +30,7 @@ export async function getUserByGoogleSub(googleSub: string) {
  * @param userData data required by the database for a new user
  * @returns 
  */
-export async function createUser(userData: {
-  googleSub: string;
-  username: string;
-  name: string;
-  email: string;
-}) {
+export async function createUser(userData: NewUserData): Promise<LoginUser> {
   return await prisma.user.create({
       data: userData,
       select: loginUserSelect,
