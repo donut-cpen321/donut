@@ -432,10 +432,10 @@ Libraries marked *(planned)* are part of the design but not in the code yet.
 3. **TypeScript 5.9 and tsx**
     - **Purpose**: Backend language and development runner.
     - **Reason**: Catches interface mismatches between components at compile time.
-4. **node-cron** *(planned)*
+4. **node-cron**
     - **Purpose**: Runs the matchmaking job every 30 seconds and the deadline jobs.
     - **Reason**: Small, in-process scheduler with a no-overlap option, so one run never starts while the last is still going.
-5. **google-auth-library** *(planned)*
+5. **google-auth-library**
     - **Purpose**: Verifies Google ID tokens on the backend.
     - **Reason**: Google's official library; it checks the token signature and audience for us.
 6. **zod** *(planned)*
