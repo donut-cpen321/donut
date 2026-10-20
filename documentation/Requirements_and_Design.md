@@ -4,8 +4,7 @@
 
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
-| 2026-10-19 | All | Initial version |
-| 2026-10-19 | 2, 3.2, 3.3, 3.4, 3.5, 4.3, 4.5, 4.6 | Shortened the project description to 2 paragraphs. Replaced use cases with no actor goal by the user goals that include them (Initiate live match, Submit final score). Renamed use cases to verb phrases. Added the interfaces we call on external modules. Gave every database and external call in the sequence diagrams its parameters and return values. |
+| _Nothing to show_ |
 
 ---
 
@@ -22,22 +21,19 @@ The target users are recreational players in a city who want a game this week wi
 ### **3.1. List of Features**
 
 #### **Authentication**
-User will be able to login using their google account. After the first login, the user sets up their profile by picking their preferred courts on a Google Map; they can edit them later.
+Users sign in with their Google account. After the first login, the user sets up their profile by picking their preferred courts on a Google Map; they can edit them later.
 
 #### **Live matchmaking**
-User can initiate live matchmaking by choosing a sport and a format (singles, doubles or either). Our system matches players of a similar rating, books a game one hour later at a court from the players' preferred courts, and notifies everyone. The game is booked once every player accepts.
+Users can start live matchmaking by choosing a sport and a format (singles, doubles or either). Our system matches players of a similar rating, books a game one hour later at a court from the players' preferred courts, and notifies everyone. The game is booked once every player accepts.
 
 #### **Schedule match**
-User can schedule a match in a future time and
-the open match will show up in the feed, with the weather forecast for that time. Players can join it from the feed and add it to their Google Calendar.
+Users can schedule a match for a future time, and the open match shows up in the feed, with the weather forecast for that time. Players can join it from the feed and add it to their Google Calendar.
 
 #### **Live game info update**
-During an active game, game information like
-time/rounds/score will be updated by one person and sync across all devices that joined this match.
+During an active game, the owner updates the game information (rounds and score), and it syncs to every device that joined the game.
 
 #### **Sports specific ranking**
-An ELO based sports specific ranking system to
-see your skill level compared to others.
+An ELO-based ranking for each sport that shows a player's skill level compared to others.
 
 **Project scope requirements:**
 - **External API**: *Schedule match* and *Authentication* use Google Maps to pick courts; *Schedule match* uses OpenWeather and Google Calendar.
@@ -45,53 +41,9 @@ see your skill level compared to others.
 - **Our own computation**: *Live matchmaking* (the matching algorithm) and *Sports specific ranking* (ELO with margin of victory).
 
 ### **3.2. Use Case Diagram**
+![Use case diagram](images/use_case_diagram.png)
 
-```mermaid
-flowchart LR
-    user((User))
-
-    subgraph Donut
-        uc1([Sign in with Google])
-        uc2([Set up profile])
-        uc3([Initiate live match])
-        uc4([Matchmaking])
-        uc5([Accept or decline a match])
-        uc6([Create a scheduled match])
-        uc7([Browse scheduled matches])
-        uc8([Manage scheduled match])
-        uc9([Add game to Google Calendar])
-        uc10([Starting a scheduled match])
-        uc11([Update game information])
-        uc12([Live game data syncing])
-        uc13([Submit final score])
-        uc14([ELO change calculation])
-        uc15([Update leaderboard])
-        uc16([View sport leaderboard])
-    end
-
-    gsi[Google Sign-In]
-    maps[Google Maps Platform]
-    fcm[Firebase Cloud Messaging]
-    weather[OpenWeather]
-    cal[Google Calendar]
-
-    user --- uc1 & uc2 & uc3 & uc5 & uc6 & uc7 & uc8 & uc9 & uc10 & uc11 & uc13 & uc16
-
-    uc3 -.->|«include»| uc4
-    uc11 -.->|«include»| uc12
-    uc13 -.->|«include»| uc14
-    uc14 -.->|«include»| uc15
-
-    uc1 --- gsi
-    uc2 --- maps
-    uc6 --- maps
-    uc4 --- fcm
-    uc10 --- fcm
-    uc7 --- weather
-    uc9 --- cal
-```
-
-External services are connected with plain lines (no arrows) because they support use cases but never start one. *Matchmaking*, *Live game data syncing*, *ELO change calculation* and *Update leaderboard* are done by the system, so they have no actor of their own; they are included in the user goals that trigger them.
+Use cases are grouped by feature. External services are connected with plain lines (no arrows) because they support use cases but never start one. The dashed use cases (*Matchmaking*, *Live game data syncing*, *ELO change calculation* and *Update leaderboard*) are done by the system, so they have no actor of their own; each one is «include»d by the use case that triggers it.
 
 ### **3.3. Actors Description**
 1. **User**: a recreational racket-sport player who signs in with Google, joins or accepts games, and enters the score of the games they own. The game owner is a User with extra permissions on that one game, not a separate role.
@@ -480,10 +432,10 @@ Libraries marked *(planned)* are part of the design but not in the code yet.
 3. **TypeScript 5.9 and tsx**
     - **Purpose**: Backend language and development runner.
     - **Reason**: Catches interface mismatches between components at compile time.
-4. **node-cron**
+4. **node-cron** *(planned)*
     - **Purpose**: Runs the matchmaking job every 30 seconds and the deadline jobs.
     - **Reason**: Small, in-process scheduler with a no-overlap option, so one run never starts while the last is still going.
-5. **google-auth-library**
+5. **google-auth-library** *(planned)*
     - **Purpose**: Verifies Google ID tokens on the backend.
     - **Reason**: Google's official library; it checks the token signature and audience for us.
 6. **zod** *(planned)*
@@ -516,279 +468,30 @@ Libraries marked *(planned)* are part of the design but not in the code yet.
 
 ### **4.5. Dependencies Diagram**
 
-```mermaid
-flowchart LR
-    fe[Front-end]
+![Dependencies diagram](images/dependencies_diagram.png)
 
-    subgraph Backend
-        users[Users]
-        games[Games]
-        mm[Matchmaking]
-        scoring[Scoring]
-    end
-
-    db[(PostgreSQL)]
-    gsi[Google Sign-In]
-    maps[Google Maps Platform]
-    fcm[Firebase Cloud Messaging]
-    weather[OpenWeather]
-    cal[Google Calendar API]
-
-    fe --> users
-    fe <--> games
-    fe --> mm
-    fe --> scoring
-    fe --> gsi
-    fe --> maps
-    fe --> cal
-
-    users --> gsi
-    users --> db
-    games --> users
-    games --> scoring
-    games --> weather
-    games --> fcm
-    games --> db
-    mm --> users
-    mm --> games
-    mm --> fcm
-    mm --> db
-    scoring --> db
-```
-
-`A --> B` means A calls B through at least one interface defined in B (§4.1, §4.3). `Front-end <--> Games` goes both ways: the front-end calls the Games REST API, and Games calls the front-end's `game-update` Socket.IO handler to push live scores.
+An arrow from A to B means A calls B through at least one interface defined in B (§4.1, §4.3). Arrows that touch the Backend box apply to all four backend components: the front-end calls every one of them, and every one of them reads and writes PostgreSQL. The front-end arrow points both ways because Games also calls the front-end's `game-update` Socket.IO handler to push live scores.
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
 1. [**Initiate live match**](#uc1)
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant FE as Front-end
-    participant MM as Matchmaking
-    participant U as Users
-    participant G as Games
-    participant DB as PostgreSQL
-    participant FCM as Firebase Cloud Messaging
-
-    User->>FE: tap "Find a match", pick sport + format
-    FE->>MM: POST /matchmaking/requests {sport, format}
-    MM->>DB: insertRequest(userId, sport, format)
-    alt already in the queue
-        MM-->>FE: 409 Conflict {existing request}
-        FE-->>User: show existing request
-    else added
-        MM-->>FE: 201 MatchmakingRequest
-        FE-->>User: show "Searching"
-    end
-
-    loop every 30 s (matchmaking job)
-        MM->>DB: findQueuedRequests()
-        DB-->>MM: Candidate[]
-        MM->>MM: findMatches(candidates): Match[]
-        opt request older than 2 h
-            MM->>DB: deleteRequest(userId)
-            DB-->>MM: ok
-            MM->>FCM: sendEachForMulticast({tokens, data: "no match found"})
-            FCM-->>MM: BatchResponse
-        end
-        loop each Match
-            MM->>U: getPreferredCourts(userIds)
-            U-->>MM: Court[][]
-            MM->>G: createMatchedGame(match, startsAt = now + 1h, courtId, teams)
-            G->>DB: insertGame(game, players)
-            DB-->>G: Game
-            G-->>MM: Game
-            MM->>DB: deleteRequests(userIds)
-            DB-->>MM: ok
-            MM->>U: getFcmTokens(userIds)
-            U-->>MM: string[]
-            MM->>FCM: sendEachForMulticast({tokens, data: {type: "match", gameId}})
-            FCM-->>MM: BatchResponse
-        end
-    end
-
-    FCM-->>FE: push "match found" {gameId}
-    User->>FE: open notification
-    FE->>G: GET /games/:id
-    G-->>FE: Game
-    FE-->>User: show proposed game with Accept / Decline
-```
+![Initiate live match sequence diagram](images/seq_initiate_live_match.png)
 
 2. [**Starting a scheduled match**](#uc2)
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant FE as Front-end
-    participant G as Games
-    participant U as Users
-    participant DB as PostgreSQL
-    participant FCM as Firebase Cloud Messaging
-
-    loop every minute (game deadline job)
-        G->>DB: findBookedGamesStartingAt(now)
-        DB-->>G: Game[]
-        G->>U: getFcmTokens(userIds)
-        U-->>G: string[]
-        G->>FCM: sendEachForMulticast({tokens, data: {type: "check-in", gameId}})
-        FCM-->>G: BatchResponse
-    end
-
-    User->>FE: tap "I'm here"
-    FE->>G: POST /games/:id/check-in
-    alt before start or after the 30-min window
-        G-->>FE: 409 Conflict {reason}
-        FE-->>User: show when confirmation opens / game cancelled
-    else within the window
-        G->>DB: insertCheckIn(gameId, userId)
-        DB-->>G: GamePlayer[]
-        alt every player has checked in
-            G->>DB: updateStatus(gameId, started)
-            DB-->>G: Game
-            G->>FCM: sendEachForMulticast({tokens, data: {type: "started", gameId}})
-            FCM-->>G: BatchResponse
-            G-->>FE: 200 Game {status: started}
-            FE-->>User: show the current game with live score
-        else waiting for others
-            G-->>FE: 200 Game {checked-in players, time left}
-            FE-->>User: show who has confirmed
-        end
-    end
-
-    loop every minute (game deadline job)
-        G->>DB: findGamesNotCheckedIn(now - 30 min)
-        DB-->>G: Game[]
-        G->>DB: updateStatus(gameId, cancelled)
-        DB-->>G: Game
-        G->>FCM: sendEachForMulticast({tokens, data: {type: "cancelled", gameId}})
-        FCM-->>G: BatchResponse
-    end
-```
+![Starting a scheduled match sequence diagram](images/seq_start_scheduled_match.png)
 
 3. [**Submit final score**](#uc3)
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant FE as Front-end
-    participant G as Games
-    participant S as Scoring
-    participant DB as PostgreSQL
-    participant FCM as Firebase Cloud Messaging
-
-    User->>FE: tap "End game", review rounds, submit
-    FE->>G: POST /games/:id/final-score {rounds}
-    alt caller is not the owner
-        G-->>FE: 403 Forbidden
-    else game already completed
-        G-->>FE: 409 Conflict {match summary}
-    else
-        G->>DB: findGamePlayers(gameId)
-        DB-->>G: PlayerInfo[]
-        G->>S: applyGameResult(gameId, players, {sport, format, scores})
-        S->>DB: findRatings(userIds, sport)
-        DB-->>S: Rating[] (1500 if none)
-        S->>S: calculateELOChange(players, game): RatingChange[]
-        alt no rounds / invalid / tied round / no winner
-            S-->>G: validation error
-            G-->>FE: 400 Bad Request {reason}
-            FE-->>User: show the invalid round
-        else valid
-            S->>DB: updateRatings(RatingChange[])
-            DB-->>S: ok
-            S-->>G: RatingChange[]
-            G->>DB: completeGame(gameId, rounds, ratingChanges)
-            DB-->>G: Game
-            G-->>FE: 200 {game, ratingChanges}
-            G->>FCM: sendEachForMulticast({tokens, data: {type: "summary", gameId}})
-            FCM-->>G: BatchResponse
-            FE-->>User: show match summary with ratings before and after
-        end
-    end
-```
+![Submit final score sequence diagram](images/seq_submit_final_score.png)
 
 4. [**Create a scheduled match**](#uc4)
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant FE as Front-end
-    participant Maps as Google Maps Platform
-    participant U as Users
-    participant G as Games
-    participant DB as PostgreSQL
-    participant W as OpenWeather
-
-    User->>FE: tap "Schedule a match"
-    FE->>U: GET /courts
-    U->>DB: findCourts()
-    DB-->>U: Court[]
-    U-->>FE: Court[]
-    FE->>Maps: GoogleMap(markers, onMarkerClick)
-    alt map fails to load
-        Maps-->>FE: error
-        FE-->>User: show error with retry
-    else
-        Maps-->>FE: map
-        User->>FE: pick sport, format, start time, court, then submit
-        FE->>G: POST /games/create {sport, format, startsAt, courtId}
-        alt invalid body or start time not in the future
-            G-->>FE: 400 Bad Request {details}
-        else court does not exist
-            G-->>FE: 400 Bad Request "Court ID does not exist"
-        else
-            G->>DB: insertGame(game, [owner])
-            DB-->>G: Game
-            G-->>FE: 201 {game}
-            FE-->>User: show game details
-        end
-    end
-
-    Note over FE,W: Another user opens the feed
-    FE->>G: GET /games/feed
-    G->>DB: findUpcomingScheduledGames()
-    DB-->>G: Game[]
-    G->>W: GET /data/2.5/forecast?lat&lon (cached per court and hour)
-    W-->>G: Forecast
-    G-->>FE: FeedGame[]
-```
+![Create a scheduled match sequence diagram](images/seq_create_scheduled_match.png)
 
 5. [**Update game information**](#uc5)
 
-```mermaid
-sequenceDiagram
-    actor Owner
-    participant FO as Front-end (owner)
-    participant G as Games
-    participant DB as PostgreSQL
-    participant FP as Front-end (other player)
-    actor Player
-
-    FO->>G: socket join-game {gameId}
-    FP->>G: socket join-game {gameId}
-    Owner->>FO: change round score, save
-    FO->>G: PUT /games/:id/rounds/:number {team1Score, team2Score}
-    alt caller is not the owner
-        G-->>FO: 403 Forbidden
-    else score not a non-negative whole number
-        G-->>FO: 400 Bad Request
-    else game already completed
-        G-->>FO: 409 Conflict
-    else
-        G->>DB: upsertRound(gameId, number, team1Score, team2Score)
-        DB-->>G: GameRound
-        G-->>FO: 200 GameRound
-        G-)FP: socket game-update {gameId, rounds}
-        FP-->>Player: show new score
-    end
-
-    opt player's app reconnects
-        FP->>G: socket join-game {gameId}
-        FP->>G: GET /games/:id
-        G-->>FP: Game
-    end
-```
+![Update game information sequence diagram](images/seq_update_game_info.png)
 
 ### **4.7. Design of Non-Functional Requirements**
 1. [**Live score sync latency**](#nfr1)
