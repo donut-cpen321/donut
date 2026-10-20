@@ -5,22 +5,13 @@
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
 | 2026-10-19 | All | Initial version |
+| 2026-10-19 | 2, 3.2, 3.3, 3.4, 3.5, 4.3, 4.5, 4.6 | Shortened the project description to 2 paragraphs. Replaced use cases with no actor goal by the user goals that include them (Initiate live match, Submit final score). Renamed use cases to verb phrases. Added the interfaces we call on external modules. Gave every database and external call in the sequence diagrams its parameters and return values. |
 
 ---
 
 ## 2. Project Description
 
-Donut is an instant matchmaking and ranking app for people who play competitive sports but can't commit to a weekly league.
-
-The first version supports **racket sports only**:
-
-- Tennis
-- Pickleball
-- Badminton
-
-Every sport supports **singles (1v1)** and **doubles (2v2)** from the start. Other sports (e.g. basketball) may be added later.
-
-A player can ask for a game right now and the system finds opponents of similar skill, books a court among the players' preferred courts, and notifies everyone. Players can also schedule a game for later and let others join it from a feed. During a game, the score is updated live on every player's phone, and when the game ends each player's per-sport ELO rating changes based on the result and the margin of victory.
+Donut is an instant matchmaking and ranking app for people who play competitive racket sports (tennis, pickleball and badminton, in singles and doubles) but can't commit to a weekly league. A player can ask for a game right now and the system finds opponents of similar skill, books a court among the players' preferred courts, and notifies everyone. Players can also schedule a game for later and let others join it from a feed. During a game, the score is updated live on every player's phone, and when the game ends each player's per-sport ELO rating changes based on the result and the margin of victory.
 
 The target users are recreational players in a city who want a game this week without joining a league, ladder or club, and who want a fair opponent and a rating that shows how they are improving.
 
@@ -64,17 +55,18 @@ flowchart LR
         uc2([Set up profile])
         uc3([Initiate live match])
         uc4([Matchmaking])
-        uc5([Accept a match])
+        uc5([Accept or decline a match])
         uc6([Create a scheduled match])
-        uc7([Feed for scheduled match])
+        uc7([Browse scheduled matches])
         uc8([Manage scheduled match])
         uc9([Add game to Google Calendar])
         uc10([Starting a scheduled match])
         uc11([Update game information])
         uc12([Live game data syncing])
-        uc13([Sport specific leaderboard])
+        uc13([Submit final score])
         uc14([ELO change calculation])
         uc15([Update leaderboard])
+        uc16([View sport leaderboard])
     end
 
     gsi[Google Sign-In]
@@ -83,10 +75,11 @@ flowchart LR
     weather[OpenWeather]
     cal[Google Calendar]
 
-    user --- uc1 & uc2 & uc3 & uc5 & uc6 & uc7 & uc8 & uc9 & uc10 & uc11 & uc13 & uc14
+    user --- uc1 & uc2 & uc3 & uc5 & uc6 & uc7 & uc8 & uc9 & uc10 & uc11 & uc13 & uc16
 
     uc3 -.->|«include»| uc4
     uc11 -.->|«include»| uc12
+    uc13 -.->|«include»| uc14
     uc14 -.->|«include»| uc15
 
     uc1 --- gsi
@@ -98,10 +91,10 @@ flowchart LR
     uc9 --- cal
 ```
 
-External services are connected with plain lines (no arrows) because they support use cases but never start one.
+External services are connected with plain lines (no arrows) because they support use cases but never start one. *Matchmaking*, *Live game data syncing*, *ELO change calculation* and *Update leaderboard* are done by the system, so they have no actor of their own; they are included in the user goals that trigger them.
 
 ### **3.3. Actors Description**
-1. **User**: a recreational racket-sport player who signs in with Google, joins or accepts games, and enters match scores. All app features are available to this actor; there are no privileged roles.
+1. **User**: a recreational racket-sport player who signs in with Google, joins or accepts games, and enters the score of the games they own. The game owner is a User with extra permissions on that one game, not a separate role.
 2. **Google Sign-In** *(external service)*: authenticates players and provides the identity token our backend trusts.
 3. **Google Maps Platform** *(external service)*: shows the courts on a map so players can pick preferred courts and the court of a scheduled game.
 4. **Firebase Cloud Messaging** *(external service)*: delivers match and game notifications to players' devices.
@@ -116,11 +109,11 @@ External services are connected with plain lines (no arrows) because they suppor
 - Use cases for feature 2: Live matchmaking
 3. **Initiate live match**: User picks a sport and a format and taps a button, and the server places the player into a queue to be matched. The user can cancel at any time, and the request is removed after 2 hours without a match.
 4. **Matchmaking**: Every 30 seconds, the system selects players who share the sport and format and have close ratings, books a game one hour later at a court from their preferred courts, then notifies all of them.
-5. **Accept a match**: each notified player accepts or declines. The first player to accept becomes the game's owner. When all accept, the game is booked. If anyone declines, or has not accepted 30 minutes before the start, the match is cancelled for everyone, and the players who did accept go back into the queue.
+5. **Accept or decline a match**: Each notified player accepts or declines. The first player to accept becomes the game's owner. When all accept, the game is booked. If anyone declines, or has not accepted 30 minutes before the start, the match is cancelled for everyone, and the players who did accept go back into the queue.
 
 - Use cases for feature 3: Schedule match
 6. **Create a scheduled match**: User creates a scheduled match with sports type, format, court (picked on a Google Map) and start time, and becomes its owner.
-7. **Feed for scheduled match**: A separate feed that shows all the upcoming scheduled games and relevant game information like other players' ELO rating, format, sports type, court information and the weather forecast.
+7. **Browse scheduled matches**: A separate feed that shows all the upcoming scheduled games and relevant game information like other players' ELO rating, format, sports type, court information and the weather forecast.
 8. **Manage scheduled match**: User can join a scheduled match in the feed, and they can leave the game unless it starts in less than 30 minutes. The owner of the scheduled game can also delete the game at any time.
 9. **Add game to Google Calendar**: User adds a booked game to their Google Calendar with its court and start time.
 10. **Starting a scheduled match**: User can confirm they are present within 30 minutes after the starting time of the game. A game can only be started if all players confirm they are present within 30 minutes after the starting time, otherwise the game is cancelled automatically. Booked matched games start the same way.
@@ -130,14 +123,15 @@ External services are connected with plain lines (no arrows) because they suppor
 12. **Live game data syncing**: Live game information like score and rounds is updated across all devices that joined the game.
 
 - Use cases for feature 5: Sports specific ranking
-13. **Sport specific leaderboard**: There is a leaderboard for each sport that ranks players by their ELO for that sport.
-14. **ELO change calculation**: After the game, the ELO change for each player is calculated and saved to the match summary.
-15. **Update leaderboard**: When the final score is submitted to the server, the server also applies the ELO changes to the leaderboard.
+13. **Submit final score**: The game owner ends the game and submits the final score, and every player sees the match summary with their rating change.
+14. **ELO change calculation**: When the final score is submitted, the system calculates each player's ELO change and saves it to the match summary.
+15. **Update leaderboard**: The system applies the ELO changes to the sport's leaderboard.
+16. **View sport leaderboard**: User views the leaderboard for a sport, which ranks players by their ELO for that sport.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 <a name="uc1"></a>
 
-#### Use Case 1: Matchmaking
+#### Use Case 1: Initiate live match
 
 **Description**: A user asks to be matched for a sport and format. The system puts them in the matchmaking queue, finds players with a close rating, books a court and a start time for them, and notifies everyone.
 
@@ -145,7 +139,7 @@ External services are connected with plain lines (no arrows) because they suppor
 
 **Preconditions**: The user is signed in and has set up their profile, so they have at least one preferred court.
 
-**Postconditions**: A proposed game exists with the sport, format, start time (one hour after the match was found), court and teams set, and every matched player in it. The matched players are no longer in the queue, and each one can accept or decline the game (*Accept a match*).
+**Postconditions**: A proposed game exists with the sport, format, start time (one hour after the match was found), court and teams set, and every matched player in it. The matched players are no longer in the queue, and each one can accept or decline the game (*Accept or decline a match*).
 
 **Main success scenario**:
 1. The user opens the Play tab and taps "Find a match".
@@ -224,12 +218,12 @@ External services are connected with plain lines (no arrows) because they suppor
 
 <a name="uc3"></a>
 
-#### Use Case 3: ELO change calculation
+#### Use Case 3: Submit final score
 **Description**: When the game owner submits the final score, the system decides the winner and calculates each player's ELO change for that sport. It then saves the changes to the match summary and applies them to the sport's leaderboard.
 
 **Primary actor(s)**: User
 
-**Preconditions**: The user is signed in and is the owner of a game that has started and has no final score.
+**Preconditions**: The user is signed in and is a player in a game that has started and has no final score.
 
 **Postconditions**: The game is completed and its final score can no longer be changed. Each player's rating for the sport is updated, the match summary shows each player's rating before and after, and the sport's leaderboard reflects the new ratings.
 
@@ -315,7 +309,7 @@ External services are connected with plain lines (no arrows) because they suppor
 
 **Primary actor(s)**: User
 
-**Preconditions**: The user is signed in and is the owner of a game that has started and has no final score.
+**Preconditions**: The user is signed in and is a player in a game that has started and has no final score.
 
 **Postconditions**: The new score is stored, and every player with the game open sees the same score.
 
@@ -444,18 +438,35 @@ Not included. The formal use cases describe each screen in enough detail for thi
 1. **Google Sign-In**
     - **Purpose**: Signs players in on Android and issues the ID token the backend verifies.
     - **Rationale**: The course requires external authentication, and storing passwords ourselves would be less secure for no benefit.
+    - **Interfaces we call**:
+        1. `LoginTicket verifyIdToken({ idToken: string, audience: string })` (google-auth-library) - called by Users
+            - **Purpose**: Checks the ID token's signature and audience and returns the player's Google profile.
+        2. `GoogleIdTokenCredential getCredential(GetGoogleIdOption)` (Credential Manager) - called by the front-end
+            - **Purpose**: Signs the player in on the device and returns the ID token sent to `POST /user/login`.
 2. **Google Maps Platform (Maps SDK for Android)**
     - **Purpose**: Shows the courts as markers so players can pick preferred courts and the court of a scheduled game.
     - **Rationale**: Players recognise courts by where they are, not by name. The courts themselves are stored in our database, so the map is only used for display and picking.
+    - **Interfaces we call**:
+        1. `GoogleMap(markers: Marker[], onMarkerClick)` (Maps Compose) - called by the front-end
+            - **Purpose**: Shows the courts as markers and reports which one the player picks.
 3. **Firebase Cloud Messaging**
     - **Purpose**: Delivers match, game start, cancellation and match summary notifications, even when the app is closed.
     - **Rationale**: It is the standard push service for Android and needs no polling.
+    - **Interfaces we call**:
+        1. `BatchResponse sendEachForMulticast({ tokens: string[], data: Map<string, string> })` (firebase-admin) - called by Games and Matchmaking
+            - **Purpose**: Sends one notification to every device of the players in a game.
 4. **OpenWeather**
     - **Purpose**: Supplies the forecast for a scheduled game's court and time, shown in the feed.
     - **Rationale**: Most courts are outdoors, so the weather decides whether a game happens. Free tier is enough for our load.
+    - **Interfaces we call**:
+        1. `GET /data/2.5/forecast?lat={lat}&lon={lon}` → `Forecast` (3-hour steps for 5 days) - called by Games
+            - **Purpose**: Gets the forecast at the court; Games picks the step closest to the game's start time.
 5. **Google Calendar API**
     - **Purpose**: Adds a booked game to the player's own Google Calendar.
     - **Rationale**: Players already use Google accounts to sign in, so they can add the game to their own calendar without a separate account.
+    - **Interfaces we call**:
+        1. `POST /calendars/primary/events` with `{ summary, location, start, end }` → `Event` - called by the front-end
+            - **Purpose**: Adds the booked game to the player's own calendar.
 
 ### **4.4. Frameworks and Libraries**
 Libraries marked *(planned)* are part of the design but not in the code yet.
@@ -524,7 +535,7 @@ flowchart LR
     cal[Google Calendar API]
 
     fe --> users
-    fe --> games
+    fe <--> games
     fe --> mm
     fe --> scoring
     fe --> gsi
@@ -545,10 +556,10 @@ flowchart LR
     scoring --> db
 ```
 
-`A --> B` means A calls B through at least one interface defined in B (§4.1). Games sends live score updates to the front-end over the Socket.IO connection that the front-end opens.
+`A --> B` means A calls B through at least one interface defined in B (§4.1, §4.3). `Front-end <--> Games` goes both ways: the front-end calls the Games REST API, and Games calls the front-end's `game-update` Socket.IO handler to push live scores.
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
-1. [**Matchmaking**](#uc1)
+1. [**Initiate live match**](#uc1)
 
 ```mermaid
 sequenceDiagram
@@ -562,7 +573,7 @@ sequenceDiagram
 
     User->>FE: tap "Find a match", pick sport + format
     FE->>MM: POST /matchmaking/requests {sport, format}
-    MM->>DB: insert matchmaking request
+    MM->>DB: insertRequest(userId, sport, format)
     alt already in the queue
         MM-->>FE: 409 Conflict {existing request}
         FE-->>User: show existing request
@@ -572,22 +583,28 @@ sequenceDiagram
     end
 
     loop every 30 s (matchmaking job)
-        MM->>DB: read queue with ratings
+        MM->>DB: findQueuedRequests()
         DB-->>MM: Candidate[]
         MM->>MM: findMatches(candidates): Match[]
         opt request older than 2 h
-            MM->>DB: delete request
-            MM->>FCM: send(token, "no match found")
+            MM->>DB: deleteRequest(userId)
+            DB-->>MM: ok
+            MM->>FCM: sendEachForMulticast({tokens, data: "no match found"})
+            FCM-->>MM: BatchResponse
         end
         loop each Match
             MM->>U: getPreferredCourts(userIds)
             U-->>MM: Court[][]
             MM->>G: createMatchedGame(match, startsAt = now + 1h, courtId, teams)
-            G->>DB: insert game + players, delete their requests (one transaction)
+            G->>DB: insertGame(game, players)
+            DB-->>G: Game
             G-->>MM: Game
+            MM->>DB: deleteRequests(userIds)
+            DB-->>MM: ok
             MM->>U: getFcmTokens(userIds)
             U-->>MM: string[]
-            MM->>FCM: send(tokens, {type: "match", gameId})
+            MM->>FCM: sendEachForMulticast({tokens, data: {type: "match", gameId}})
+            FCM-->>MM: BatchResponse
         end
     end
 
@@ -610,11 +627,12 @@ sequenceDiagram
     participant FCM as Firebase Cloud Messaging
 
     loop every minute (game deadline job)
-        G->>DB: find booked games starting now
+        G->>DB: findBookedGamesStartingAt(now)
         DB-->>G: Game[]
         G->>U: getFcmTokens(userIds)
         U-->>G: string[]
-        G->>FCM: send(tokens, "confirm you are here" {gameId})
+        G->>FCM: sendEachForMulticast({tokens, data: {type: "check-in", gameId}})
+        FCM-->>G: BatchResponse
     end
 
     User->>FE: tap "I'm here"
@@ -623,10 +641,13 @@ sequenceDiagram
         G-->>FE: 409 Conflict {reason}
         FE-->>User: show when confirmation opens / game cancelled
     else within the window
-        G->>DB: record check-in
+        G->>DB: insertCheckIn(gameId, userId)
+        DB-->>G: GamePlayer[]
         alt every player has checked in
-            G->>DB: set status = started
-            G->>FCM: send(tokens, "game started")
+            G->>DB: updateStatus(gameId, started)
+            DB-->>G: Game
+            G->>FCM: sendEachForMulticast({tokens, data: {type: "started", gameId}})
+            FCM-->>G: BatchResponse
             G-->>FE: 200 Game {status: started}
             FE-->>User: show the current game with live score
         else waiting for others
@@ -636,13 +657,16 @@ sequenceDiagram
     end
 
     loop every minute (game deadline job)
-        G->>DB: find games 30 min past start not fully checked in
-        G->>DB: set status = cancelled
-        G->>FCM: send(tokens, "game cancelled")
+        G->>DB: findGamesNotCheckedIn(now - 30 min)
+        DB-->>G: Game[]
+        G->>DB: updateStatus(gameId, cancelled)
+        DB-->>G: Game
+        G->>FCM: sendEachForMulticast({tokens, data: {type: "cancelled", gameId}})
+        FCM-->>G: BatchResponse
     end
 ```
 
-3. [**ELO change calculation**](#uc3)
+3. [**Submit final score**](#uc3)
 
 ```mermaid
 sequenceDiagram
@@ -660,22 +684,25 @@ sequenceDiagram
     else game already completed
         G-->>FE: 409 Conflict {match summary}
     else
-        G->>DB: begin transaction, load game players
+        G->>DB: findGamePlayers(gameId)
+        DB-->>G: PlayerInfo[]
         G->>S: applyGameResult(gameId, players, {sport, format, scores})
-        S->>DB: read ratings for the sport (1500 if none)
-        DB-->>S: ratings
+        S->>DB: findRatings(userIds, sport)
+        DB-->>S: Rating[] (1500 if none)
         S->>S: calculateELOChange(players, game): RatingChange[]
         alt no rounds / invalid / tied round / no winner
             S-->>G: validation error
-            G->>DB: rollback
             G-->>FE: 400 Bad Request {reason}
             FE-->>User: show the invalid round
         else valid
-            S->>DB: update ratings (leaderboard)
+            S->>DB: updateRatings(RatingChange[])
+            DB-->>S: ok
             S-->>G: RatingChange[]
-            G->>DB: save rounds, rating changes, status = completed, then commit
+            G->>DB: completeGame(gameId, rounds, ratingChanges)
+            DB-->>G: Game
             G-->>FE: 200 {game, ratingChanges}
-            G->>FCM: send(tokens, "match summary" {gameId})
+            G->>FCM: sendEachForMulticast({tokens, data: {type: "summary", gameId}})
+            FCM-->>G: BatchResponse
             FE-->>User: show match summary with ratings before and after
         end
     end
@@ -695,9 +722,10 @@ sequenceDiagram
 
     User->>FE: tap "Schedule a match"
     FE->>U: GET /courts
-    U->>DB: read courts
+    U->>DB: findCourts()
+    DB-->>U: Court[]
     U-->>FE: Court[]
-    FE->>Maps: show map with court markers
+    FE->>Maps: GoogleMap(markers, onMarkerClick)
     alt map fails to load
         Maps-->>FE: error
         FE-->>User: show error with retry
@@ -710,7 +738,8 @@ sequenceDiagram
         else court does not exist
             G-->>FE: 400 Bad Request "Court ID does not exist"
         else
-            G->>DB: insert game (owner = caller) + owner as first player
+            G->>DB: insertGame(game, [owner])
+            DB-->>G: Game
             G-->>FE: 201 {game}
             FE-->>User: show game details
         end
@@ -718,8 +747,9 @@ sequenceDiagram
 
     Note over FE,W: Another user opens the feed
     FE->>G: GET /games/feed
-    G->>DB: read upcoming scheduled games with players
-    G->>W: forecast(lat, lon, startsAt) (cached per court and hour)
+    G->>DB: findUpcomingScheduledGames()
+    DB-->>G: Game[]
+    G->>W: GET /data/2.5/forecast?lat&lon (cached per court and hour)
     W-->>G: Forecast
     G-->>FE: FeedGame[]
 ```
@@ -746,7 +776,8 @@ sequenceDiagram
     else game already completed
         G-->>FO: 409 Conflict
     else
-        G->>DB: upsert round
+        G->>DB: upsertRound(gameId, number, team1Score, team2Score)
+        DB-->>G: GameRound
         G-->>FO: 200 GameRound
         G-)FP: socket game-update {gameId, rounds}
         FP-->>Player: show new score
