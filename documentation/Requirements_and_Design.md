@@ -43,7 +43,7 @@ An ELO-based ranking for each sport that shows a player's skill level compared t
 ### **3.2. Use Case Diagram**
 ![Use case diagram](images/use_case_diagram.png)
 
-Use cases are grouped by feature. External services are connected with plain lines (no arrows) because they support use cases but never start one. The dashed use cases (*Matchmaking*, *Live game data syncing*, *ELO change calculation* and *Update leaderboard*) are done by the system, so they have no actor of their own; each one is «include»d by the use case that triggers it.
+External services are connected with plain lines (no arrows) because they support use cases but never start one. The «extend» arrows mark use cases reached from another one: *View Previous Matches* from *View Profile*, and *View/Update Score* and *Leave Match* from *View Upcoming Matches*. The diagram uses screen-level names. *Join Live Matchmaking* covers *Initiate live match* and *Accept or decline a match*, *View/Update Score* covers *Update game information* and *Submit final score*, and *Join Scheduled Match* and *Leave Match* together cover *Manage scheduled match* (§3.4). The steps done by the system (matchmaking, live game data syncing, ELO change calculation and updating the leaderboard) are not drawn because no actor starts them.
 
 ### **3.3. Actors Description**
 1. **User**: a recreational racket-sport player who signs in with Google, joins or accepts games, and enters the score of the games they own. The game owner is a User with extra permissions on that one game, not a separate role.
