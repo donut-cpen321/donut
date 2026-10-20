@@ -17,6 +17,6 @@ jobs:
         working-directory: backend
       - uses: codacy/codacy-cli-v2-action@main
         with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          project_token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           tool: eslint
           upload_report: true
