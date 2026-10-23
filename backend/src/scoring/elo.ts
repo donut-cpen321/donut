@@ -3,9 +3,7 @@ import { Sport, Format } from '../generated/prisma/client'
 import { GameInfo, PlayerInfo, RatingChange, SportEloParams } from './scoring.types'
 
 const SPORT_PARAMS: Record<Sport, SportEloParams> = {
-    TENNIS:     { maxExpectedMargin: 6,  marginGrowthRate: 0.0025, marginWeight: 1.5, kFactor: 50},
-    PICKLEBALL: { maxExpectedMargin: 8,  marginGrowthRate: 0.0025, marginWeight: 1.0, kFactor: 60},
-    BADMINTON:  { maxExpectedMargin: 15, marginGrowthRate: 0.005, marginWeight: 0.5, kFactor: 32},
+    TENNIS:     { maxExpectedMargin: 6,  marginGrowthRate: 0.0025, marginWeight: 1.5, kFactor: 50}
 };
 
 /**
@@ -20,8 +18,6 @@ const SPORT_PARAMS: Record<Sport, SportEloParams> = {
 function getSportParams(sport: Sport): SportEloParams {
     switch (sport) {
         case Sport.TENNIS:     return SPORT_PARAMS.TENNIS;
-        case Sport.PICKLEBALL: return SPORT_PARAMS.PICKLEBALL;
-        case Sport.BADMINTON:  return SPORT_PARAMS.BADMINTON;
         default:
             throw new Error(`Unsupported sport: ${String(sport)}`);
     }

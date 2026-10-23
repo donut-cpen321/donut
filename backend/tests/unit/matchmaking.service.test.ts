@@ -25,13 +25,6 @@ describe('findMatches', () => {
     expect(matches).toEqual([{ sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] }]);
   });
 
-  // Input: two singles players in different sports
-  // Expected behavior: no match
-  // Expected output: []
-  test('Does not match different sports', () => {
-    expect(findMatches([playerStub('a'), playerStub('b', { sport: 'BADMINTON' })])).toEqual([]);
-  });
-
   // Input: a SINGLES player and a DOUBLES player
   // Expected behavior: no match
   // Expected output: []
@@ -162,7 +155,7 @@ describe('runMatchmaking', () => {
   // Expected behavior: the match is claimed so its players leave the queue
   // Expected output: one match; claimMatch called with it
   test('Matches candidates and claims the match', async () => {
-    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b'), playerStub('c', { sport: 'BADMINTON' })]);
+    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b'), playerStub('c', { rating: 2000 })]);
     jest.mocked(claimMatch).mockResolvedValue(true);
 
     const match = { sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] };
@@ -175,15 +168,15 @@ describe('runMatchmaking', () => {
   // Expected output: only the successfully claimed match
   test('Drops a match whose claim fails and keeps the others', async () => {
     jest.mocked(getCandidates).mockResolvedValue([
-      playerStub('a'),
-      playerStub('b'),
-      playerStub('c', { sport: 'BADMINTON' }),
-      playerStub('d', { sport: 'BADMINTON' }),
+      playerStub('a', { createdAt: new Date(1) }),
+      playerStub('b', { createdAt: new Date(2) }),
+      playerStub('c', { rating: 2000, createdAt: new Date(3) }),
+      playerStub('d', { rating: 2000, createdAt: new Date(4) }),
     ]);
     jest.mocked(claimMatch).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 
     await expect(runMatchmaking()).resolves.toEqual([
-      { sport: 'BADMINTON', format: 'SINGLES', userIds: ['c', 'd'] },
+      { sport: 'TENNIS', format: 'SINGLES', userIds: ['c', 'd'] },
     ]);
     expect(claimMatch).toHaveBeenCalledTimes(2);
   });
@@ -192,7 +185,7 @@ describe('runMatchmaking', () => {
   // Expected behavior: everyone stays in the queue
   // Expected output: []; claimMatch not called
   test('Leaves the queue untouched when nobody is matched', async () => {
-    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b', { sport: 'BADMINTON' })]);
+    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b', { rating: 2000 })]);
 
     await expect(runMatchmaking()).resolves.toEqual([]);
     expect(claimMatch).not.toHaveBeenCalled();

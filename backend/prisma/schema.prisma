@@ -12,8 +12,6 @@ datasource db {
 
 enum Sport {
   TENNIS
-  PICKLEBALL
-  BADMINTON
 }
 
 enum Format {
