@@ -1,4 +1,4 @@
-package com.example.cpen321application.helpers
+package com.example.cpen321application.core.auth
 
 import android.content.Context
 import android.content.Intent
