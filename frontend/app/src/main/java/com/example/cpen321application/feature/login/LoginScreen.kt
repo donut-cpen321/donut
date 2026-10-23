@@ -25,7 +25,6 @@ import com.example.cpen321application.core.auth.User
 
 @Composable
 fun LoginRoute(
-    apiBaseUrl: String,
     serverClientId: String,
     onLoginSuccess: (User) -> Unit,
     modifier: Modifier = Modifier,
@@ -37,7 +36,7 @@ fun LoginRoute(
     LoginScreen(
         uiState = uiState,
         onSignInClick = {
-            viewModel.signIn(context, apiBaseUrl, serverClientId, onLoginSuccess)
+            viewModel.signIn(context, serverClientId, onLoginSuccess)
         },
         modifier = modifier
     )

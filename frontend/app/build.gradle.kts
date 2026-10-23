@@ -83,6 +83,8 @@ dependencies {
     implementation(libs.google.googleid)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -14,7 +14,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             CPEN321ApplicationTheme {
                 MainScreen(
-                    apiBaseUrl = BuildConfig.API_BASE_URL,
                     serverClientId = BuildConfig.GOOGLE_CLIENT_ID
                 )
             }

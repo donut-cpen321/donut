@@ -10,7 +10,6 @@ import androidx.navigation.compose.rememberNavController
 
 @Composable
 fun MainScreen(
-    apiBaseUrl: String,
     serverClientId: String
 ) {
     val navController = rememberNavController()
@@ -29,7 +28,6 @@ fun MainScreen(
     ) { innerPadding ->
         AppNavGraph(
             navController = navController,
-            apiBaseUrl = apiBaseUrl,
             serverClientId = serverClientId,
             modifier = Modifier.padding(innerPadding)
         )

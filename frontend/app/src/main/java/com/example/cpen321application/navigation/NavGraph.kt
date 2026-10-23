@@ -22,7 +22,6 @@ sealed class Screen(val route: String) {
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
-    apiBaseUrl: String,
     serverClientId: String,
     modifier: Modifier = Modifier
 ) {
@@ -33,7 +32,6 @@ fun AppNavGraph(
     ) {
         composable(Screen.Login.route) {
             LoginRoute(
-                apiBaseUrl = apiBaseUrl,
                 serverClientId = serverClientId,
                 onLoginSuccess = { _ ->
                     navController.navigate(Screen.Profile.route) {
