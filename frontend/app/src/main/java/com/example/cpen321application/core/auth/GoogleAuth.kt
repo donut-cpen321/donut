@@ -1,4 +1,4 @@
-package com.example.cpen321application.helpers
+package com.example.cpen321application.core.auth
 
 import android.content.Context
 import android.content.Intent
@@ -15,9 +15,6 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 data class User(
     val username: String
@@ -94,7 +91,6 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
     }
 }
 
-
 /**
  * Signs out a user from the app
  * @param context
@@ -104,50 +100,5 @@ suspend fun signOut(context: Context) {
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
     } catch (e: Exception) {
         Log.e("Auth", "Failed to clear credentials", e)
-    }
-}
-/**
- * Logs in a user to the backend
- * @param apiBaseUrl The base URL of the backend
- * @param idToken The Google authentication token
- * @return User object or null if login failed
- */
-suspend fun loginWithBackend(apiBaseUrl: String, idToken: String): User? = withContext(Dispatchers.IO) {
-    val loginUrl = "${apiBaseUrl.trimEnd('/')}/user/login"
-    try {
-        val connection = (URL(loginUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 5_000
-            readTimeout = 5_000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-        }
-
-        val jsonBody = JSONObject().apply {
-            put("idToken", idToken)
-        }.toString()
-
-        connection.outputStream.use { it.write(jsonBody.toByteArray()) }
-
-        when (val code = connection.responseCode) {
-            HttpURLConnection.HTTP_OK, HttpURLConnection.HTTP_CREATED -> {
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                try {
-                    val json = JSONObject(body)
-                    User(
-                        username = json.getString("username")
-                    )
-                } catch (e: Exception) {
-                    null
-                }
-            }
-            else -> {
-                Log.e("Auth", "Backend login failed: HTTP $code")
-                null
-            }
-        }
-    } catch (e: Exception) {
-        Log.e("Auth", "Backend unreachable", e)
-        null
     }
 }
