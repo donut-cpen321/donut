@@ -59,6 +59,7 @@ model User {
   availabilities  UserAvailability[]
   games           GameUser[]
   matchmakingRequest MatchmakingRequest?
+  refreshTokens   RefreshToken[]
 
   @@map("users")
 }
@@ -124,6 +125,21 @@ model MatchmakingRequest {
   userRating UserRating @relation(fields: [userId, sport], references: [userId, sport])
 
   @@map("matchmaking_requests")
+}
+
+// A refresh token used for authentication after the access token has expired.
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique // SHA-256 of the token sent to the frontend
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  // One-to-many relation between User and RefreshToken
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model Game {
