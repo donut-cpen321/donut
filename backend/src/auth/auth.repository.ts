@@ -14,23 +14,9 @@ export async function createRefreshToken(tokenData: NewRefreshTokenData): Promis
 /**
  * Deletes a refresh token if it exists (logout)
  * @param tokenHash hash of the token sent by the frontend
- * @returns the token's owner and expiry, null if no such token exists
  */
-export async function deleteRefreshTokenByHash(
-  tokenHash: string,
-): Promise<{ userId: string; expiresAt: Date } | null> {
-  try {
-    return await prisma.refreshToken.delete({
-      where: { tokenHash },
-      select: { userId: true, expiresAt: true },
-    });
-  } catch (err) {
-    // If the token doesn't exist, return null
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-      return null;
-    }
-    throw err;
-  }
+export async function deleteRefreshTokenByHash(tokenHash: string): Promise<void> {
+  await prisma.refreshToken.deleteMany({ where: { tokenHash } });
 }
 
 /**
