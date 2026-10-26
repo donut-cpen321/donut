@@ -1,4 +1,4 @@
-export type Game = {
+export interface Game {
   id: string;
   sport: Sport;
   format: Format;
@@ -7,7 +7,7 @@ export type Game = {
   courtId: number;
   createdAt: Date;
   gameSource: GameSource;
-};
+}
 
 export type Sport = "TENNIS" | "BADMINTON" | "PICKLEBALL";
 export type Format = "SINGLES" | "DOUBLES";
