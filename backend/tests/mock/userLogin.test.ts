@@ -1,6 +1,8 @@
 import request from 'supertest';
 import type { TokenPayload } from 'google-auth-library';
 import { createApp } from '../../src/app';
+import { createRefreshToken } from '../../src/auth/auth.repository';
+import { hashRefreshToken, verifyAccessToken } from '../../src/auth/tokens';
 import { validateToken } from '../../src/users/helpers/validateToken';
 import { createUser, getUserByGoogleSub } from '../../src/users/users.repository';
 
@@ -13,13 +15,29 @@ jest.mock('../../src/users/users.repository', () => ({
   getUserByGoogleSub: jest.fn(),
 }));
 
+jest.mock('../../src/auth/auth.repository', () => ({
+  createRefreshToken: jest.fn(),
+}));
+
 const mockedValidateToken = jest.mocked(validateToken);
 const mockedCreateUser = jest.mocked(createUser);
 const mockedGetUserByGoogleSub = jest.mocked(getUserByGoogleSub);
+const mockedCreateRefreshToken = jest.mocked(createRefreshToken);
+
+// The access token belongs to the user and only the refresh token's hash is stored
+function expectTokensIssuedFor(body: { accessToken: string; refreshToken: string }, userId: string) {
+  expect(verifyAccessToken(body.accessToken)).toBe(userId);
+  expect(mockedCreateRefreshToken).toHaveBeenCalledWith({
+    userId,
+    tokenHash: hashRefreshToken(body.refreshToken),
+    expiresAt: expect.any(Date),
+  });
+}
 
 describe('Mocked: POST /user/login', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.JWT_SECRET = 'test-jwt-secret';
   });
 
   test('No Token', async () => {
@@ -27,6 +45,17 @@ describe('Mocked: POST /user/login', () => {
       .post('/user/login')
       .set('Content-Type', 'application/json')
       .send({ idToken: '' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'A Google ID token is required' });
+    expect(mockedValidateToken).not.toHaveBeenCalled();
+  });
+
+  test('Non-string Token', async () => {
+    const response = await request(createApp())
+      .post('/user/login')
+      .set('Content-Type', 'application/json')
+      .send({ idToken: 123 });
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'A Google ID token is required' });
@@ -175,7 +204,10 @@ describe('Mocked: POST /user/login', () => {
     expect(response.body).toEqual({
       message: 'New user created',
       username: 'new.user@example.com',
+      accessToken: expect.any(String),
+      refreshToken: expect.any(String),
     });
+    expectTokensIssuedFor(response.body, 'user-123');
     expect(mockedValidateToken).toHaveBeenCalledWith('mock-google-token');
     expect(mockedGetUserByGoogleSub).toHaveBeenCalledWith('google-sub-123');
     expect(mockedCreateUser).toHaveBeenCalledWith({
@@ -215,7 +247,10 @@ describe('Mocked: POST /user/login', () => {
     expect(response.body).toEqual({
       message: 'Login successful',
       username: 'new.user@example.com',
+      accessToken: expect.any(String),
+      refreshToken: expect.any(String),
     });
+    expectTokensIssuedFor(response.body, 'user-123');
     expect(mockedValidateToken).toHaveBeenCalledWith('mock-google-token');
     expect(mockedGetUserByGoogleSub).toHaveBeenCalledWith('google-sub-123');
     expect(mockedCreateUser).not.toHaveBeenCalled();
