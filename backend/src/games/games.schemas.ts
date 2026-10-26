@@ -13,3 +13,6 @@ export const createGameSchema = z.strictObject({
 });
 
 export const gameIdSchema = z.uuid();
+
+export type CreateGameInput = z.infer<typeof createGameSchema>;
+export type GameIdInput = z.infer<typeof gameIdSchema>;
