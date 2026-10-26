@@ -1,5 +1,6 @@
-package com.example.cpen321application.helpers
+package com.example.cpen321application.core.auth
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -8,6 +9,7 @@ import android.widget.Toast
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
@@ -15,12 +17,11 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 data class User(
-    val username: String
+    val username: String,
+    val accessToken: String,
+    val refreshToken: String
 )
 
 /**
@@ -62,24 +63,9 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
         }
     } catch (e: NoCredentialException) {
         Log.e("Auth", "No Google account found on device: ${e.message}", e)
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                "No Google account on device. Opening Settings to add one...",
-                Toast.LENGTH_LONG
-            ).show()
-            try {
-                val intent = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
-                    putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (intentErr: Exception) {
-                Log.e("Auth", "Failed to open Add Account screen", intentErr)
-            }
-        }
+        addGoogleAccountToDevice(context)
         null
-    } catch (e: GetCredentialCancellationException) {
+    } catch (_: GetCredentialCancellationException) {
         Log.i("Auth", "User cancelled Google Sign-In prompt")
         null
     } catch (e: GetCredentialException) {
@@ -88,9 +74,27 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
             Toast.makeText(context, "Google Sign-In failed: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
         null
-    } catch (e: Exception) {
-        Log.e("Auth", "Unexpected error during Google Sign-In: ${e.message}", e)
-        null
+    }
+}
+
+suspend fun addGoogleAccountToDevice(context: Context) {
+    withContext(Dispatchers.Main) {
+        Toast.makeText(
+            context,
+            "No Google account on device. Opening Settings to add one...",
+            Toast.LENGTH_LONG
+        ).show()
+        try {
+            val intent = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
+                putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Log.e("Auth", "Add Account screen not found on device", e)
+        } catch (e: SecurityException) {
+            Log.e("Auth", "Permission denied to open Add Account screen", e)
+        }
     }
 }
 
@@ -102,52 +106,7 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
 suspend fun signOut(context: Context) {
     try {
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
-    } catch (e: Exception) {
+    } catch (e: ClearCredentialException) {
         Log.e("Auth", "Failed to clear credentials", e)
-    }
-}
-/**
- * Logs in a user to the backend
- * @param apiBaseUrl The base URL of the backend
- * @param idToken The Google authentication token
- * @return User object or null if login failed
- */
-suspend fun loginWithBackend(apiBaseUrl: String, idToken: String): User? = withContext(Dispatchers.IO) {
-    val loginUrl = "${apiBaseUrl.trimEnd('/')}/user/login"
-    try {
-        val connection = (URL(loginUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 5_000
-            readTimeout = 5_000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-        }
-
-        val jsonBody = JSONObject().apply {
-            put("idToken", idToken)
-        }.toString()
-
-        connection.outputStream.use { it.write(jsonBody.toByteArray()) }
-
-        when (val code = connection.responseCode) {
-            HttpURLConnection.HTTP_OK, HttpURLConnection.HTTP_CREATED -> {
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                try {
-                    val json = JSONObject(body)
-                    User(
-                        username = json.getString("username")
-                    )
-                } catch (e: Exception) {
-                    null
-                }
-            }
-            else -> {
-                Log.e("Auth", "Backend login failed: HTTP $code")
-                null
-            }
-        }
-    } catch (e: Exception) {
-        Log.e("Auth", "Backend unreachable", e)
-        null
     }
 }

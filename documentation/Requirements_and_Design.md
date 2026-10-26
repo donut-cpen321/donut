@@ -336,25 +336,27 @@ Not included. The formal use cases describe each screen in enough detail for thi
     - **Purpose**: Owns games, their players, rounds and lifecycle: create, feed, join, leave, delete, accept, check-in, live score and final score. It also runs the deadline jobs (acceptance and check-in) and the live connection for score updates.
     - **Rationale**: A game is the unit of record: its players, status and rounds change together, so they stay in one component. Alternative considered: a separate live-score component. Rejected because the score is part of the game and would need the same data and the same checks.
     - **Interfaces**:
-        1. `POST /games/create` with `{ sport, format, startsAt, courtId }` → `201 { game: Game }` - E
+        1. `POST /games` with `{ sport, format, startsAt, courtId }` → `201 { game: Game }` - E
             - **Purpose**: Creates a scheduled game owned by the caller.
         2. `GET /games/feed` → `FeedGame[]` (game, players' ratings, forecast) - E
             - **Purpose**: Returns the upcoming scheduled games for the feed.
-        3. `GET /games/:id` → `Game` - E
+        3. `GET /games` with a `gameId` query parameter → `Game` - E
             - **Purpose**: Returns one game with its players, status and rounds.
-        4. `POST /games/:id/join` → `Game`, `POST /games/:id/leave` → `204`, `DELETE /games/:id` → `204` - E
-            - **Purpose**: Join or leave a scheduled game; the owner deletes it.
-        5. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
+        4. `DELETE /games` with a `gameId` query parameter -> `204`
+            - **Purpose**: Deletes a game
+        5. `POST /games/join` with `{ gameId }` → `Game`, `POST /games/leave` with `{ gameId }` → `204` - E
+            - **Purpose**: Join or leave a scheduled game
+        6. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
             - **Purpose**: Accept or decline a matched game.
-        6. `POST /games/:id/check-in` → `Game` - E
+        7. `POST /games/:id/check-in` → `Game` - E
             - **Purpose**: Confirms the player is at the court; starts the game when every player has confirmed.
-        7. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
+        8. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
             - **Purpose**: The owner saves one round's live score.
-        8. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
+        9. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
             - **Purpose**: Pushes each saved round to every player connected to the game.
-        9. `POST /games/:id/final-score` with `{ rounds: RoundScore[] }` → `{ game: Game, ratingChanges: RatingChange[] }` - E
+        10. `POST /games/:id/final-score` with `{ rounds: RoundScore[] }` → `{ game: Game, ratingChanges: RatingChange[] }` - E
             - **Purpose**: The owner ends the game; triggers the rating update.
-        10. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
+        11. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
             - **Purpose**: Used by Matchmaking to create a proposed game.
 3. **Matchmaking**
     - **Purpose**: Owns the matchmaking queue and the matching algorithm, run by a background job every 30 seconds.
