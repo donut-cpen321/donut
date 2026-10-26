@@ -1,12 +1,7 @@
 import { type Request, type Response } from 'express';
-import type { ParamsDictionary } from 'express-serve-static-core';
+import { issueTokens } from '../auth/auth.service';
 import { validateToken } from './helpers/validateToken';
 import { getUserByGoogleSub, createUser } from './users.repository';
-
-type LoginRequestBody = {
-  idToken?: string; 
-};
-
 
 /**
  * Logs the user into the backend and pulls the user's information from the database
@@ -14,17 +9,14 @@ type LoginRequestBody = {
  * @param req contains the user's google login token
  * @param res 
  */
-export async function login(
-  req: Request<ParamsDictionary, Record<string, string>, LoginRequestBody>,
-  res: Response,
-): Promise<void> {
+export async function login(req: Request, res: Response): Promise<void> {
   if (!req.body) {
     res.status(400).json({ error: 'Request body is required' });
     return;
   }
 
-  const { idToken } = req.body;
-  if (!idToken) {
+  const idToken: unknown = req.body.idToken;
+  if (typeof idToken !== 'string' || !idToken) {
     res.status(400).json({ error: 'A Google ID token is required' });
     return;
   }
@@ -38,8 +30,8 @@ export async function login(
 
   const existingUser = await getUserByGoogleSub(payload.sub);
   if (existingUser) {
-    // TODO: send back an access token or refresh token representing the user
-    res.status(200).json({ message: 'Login successful', username: existingUser.username });
+    const tokens = await issueTokens(existingUser.id);
+    res.status(200).json({ message: 'Login successful', username: existingUser.username, ...tokens });
     return;
   }
 
@@ -73,7 +65,7 @@ export async function login(
     return;
   }
 
-  // TODO: send back an access token or refresh token representing the user
-  res.status(201).json({ message: 'New user created', username: newUser.username });
+  const tokens = await issueTokens(newUser.id);
+  res.status(201).json({ message: 'New user created', username: newUser.username, ...tokens });
   return;
 }
