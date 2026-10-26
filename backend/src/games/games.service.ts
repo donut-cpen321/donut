@@ -58,7 +58,7 @@ export async function joinGame(
   gameId: string,
   userId: string,
   team: number,
-  accepted: boolean = true,
+  accepted = true,
 ) {
   return await createGameUser(gameId, userId, team, accepted);
 }
