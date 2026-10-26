@@ -19,7 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 data class User(
-    val username: String
+    val username: String,
+    val accessToken: String,
+    val refreshToken: String
 )
 
 /**

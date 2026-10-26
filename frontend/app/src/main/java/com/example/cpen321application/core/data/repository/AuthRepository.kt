@@ -4,7 +4,7 @@ import com.example.cpen321application.core.auth.User
 import com.example.cpen321application.core.network.ApiService
 import com.example.cpen321application.core.network.RetrofitClient
 import com.example.cpen321application.core.network.dto.LoginRequestDto
-import kotlinx.coroutines.CancellationException
+import com.example.cpen321application.core.network.dto.toUser
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -19,7 +19,7 @@ class AuthRepositoryImpl(
     override suspend fun loginWithBackend(idToken: String): Result<User> {
         return try {
             val response = apiService.loginWithBackend(LoginRequestDto(idToken))
-            Result.success(User(username = response.username))
+            Result.success(response.toUser())
         } catch (e: HttpException) {
             Result.failure(e)
         } catch (e: IOException) {
