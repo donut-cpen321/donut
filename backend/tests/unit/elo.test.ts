@@ -1,6 +1,32 @@
-import { Format, Sport } from '../../src/generated/prisma/enums';
+import { Format } from '../../src/generated/prisma/enums';
 import { calculateELOChange } from '../../src/scoring/elo';
 import { GameInfo, PlayerInfo, RoundScore } from '../../src/scoring/scoring.types';
+
+// Singles lineup: player-a on team 0, player-b on team 1
+function singlesPlayers(ratingA: number, ratingB: number): PlayerInfo[] {
+  return [
+    { userId: 'player-a', team: 0, rating: ratingA },
+    { userId: 'player-b', team: 1, rating: ratingB },
+  ];
+}
+
+// Doubles lineup: player-a1 and player-a2 on team 0, player-b1 and player-b2 on team 1
+function doublesPlayers(ratingA1: number, ratingA2: number, ratingB1: number, ratingB2: number): PlayerInfo[] {
+  return [
+    { userId: 'player-a1', team: 0, rating: ratingA1 },
+    { userId: 'player-a2', team: 0, rating: ratingA2 },
+    { userId: 'player-b1', team: 1, rating: ratingB1 },
+    { userId: 'player-b2', team: 1, rating: ratingB2 },
+  ];
+}
+
+function singlesGame(scores: RoundScore[]): GameInfo {
+  return { format: Format.SINGLES, scores };
+}
+
+function doublesGame(scores: RoundScore[]): GameInfo {
+  return { format: Format.DOUBLES, scores };
+}
 
 // Function calculateELOChange
 describe('Unit: calculateELOChange', () => {
@@ -9,15 +35,8 @@ describe('Unit: calculateELOChange', () => {
   // Expected behavior: the favorite wins as expected and gains a small amount
   // Expected output: A gains 9.33, B loses 9.33
   test('Singles, A rating > B rating, player A wins', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a', team: 0, rating: 1800 },
-      { userId: 'player-b', team: 1, rating: 1500 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.SINGLES,
-      scores: [[6, 3], [6, 4]],
-    };
+    const players: PlayerInfo[] = singlesPlayers(1800, 1500);
+    const game: GameInfo = singlesGame([[6, 3], [6, 4]]);
 
     const [changeA, changeB] = calculateELOChange(players, game);
 
@@ -34,15 +53,8 @@ describe('Unit: calculateELOChange', () => {
   // Expected behavior: the underdog wins and gains a large amount
   // Expected output: A gains 54.17, B loses 54.17
   test('Singles, A rating < B rating, player A wins (upset)', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a', team: 0, rating: 1500 },
-      { userId: 'player-b', team: 1, rating: 1800 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.SINGLES,
-      scores: [[6, 4], [7, 5]],
-    };
+    const players: PlayerInfo[] = singlesPlayers(1500, 1800);
+    const game: GameInfo = singlesGame([[6, 4], [7, 5]]);
 
     const [changeA, changeB] = calculateELOChange(players, game);
 
@@ -59,15 +71,8 @@ describe('Unit: calculateELOChange', () => {
   // Expected behavior: the heavy favorite won by less than expected, so the margin term outweighs the win
   // Expected output: A loses 3.61, B gains 3.61
   test('Singles, A rating >> B rating, A wins narrowly and loses rating', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a', team: 0, rating: 2000 },
-      { userId: 'player-b', team: 1, rating: 1400 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.SINGLES,
-      scores: [[7, 6], [7, 6]],
-    };
+    const players: PlayerInfo[] = singlesPlayers(2000, 1400);
+    const game: GameInfo = singlesGame([[7, 6], [7, 6]]);
 
     const [changeA, changeB] = calculateELOChange(players, game);
 
@@ -80,15 +85,8 @@ describe('Unit: calculateELOChange', () => {
   // Expected behavior: E_A = 0.5 and E_MOV = 0, so Δ = 50 * 0.5 + 1.5 * 5 = 32.5
   // Expected output: A = 1532.5, B = 1467.5
   test('Singles, equal ratings, player A wins', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a', team: 0, rating: 1500 },
-      { userId: 'player-b', team: 1, rating: 1500 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.SINGLES,
-      scores: [[6, 4], [6, 3]],
-    };
+    const players: PlayerInfo[] = singlesPlayers(1500, 1500);
+    const game: GameInfo = singlesGame([[6, 4], [6, 3]]);
 
     const [changeA, changeB] = calculateELOChange(players, game);
 
@@ -100,15 +98,8 @@ describe('Unit: calculateELOChange', () => {
   // Expected behavior: the favorite wins as expected and gains a small amount
   // Expected output: A loses 12.35, B gains 12.35
   test('Singles, A rating < B rating, player B wins in three rounds', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a', team: 0, rating: 1500 },
-      { userId: 'player-b', team: 1, rating: 1700 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.SINGLES,
-      scores: [[6, 4], [4, 6], [3, 6]],
-    };
+    const players: PlayerInfo[] = singlesPlayers(1500, 1700);
+    const game: GameInfo = singlesGame([[6, 4], [4, 6], [3, 6]]);
 
     const [changeA, changeB] = calculateELOChange(players, game);
 
@@ -121,25 +112,14 @@ describe('Unit: calculateELOChange', () => {
 });
 
 describe('Unit: calculateELOChange — behavior', () => {
-  const players: PlayerInfo[] = [
-    { userId: 'player-a', team: 0, rating: 1500 },
-    { userId: 'player-b', team: 1, rating: 1500 },
-  ];
+  const players: PlayerInfo[] = singlesPlayers(1500, 1500);
 
   // Input: the same matchup won 7-5, 7-5 and won 6-1, 6-1
   // Expected behavior: a bigger margin of victory earns more rating
   // Expected output: the blowout winner ends higher than the narrow winner
   test('Bigger winning margin gives a bigger rating gain', () => {
-    const narrow = calculateELOChange(players, {
-      sport: Sport.TENNIS,
-      format: Format.SINGLES,
-      scores: [[7, 5], [7, 5]],
-    });
-    const blowout = calculateELOChange(players, {
-      sport: Sport.TENNIS,
-      format: Format.SINGLES,
-      scores: [[6, 1], [6, 1]],
-    });
+    const narrow = calculateELOChange(players, singlesGame([[7, 5], [7, 5]]));
+    const blowout = calculateELOChange(players, singlesGame([[6, 1], [6, 1]]));
 
     expect(blowout[0]?.ratingAfter).toBeGreaterThan(narrow[0]?.ratingAfter ?? Infinity);
   });
@@ -148,13 +128,13 @@ describe('Unit: calculateELOChange — behavior', () => {
   // Expected behavior: beating a stronger opponent earns more rating
   // Expected output: the upset winner gains more than the favorite
   test('Beating a stronger opponent gives a bigger rating gain', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [[7, 5], [7, 5]] };
+    const game: GameInfo = singlesGame([[7, 5], [7, 5]]);
     const vsWeaker = calculateELOChange(
-      [{ userId: 'player-a', team: 0, rating: 1500 }, { userId: 'player-b', team: 1, rating: 1300 }],
+      singlesPlayers(1500, 1300),
       game,
     );
     const vsStronger = calculateELOChange(
-      [{ userId: 'player-a', team: 0, rating: 1500 }, { userId: 'player-b', team: 1, rating: 1700 }],
+      singlesPlayers(1500, 1700),
       game,
     );
 
@@ -165,7 +145,7 @@ describe('Unit: calculateELOChange — behavior', () => {
   // Expected behavior: player order does not affect the result; output lists team 0 first
   // Expected output: same rating changes as with team 0 listed first
   test('Singles, player order does not matter', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [[6, 3], [6, 4]] };
+    const game: GameInfo = singlesGame([[6, 3], [6, 4]]);
     const playerA: PlayerInfo = { userId: 'player-a', team: 0, rating: 1800 };
     const playerB: PlayerInfo = { userId: 'player-b', team: 1, rating: 1500 };
 
@@ -179,7 +159,7 @@ describe('Unit: calculateELOChange — behavior', () => {
   // Expected behavior: player order does not affect the result
   // Expected output: each player gets the same rating change in every order
   test('Doubles, player order does not matter', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.DOUBLES, scores: [[6, 3], [6, 4]] };
+    const game: GameInfo = doublesGame([[6, 3], [6, 4]]);
     const a1: PlayerInfo = { userId: 'player-a1', team: 0, rating: 1700 };
     const a2: PlayerInfo = { userId: 'player-a2', team: 0, rating: 1600 };
     const b1: PlayerInfo = { userId: 'player-b1', team: 1, rating: 1500 };
@@ -207,17 +187,8 @@ describe('Unit: calculateELOChange — doubles', () => {
   // Expected behavior: team Δ = 15.35, each player receives half
   // Expected output: team 0 players gain 7.68, team 1 players lose 7.68
   test('Doubles, team 0 average > team 1 average, team 0 wins', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a1', team: 0, rating: 1700 },
-      { userId: 'player-a2', team: 0, rating: 1600 },
-      { userId: 'player-b1', team: 1, rating: 1500 },
-      { userId: 'player-b2', team: 1, rating: 1400 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.DOUBLES,
-      scores: [[6, 3], [6, 4]],
-    };
+    const players: PlayerInfo[] = doublesPlayers(1700, 1600, 1500, 1400);
+    const game: GameInfo = doublesGame([[6, 3], [6, 4]]);
 
     const [a1, a2, b1, b2] = calculateELOChange(players, game);
 
@@ -235,17 +206,8 @@ describe('Unit: calculateELOChange — doubles', () => {
   // Expected behavior: team Δ = -45.15, each player receives half
   // Expected output: team 0 players lose 22.57, team 1 players gain 22.57
   test('Doubles, team 0 average > team 1 average, team 1 wins (upset)', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a1', team: 0, rating: 1600 },
-      { userId: 'player-a2', team: 0, rating: 1500 },
-      { userId: 'player-b1', team: 1, rating: 1400 },
-      { userId: 'player-b2', team: 1, rating: 1300 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.DOUBLES,
-      scores: [[4, 6], [6, 3], [3, 6]],
-    };
+    const players: PlayerInfo[] = doublesPlayers(1600, 1500, 1400, 1300);
+    const game: GameInfo = doublesGame([[4, 6], [6, 3], [3, 6]]);
 
     const [a1, a2, b1, b2] = calculateELOChange(players, game);
 
@@ -259,17 +221,8 @@ describe('Unit: calculateELOChange — doubles', () => {
   // Expected behavior: team 0 average is 1600 vs 1550, team Δ = 24.81; teammates move by the same amount regardless of their own rating
   // Expected output: team 0 players gain 12.40, team 1 players lose 12.40
   test('Doubles, uneven teammates move by the same amount', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a1', team: 0, rating: 1900 },
-      { userId: 'player-a2', team: 0, rating: 1300 },
-      { userId: 'player-b1', team: 1, rating: 1550 },
-      { userId: 'player-b2', team: 1, rating: 1550 },
-    ];
-    const game: GameInfo = {
-      sport: Sport.TENNIS,
-      format: Format.DOUBLES,
-      scores: [[6, 4], [3, 6], [6, 2]],
-    };
+    const players: PlayerInfo[] = doublesPlayers(1900, 1300, 1550, 1550);
+    const game: GameInfo = doublesGame([[6, 4], [3, 6], [6, 2]]);
 
     const [a1, a2, b1, b2] = calculateELOChange(players, game);
 
@@ -281,16 +234,8 @@ describe('Unit: calculateELOChange — doubles', () => {
 });
 
 describe('Unit: calculateELOChange — invalid players', () => {
-  const validDoublesGame: GameInfo = {
-    sport: Sport.TENNIS,
-    format: Format.DOUBLES,
-    scores: [[6, 3], [6, 4]],
-  };
-  const validSinglesGame: GameInfo = {
-    sport: Sport.TENNIS,
-    format: Format.SINGLES,
-    scores: [[6, 3], [6, 4]],
-  };
+  const validDoublesGame: GameInfo = doublesGame([[6, 3], [6, 4]]);
+  const validSinglesGame: GameInfo = singlesGame([[6, 3], [6, 4]]);
 
   // Input: three team 0 players and one team 1 player
   // Expected behavior: rejected because each team needs two players
@@ -310,10 +255,7 @@ describe('Unit: calculateELOChange — invalid players', () => {
   // Expected behavior: rejected because doubles needs 4 players
   // Expected output: throws "exactly 4 players"
   test('Doubles with only 2 players throws', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a', team: 0, rating: 1500 },
-      { userId: 'player-b', team: 1, rating: 1500 },
-    ];
+    const players: PlayerInfo[] = singlesPlayers(1500, 1500);
 
     expect(() => calculateELOChange(players, validDoublesGame)).toThrow('exactly 4 players');
   });
@@ -361,10 +303,7 @@ describe('Unit: calculateELOChange — invalid players', () => {
   // Expected behavior: rejected instead of producing NaN or infinite ratings
   // Expected output: throws "not finite" for each
   test.each([NaN, Infinity, -Infinity])('Singles with a rating of %p throws', (badRating) => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a', team: 0, rating: badRating },
-      { userId: 'player-b', team: 1, rating: 1500 },
-    ];
+    const players: PlayerInfo[] = singlesPlayers(badRating, 1500);
 
     expect(() => calculateELOChange(players, validSinglesGame)).toThrow('not finite');
   });
@@ -373,12 +312,7 @@ describe('Unit: calculateELOChange — invalid players', () => {
   // Expected behavior: rejected instead of turning the team average and every rating into NaN or infinity
   // Expected output: throws "not finite" for each
   test.each([NaN, Infinity, -Infinity])('Doubles with a rating of %p throws', (badRating) => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a1', team: 0, rating: 1500 },
-      { userId: 'player-a2', team: 0, rating: badRating },
-      { userId: 'player-b1', team: 1, rating: 1500 },
-      { userId: 'player-b2', team: 1, rating: 1500 },
-    ];
+    const players: PlayerInfo[] = doublesPlayers(1500, badRating, 1500, 1500);
 
     expect(() => calculateELOChange(players, validDoublesGame)).toThrow('not finite');
   });
@@ -387,41 +321,20 @@ describe('Unit: calculateELOChange — invalid players', () => {
   // Expected behavior: rejected because singles needs 2 players
   // Expected output: throws "exactly 2 players"
   test('Singles with 4 players throws', () => {
-    const players: PlayerInfo[] = [
-      { userId: 'player-a1', team: 0, rating: 1500 },
-      { userId: 'player-a2', team: 0, rating: 1500 },
-      { userId: 'player-b1', team: 1, rating: 1500 },
-      { userId: 'player-b2', team: 1, rating: 1500 },
-    ];
+    const players: PlayerInfo[] = doublesPlayers(1500, 1500, 1500, 1500);
 
     expect(() => calculateELOChange(players, validSinglesGame)).toThrow('exactly 2 players');
   });
 });
 
 describe('Unit: calculateELOChange — invalid scores', () => {
-  const players: PlayerInfo[] = [
-    { userId: 'player-a', team: 0, rating: 1500 },
-    { userId: 'player-b', team: 1, rating: 1500 },
-  ];
-
-  // Input: a singles game with a sport that isn't in the enum (e.g. bad data from a request, or a removed sport)
-  // Expected behavior: rejected instead of looking up parameters that don't exist
-  // Expected output: throws "Unsupported sport"
-  test.each(['GOLF', 'PICKLEBALL', '__proto__'])('Unsupported sport %p throws', (badSport) => {
-    const game: GameInfo = {
-      sport: badSport as Sport,   // bypasses the type check to simulate bad runtime data
-      format: Format.SINGLES,
-      scores: [[6, 3], [6, 4]],
-    };
-
-    expect(() => calculateELOChange(players, game)).toThrow('Unsupported sport');
-  });
+  const players: PlayerInfo[] = singlesPlayers(1500, 1500);
 
   // Input: a singles game with no rounds
   // Expected behavior: rejected because there is nothing to score
   // Expected output: throws "no round score information"
   test('Empty scores throws', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [] };
+    const game: GameInfo = singlesGame([]);
 
     expect(() => calculateELOChange(players, game)).toThrow('no round score information');
   });
@@ -430,7 +343,7 @@ describe('Unit: calculateELOChange — invalid scores', () => {
   // Expected behavior: rejected because rounds cannot tie
   // Expected output: throws "cannot be tied"
   test('A tied round throws', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [[6, 3], [5, 5]] };
+    const game: GameInfo = singlesGame([[6, 3], [5, 5]]);
 
     expect(() => calculateELOChange(players, game)).toThrow('cannot be tied');
   });
@@ -439,7 +352,7 @@ describe('Unit: calculateELOChange — invalid scores', () => {
   // Expected behavior: rejected because the match has no winner
   // Expected output: throws "no winner"
   test('Both sides winning the same number of rounds throws', () => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores: [[6, 3], [4, 6]] };
+    const game: GameInfo = singlesGame([[6, 3], [4, 6]]);
 
     expect(() => calculateELOChange(players, game)).toThrow('no winner');
   });
@@ -453,7 +366,7 @@ describe('Unit: calculateELOChange — invalid scores', () => {
     ['decimal', [[6, 3], [6.5, 4]]],
   ];
   test.each(invalidRounds)('Round with a %s score throws', (_label, scores) => {
-    const game: GameInfo = { sport: Sport.TENNIS, format: Format.SINGLES, scores };
+    const game: GameInfo = singlesGame(scores);
 
     expect(() => calculateELOChange(players, game)).toThrow('non-negative integer');
   });

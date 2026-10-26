@@ -1,27 +1,9 @@
 // Pure Elo math and calculations
-import { Sport, Format } from '../generated/prisma/client'
-import { GameInfo, PlayerInfo, RatingChange, SportEloParams } from './scoring.types'
+import { Format } from '../generated/prisma/client'
+import { EloParams, GameInfo, PlayerInfo, RatingChange } from './scoring.types'
 
-const SPORT_PARAMS: Record<Sport, SportEloParams> = {
-    TENNIS:     { maxExpectedMargin: 6,  marginGrowthRate: 0.0025, marginWeight: 1.5, kFactor: 50}
-};
-
-/**
- * Looks up the Elo parameters for a sport.
- * Uses fixed keys instead of SPORT_PARAMS[sport], so an unexpected value
- * (e.g. "__proto__" from untrusted input) can't reach the lookup.
- *
- * @param sport - Sport being played
- * @returns The sport's kFactor, maxExpectedMargin, marginGrowthRate and marginWeight
- * @throws If the sport is not supported
- */
-function getSportParams(sport: Sport): SportEloParams {
-    switch (sport) {
-        case Sport.TENNIS:     return SPORT_PARAMS.TENNIS;
-        default:
-            throw new Error(`Unsupported sport: ${String(sport)}`);
-    }
-}
+// Elo parameters tuned for tennis, where a round is a set
+const ELO_PARAMS: EloParams = { maxExpectedMargin: 6, marginGrowthRate: 0.0025, marginWeight: 1.5, kFactor: 50 };
 
 // determine how many points correspond to a given difference in skill
 // 400 means the stronger side has 10-to-1 odds of winning (standard Elo scale)
@@ -44,22 +26,20 @@ function calculateExpectedOutcome(
 
 /**
  * Calculates the expected margin of victory for player A over player B.
- * The margin grows with the rating gap but levels off at the sport's
- * maximum (maxExpectedMargin), so huge rating gaps don't predict unrealistic blowouts.
+ * The margin grows with the rating gap but levels off at maxExpectedMargin,
+ * so huge rating gaps don't predict unrealistic blowouts.
  *
  * @param playerARating - Rating of player (or team) A
  * @param playerBRating - Rating of player (or team) B
- * @param sport - Sport being played; selects maxExpectedMargin and marginGrowthRate
  * @returns Expected points A wins by, between -maxExpectedMargin and +maxExpectedMargin
  *          (negative means B is expected to win)
  */
 function calculateExpectedMargin(
     playerARating: number,
     playerBRating: number,
-    sport: Sport,
 ): number {
     const ratingGap = playerARating - playerBRating;
-    const { maxExpectedMargin, marginGrowthRate } = getSportParams(sport);
+    const { maxExpectedMargin, marginGrowthRate } = ELO_PARAMS;
 
     return maxExpectedMargin * Math.tanh(marginGrowthRate * ratingGap);
 }
@@ -71,7 +51,7 @@ function calculateExpectedMargin(
  *
  * @param playerARating - Rating of player (or team average) A, who must be team 0
  * @param playerBRating - Rating of player (or team average) B, who must be team 1
- * @param game - Sport (selects kFactor and marginWeight) and round scores
+ * @param game - Format and round scores
  * @returns The amount to add to A's rating (negative if A lost rating)
  */
 function calculateRatingUpdate(
@@ -81,9 +61,9 @@ function calculateRatingUpdate(
 ): number {
 
     const expectedOutcome = calculateExpectedOutcome(playerARating, playerBRating);
-    const expectedMargin = calculateExpectedMargin(playerARating, playerBRating, game.sport);
+    const expectedMargin = calculateExpectedMargin(playerARating, playerBRating);
 
-    const { marginWeight, kFactor } = getSportParams(game.sport);
+    const { marginWeight, kFactor } = ELO_PARAMS;
 
     let teamATotal = 0;
     let teamBTotal = 0;
@@ -134,7 +114,7 @@ function calculateRatingUpdate(
  *
  * @param players - Players in any order. Singles: one player on each of team 0 and team 1.
  *                  Doubles: two players on each team.
- * @param game - Sport, format and round scores of the game
+ * @param game - Format and round scores of the game
  * @returns One RatingChange per player: team 0 players first, then team 1
  * @throws If the player count or team split doesn't match the format, a userId
  *         appears more than once, a rating isn't finite, or the scores are

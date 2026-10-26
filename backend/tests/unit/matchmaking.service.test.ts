@@ -11,7 +11,7 @@ jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
 }));
 
 function playerStub(userId: string, overrides: Partial<Candidate> = {}): Candidate {
-  return { userId, sport: 'TENNIS', format: 'SINGLES', rating: 1500, createdAt: new Date(0), ...overrides };
+  return { userId, format: 'SINGLES', rating: 1500, createdAt: new Date(0), ...overrides };
 }
 
 // Interface findMatches(candidates)
@@ -22,7 +22,7 @@ describe('findMatches', () => {
   test('Matches two users with similar preferences', () => {
     const matches = findMatches([playerStub('a', { rating: 1500 }), playerStub('b', { rating: 1600 })]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] }]);
+    expect(matches).toEqual([{ format: 'SINGLES', userIds: ['a', 'b'] }]);
   });
 
   // Input: a SINGLES player and a DOUBLES player
@@ -49,7 +49,7 @@ describe('findMatches', () => {
       playerStub('high', { rating: 1500 }),
     ]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'SINGLES', userIds: ['mid', 'high'] }]);
+    expect(matches).toEqual([{ format: 'SINGLES', userIds: ['mid', 'high'] }]);
   });
 
   // Input: three equally rated players who joined at different times
@@ -62,7 +62,7 @@ describe('findMatches', () => {
       playerStub('middle', { createdAt: new Date(2) }),
     ]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'SINGLES', userIds: ['oldest', 'middle'] }]);
+    expect(matches).toEqual([{ format: 'SINGLES', userIds: ['oldest', 'middle'] }]);
   });
 
   // Input: the oldest request at 1700, then a closer-rated pair at 1500 and 1510
@@ -75,7 +75,7 @@ describe('findMatches', () => {
       playerStub('b', { rating: 1510, createdAt: new Date(3) }),
     ]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'SINGLES', userIds: ['oldest', 'b'] }]);
+    expect(matches).toEqual([{ format: 'SINGLES', userIds: ['oldest', 'b'] }]);
   });
 
   // Input: four doubles players spread 1310 to 1690 (380)
@@ -89,7 +89,7 @@ describe('findMatches', () => {
       playerStub('c', { format: 'DOUBLES', rating: 1690, createdAt: new Date(4) }),
     ]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'DOUBLES', userIds: ['oldest', 'b', 'a', 'c'] }]);
+    expect(matches).toEqual([{ format: 'DOUBLES', userIds: ['oldest', 'b', 'a', 'c'] }]);
   });
 
   // Input: four doubles players, each within 205 of the oldest, but spread 1295 to 1700 (405)
@@ -112,7 +112,7 @@ describe('findMatches', () => {
   test('EITHER fits singles', () => {
     const matches = findMatches([playerStub('a'), playerStub('b', { format: 'EITHER' })]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] }]);
+    expect(matches).toEqual([{ format: 'SINGLES', userIds: ['a', 'b'] }]);
   });
 
   // Input: four DOUBLES/EITHER players with close ratings
@@ -126,7 +126,7 @@ describe('findMatches', () => {
       playerStub('d', { format: 'DOUBLES', rating: 1650 }),
     ]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'DOUBLES', userIds: ['a', 'b', 'c', 'd'] }]);
+    expect(matches).toEqual([{ format: 'DOUBLES', userIds: ['a', 'b', 'c', 'd'] }]);
   });
 
   // Input: an EITHER player who fits a singles pair and a doubles group
@@ -141,7 +141,7 @@ describe('findMatches', () => {
       playerStub('e', { format: 'DOUBLES' }),
     ]);
 
-    expect(matches).toEqual([{ sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] }]);
+    expect(matches).toEqual([{ format: 'SINGLES', userIds: ['a', 'b'] }]);
   });
 });
 
@@ -158,7 +158,7 @@ describe('runMatchmaking', () => {
     jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b'), playerStub('c', { rating: 2000 })]);
     jest.mocked(claimMatch).mockResolvedValue(true);
 
-    const match = { sport: 'TENNIS', format: 'SINGLES', userIds: ['a', 'b'] };
+    const match = { format: 'SINGLES', userIds: ['a', 'b'] };
     await expect(runMatchmaking()).resolves.toEqual([match]);
     expect(claimMatch).toHaveBeenCalledWith(match);
   });
@@ -176,7 +176,7 @@ describe('runMatchmaking', () => {
     jest.mocked(claimMatch).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 
     await expect(runMatchmaking()).resolves.toEqual([
-      { sport: 'TENNIS', format: 'SINGLES', userIds: ['c', 'd'] },
+      { format: 'SINGLES', userIds: ['c', 'd'] },
     ]);
     expect(claimMatch).toHaveBeenCalledTimes(2);
   });
