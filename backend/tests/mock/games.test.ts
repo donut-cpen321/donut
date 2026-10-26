@@ -9,11 +9,19 @@ import {
 } from "../../src/generated/prisma/enums";
 import {
   createGame,
+  createGameUser,
   deleteGame,
+  deleteGameUser,
   fetchGame,
   isUserInGame,
 } from "../../src/games/games.repository";
-import { cancelGame, getGame, newGame } from "../../src/games/games.service";
+import {
+  cancelGame,
+  getGame,
+  joinGame,
+  leaveGame,
+  newGame,
+} from "../../src/games/games.service";
 import { signAccessToken } from "../../src/auth/tokens";
 
 // Every /games route is behind requireAuth, so requests need a valid token
@@ -26,12 +34,16 @@ jest.mock("../../src/games/games.repository", () => ({
   fetchGame: jest.fn(),
   deleteGame: jest.fn(),
   isUserInGame: jest.fn(),
+  createGameUser: jest.fn(),
+  deleteGameUser: jest.fn(),
 }));
 
 const mockedCreateGame = jest.mocked(createGame);
 const mockedFetchGame = jest.mocked(fetchGame);
 const mockedDeleteGame = jest.mocked(deleteGame);
 const mockedIsUserInGame = jest.mocked(isUserInGame);
+const mockedCreateGameUser = jest.mocked(createGameUser);
+const mockedDeleteGameUser = jest.mocked(deleteGameUser);
 
 const futureStartsAt = () =>
   new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -51,34 +63,37 @@ describe("Mocked: /games requireAuth", () => {
 
   const gameId = "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b";
 
-  test.each([
-    ["POST", () => request(createApp()).post("/games").send(validBody())],
-    ["GET", () => request(createApp()).get("/games").query({ gameId })],
-    ["DELETE", () => request(createApp()).delete("/games").query({ gameId })],
-  ])("Rejects %s without an Authorization header", async (_method, send) => {
+  const routes = () => [
+    ["POST /games", () => request(createApp()).post("/games").send(validBody())],
+    ["GET /games", () => request(createApp()).get("/games").query({ gameId })],
+    ["DELETE /games", () => request(createApp()).delete("/games").query({ gameId })],
+    ["POST /games/join", () => request(createApp()).post("/games/join").send({ gameId, team: 1 })],
+    ["POST /games/leave", () => request(createApp()).post("/games/leave").send({ gameId })],
+  ] as const;
+
+  const expectNoRepositoryCalls = () => {
+    expect(mockedCreateGame).not.toHaveBeenCalled();
+    expect(mockedFetchGame).not.toHaveBeenCalled();
+    expect(mockedDeleteGame).not.toHaveBeenCalled();
+    expect(mockedIsUserInGame).not.toHaveBeenCalled();
+    expect(mockedCreateGameUser).not.toHaveBeenCalled();
+    expect(mockedDeleteGameUser).not.toHaveBeenCalled();
+  };
+
+  test.each(routes())("Rejects %s without an Authorization header", async (_route, send) => {
     const response = await send();
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: "Missing auth token" });
-    expect(mockedCreateGame).not.toHaveBeenCalled();
-    expect(mockedFetchGame).not.toHaveBeenCalled();
-    expect(mockedDeleteGame).not.toHaveBeenCalled();
-    expect(mockedIsUserInGame).not.toHaveBeenCalled();
+    expectNoRepositoryCalls();
   });
 
-  test.each([
-    ["POST", () => request(createApp()).post("/games").send(validBody())],
-    ["GET", () => request(createApp()).get("/games").query({ gameId })],
-    ["DELETE", () => request(createApp()).delete("/games").query({ gameId })],
-  ])("Rejects %s with an invalid token", async (_method, send) => {
+  test.each(routes())("Rejects %s with an invalid token", async (_route, send) => {
     const response = await send().set("Authorization", "Bearer not-a-jwt");
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: "Invalid or expired auth token" });
-    expect(mockedCreateGame).not.toHaveBeenCalled();
-    expect(mockedFetchGame).not.toHaveBeenCalled();
-    expect(mockedDeleteGame).not.toHaveBeenCalled();
-    expect(mockedIsUserInGame).not.toHaveBeenCalled();
+    expectNoRepositoryCalls();
   });
 });
 
@@ -87,7 +102,7 @@ describe("Mocked: POST /games", () => {
     jest.clearAllMocks();
   });
 
-  test("Creates a game with OPEN status", async () => {
+  test("Creates a game with OPEN status and adds the creator to team 1", async () => {
     const body = validBody();
     const createdGame = {
       id: "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b",
@@ -97,6 +112,12 @@ describe("Mocked: POST /games", () => {
       createdAt: new Date(),
     };
     mockedCreateGame.mockResolvedValue(createdGame);
+    mockedCreateGameUser.mockResolvedValue({
+      gameId: createdGame.id,
+      userId,
+      team: 1,
+      acceptedAt: new Date(),
+    });
 
     const response = await request(createApp()).post("/games").set("Authorization", authHeader).send(body);
 
@@ -115,6 +136,34 @@ describe("Mocked: POST /games", () => {
       startsAt: new Date(body.startsAt),
       status: GameStatus.OPEN,
     });
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(
+      createdGame.id,
+      userId,
+      1,
+      true,
+    );
+  });
+
+  test("Returns 500 when adding the creator to the game fails", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedCreateGame.mockResolvedValue({
+      id: "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b",
+      ...validBody(),
+      startsAt: new Date(futureStartsAt()),
+      status: GameStatus.OPEN,
+      createdAt: new Date(),
+    });
+    mockedCreateGameUser.mockRejectedValue(new Error("Database unavailable"));
+
+    const response = await request(createApp())
+      .post("/games").set("Authorization", authHeader)
+      .send(validBody());
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Internal server error" });
+    consoleError.mockRestore();
   });
 
   test.each([
@@ -137,6 +186,7 @@ describe("Mocked: POST /games", () => {
     expect(response.body.error).toBe("Invalid request body");
     expect(response.body.details).toBeDefined();
     expect(mockedCreateGame).not.toHaveBeenCalled();
+    expect(mockedCreateGameUser).not.toHaveBeenCalled();
   });
 
   test.each([
@@ -438,26 +488,317 @@ describe("Mocked: newGame", () => {
     jest.clearAllMocks();
   });
 
-  test("Creates the game with OPEN status", async () => {
-    const input = {
-      sport: Sport.PICKLEBALL,
-      format: Format.DOUBLES,
-      startsAt: new Date(futureStartsAt()),
-      courtId: 7,
-      gameSource: GameSource.MATCHED,
-    };
+  const input = () => ({
+    sport: Sport.PICKLEBALL,
+    format: Format.DOUBLES,
+    startsAt: new Date(futureStartsAt()),
+    courtId: 7,
+    gameSource: GameSource.MATCHED,
+  });
+
+  test("Creates the game with OPEN status and adds the creator to team 1", async () => {
+    const gameInput = input();
     const createdGame = {
       id: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
-      ...input,
+      ...gameInput,
       status: GameStatus.OPEN,
       createdAt: new Date(),
     };
     mockedCreateGame.mockResolvedValue(createdGame);
+    mockedCreateGameUser.mockResolvedValue({
+      gameId: createdGame.id,
+      userId,
+      team: 1,
+      acceptedAt: new Date(),
+    });
 
-    await expect(newGame(input)).resolves.toBe(createdGame);
+    await expect(newGame(gameInput, userId)).resolves.toBe(createdGame);
     expect(mockedCreateGame).toHaveBeenCalledWith({
-      ...input,
+      ...gameInput,
       status: GameStatus.OPEN,
     });
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(
+      createdGame.id,
+      userId,
+      1,
+      true,
+    );
+  });
+
+  test("Does not add the creator when creating the game fails", async () => {
+    const error = new Error("Database unavailable");
+    mockedCreateGame.mockRejectedValue(error);
+
+    await expect(newGame(input(), userId)).rejects.toBe(error);
+    expect(mockedCreateGameUser).not.toHaveBeenCalled();
+  });
+
+  test("Propagates errors from adding the creator", async () => {
+    const error = new Error("Database unavailable");
+    mockedCreateGame.mockResolvedValue({
+      id: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      ...input(),
+      status: GameStatus.OPEN,
+      createdAt: new Date(),
+    });
+    mockedCreateGameUser.mockRejectedValue(error);
+
+    await expect(newGame(input(), userId)).rejects.toBe(error);
+  });
+});
+
+const prismaError = (code: string) =>
+  new Prisma.PrismaClientKnownRequestError(`Prisma error ${code}`, {
+    code,
+    clientVersion: Prisma.prismaVersion.client,
+  });
+
+const joinGameId = "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b";
+
+describe("Mocked: POST /games/join", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const validJoinBody = () => ({ gameId: joinGameId, team: 1 });
+
+  test("Adds the authenticated user to the game", async () => {
+    const body = validJoinBody();
+    mockedCreateGameUser.mockResolvedValue({
+      ...body,
+      userId,
+      acceptedAt: new Date(),
+    });
+
+    const response = await request(createApp())
+      .post("/games/join").set("Authorization", authHeader)
+      .send(body);
+
+    expect(response.status).toBe(204);
+    expect(response.body).toEqual({});
+    expect(mockedCreateGameUser).toHaveBeenCalledTimes(1);
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(
+      body.gameId,
+      userId,
+      body.team,
+      true,
+    );
+  });
+
+  test("Accepts team 0", async () => {
+    const body = { ...validJoinBody(), team: 0 };
+    mockedCreateGameUser.mockResolvedValue({ ...body, userId, acceptedAt: null });
+
+    const response = await request(createApp())
+      .post("/games/join").set("Authorization", authHeader)
+      .send(body);
+
+    expect(response.status).toBe(204);
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(
+      body.gameId,
+      userId,
+      0,
+      true,
+    );
+  });
+
+  test.each([
+    ["missing gameId", { gameId: undefined }],
+    ["non-UUID gameId", { gameId: "not-a-uuid" }],
+    ["missing team", { team: undefined }],
+    ["negative team", { team: -1 }],
+    ["non-integer team", { team: 1.5 }],
+    ["string team", { team: "1" }],
+    ["userId in the body", { userId: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" }],
+    ["unknown field", { accepted: false }],
+  ])("Rejects a body with %s", async (_description, overrides) => {
+    const response = await request(createApp())
+      .post("/games/join").set("Authorization", authHeader)
+      .send({ ...validJoinBody(), ...overrides });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Invalid request body");
+    expect(response.body.details).toBeDefined();
+    expect(mockedCreateGameUser).not.toHaveBeenCalled();
+  });
+
+  test("Returns 409 when the user is already in the game", async () => {
+    mockedCreateGameUser.mockRejectedValue(prismaError("P2002"));
+
+    const response = await request(createApp())
+      .post("/games/join").set("Authorization", authHeader)
+      .send(validJoinBody());
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "User already in game" });
+  });
+
+  test("Returns 404 when the game or user does not exist", async () => {
+    mockedCreateGameUser.mockRejectedValue(prismaError("P2003"));
+
+    const response = await request(createApp())
+      .post("/games/join").set("Authorization", authHeader)
+      .send(validJoinBody());
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "Game or user not found" });
+  });
+
+  test("Returns 500 for other Prisma errors", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedCreateGameUser.mockRejectedValue(prismaError("P2025"));
+
+    const response = await request(createApp())
+      .post("/games/join").set("Authorization", authHeader)
+      .send(validJoinBody());
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Internal server error" });
+    consoleError.mockRestore();
+  });
+
+  test("Returns 500 when the repository throws unexpectedly", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedCreateGameUser.mockRejectedValue(new Error("Database unavailable"));
+
+    const response = await request(createApp())
+      .post("/games/join").set("Authorization", authHeader)
+      .send(validJoinBody());
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Internal server error" });
+    consoleError.mockRestore();
+  });
+});
+
+describe("Mocked: POST /games/leave", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const validLeaveBody = () => ({ gameId: joinGameId });
+
+  test("Removes the authenticated user from the game", async () => {
+    const body = validLeaveBody();
+    mockedDeleteGameUser.mockResolvedValue();
+
+    const response = await request(createApp())
+      .post("/games/leave").set("Authorization", authHeader)
+      .send(body);
+
+    expect(response.status).toBe(204);
+    expect(response.body).toEqual({});
+    expect(mockedDeleteGameUser).toHaveBeenCalledTimes(1);
+    expect(mockedDeleteGameUser).toHaveBeenCalledWith(body.gameId, userId);
+  });
+
+  test.each([
+    ["missing gameId", { gameId: undefined }],
+    ["non-UUID gameId", { gameId: "not-a-uuid" }],
+    ["userId in the body", { userId: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" }],
+    ["unknown field", { team: 1 }],
+  ])("Rejects a body with %s", async (_description, overrides) => {
+    const response = await request(createApp())
+      .post("/games/leave").set("Authorization", authHeader)
+      .send({ ...validLeaveBody(), ...overrides });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Invalid request body");
+    expect(response.body.details).toBeDefined();
+    expect(mockedDeleteGameUser).not.toHaveBeenCalled();
+  });
+
+  test("Returns 404 when the user is not in the game", async () => {
+    mockedDeleteGameUser.mockRejectedValue(prismaError("P2025"));
+
+    const response = await request(createApp())
+      .post("/games/leave").set("Authorization", authHeader)
+      .send(validLeaveBody());
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "User not in game" });
+  });
+
+  test("Returns 500 for other Prisma errors", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedDeleteGameUser.mockRejectedValue(prismaError("P2003"));
+
+    const response = await request(createApp())
+      .post("/games/leave").set("Authorization", authHeader)
+      .send(validLeaveBody());
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Internal server error" });
+    consoleError.mockRestore();
+  });
+
+  test("Returns 500 when the repository throws unexpectedly", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedDeleteGameUser.mockRejectedValue(new Error("Database unavailable"));
+
+    const response = await request(createApp())
+      .post("/games/leave").set("Authorization", authHeader)
+      .send(validLeaveBody());
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Internal server error" });
+    consoleError.mockRestore();
+  });
+});
+
+describe("Mocked: joinGame", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("Creates an accepted game user by default", async () => {
+    const gameUser = { gameId: joinGameId, userId, team: 1, acceptedAt: new Date() };
+    mockedCreateGameUser.mockResolvedValue(gameUser);
+
+    await expect(joinGame(joinGameId, userId, 1)).resolves.toBe(gameUser);
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(joinGameId, userId, 1, true);
+  });
+
+  test("Passes accepted = false through to the repository", async () => {
+    const gameUser = { gameId: joinGameId, userId, team: 2, acceptedAt: null };
+    mockedCreateGameUser.mockResolvedValue(gameUser);
+
+    await expect(joinGame(joinGameId, userId, 2, false)).resolves.toBe(gameUser);
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(joinGameId, userId, 2, false);
+  });
+
+  test("Propagates repository errors", async () => {
+    const error = new Error("Database unavailable");
+    mockedCreateGameUser.mockRejectedValue(error);
+
+    await expect(joinGame(joinGameId, userId, 1)).rejects.toBe(error);
+  });
+});
+
+describe("Mocked: leaveGame", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("Deletes the game user through the repository", async () => {
+    mockedDeleteGameUser.mockResolvedValue();
+
+    await expect(leaveGame(joinGameId, userId)).resolves.toBeUndefined();
+    expect(mockedDeleteGameUser).toHaveBeenCalledWith(joinGameId, userId);
+  });
+
+  test("Propagates repository errors", async () => {
+    const error = new Error("Database unavailable");
+    mockedDeleteGameUser.mockRejectedValue(error);
+
+    await expect(leaveGame(joinGameId, userId)).rejects.toBe(error);
   });
 });

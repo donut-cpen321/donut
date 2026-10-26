@@ -1,8 +1,5 @@
 import { prisma } from "../db";
 import { Game } from "../generated/prisma/client";
-import { GameIdInput } from "./games.schemas";
-
-// explicit type definition for Codacy
 
 /**
  * Creates a game row using the given game information
@@ -18,7 +15,7 @@ export async function createGame(game: Omit<Game, "id" | "createdAt">) {
  * @param gameId {string} the game ID of the requested game
  * @returns The respective game as a Game or null if the game was not found
  */
-export async function fetchGame(gameId: GameIdInput): Promise<Game | null> {
+export async function fetchGame(gameId: string): Promise<Game | null> {
   return (await prisma.game.findUnique({ where: { id: gameId } })) as Game;
 }
 
@@ -26,7 +23,7 @@ export async function fetchGame(gameId: GameIdInput): Promise<Game | null> {
  * Deletes a game from the database with the given game ID
  * @param gameId the game ID of the game to be deleted
  */
-export async function deleteGame(gameId: GameIdInput): Promise<void> {
+export async function deleteGame(gameId: string): Promise<void> {
   await prisma.game.delete({ where: { id: gameId } });
 }
 
@@ -41,4 +38,30 @@ export async function isUserInGame(userId: string, gameId: string) {
   });
 
   return !!gameUserCount;
+}
+
+/*
+ * Creates a givne game user in the database
+ * @param GameUser the game ID, user ID, and team number of the game user to create
+ * @returns the created game user
+ */
+export async function createGameUser(
+  gameId: string,
+  userId: string,
+  team: number,
+  accepted = true,
+) {
+  return await prisma.gameUser.create({
+    data: { gameId, userId, team, acceptedAt: accepted ? new Date() : null },
+  });
+}
+
+/**
+ * Deletes a given game user from the database
+ * @param GameUser the game ID and user ID of the game user to delete
+ */
+export async function deleteGameUser(gameId: string, userId: string) {
+  await prisma.gameUser.delete({
+    where: { gameId_userId: { gameId, userId } },
+  });
 }

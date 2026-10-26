@@ -14,5 +14,23 @@ export const createGameSchema = z.strictObject({
 
 export const gameIdSchema = z.uuid();
 
+export const joinGameSchema = z.strictObject({
+  gameId: z.uuid(),
+  team: z.number().nonnegative().int(),
+});
+
+export const createGameUserSchema = z.strictObject({
+  gameId: z.uuid(),
+  team: z.number().nonnegative().int(),
+  accepted: z.boolean().optional(),
+});
+
+export const leaveGameSchema = z.strictObject({
+  gameId: z.uuid(),
+});
+
 export type CreateGameInput = z.infer<typeof createGameSchema>;
 export type GameIdInput = z.infer<typeof gameIdSchema>;
+export type JoinGameInput = z.infer<typeof joinGameSchema>;
+export type CreateGameUserInput = z.infer<typeof createGameUserSchema>;
+export type LeaveGameInput = z.infer<typeof leaveGameSchema>;
