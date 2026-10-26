@@ -1,5 +1,5 @@
 import { type Request, type Response } from 'express';
-import { createRefreshToken, deleteRefreshTokenByHash } from './auth.repository';
+import { createRefreshToken, deleteRefreshTokenByHash, rotateRefreshToken } from './auth.repository';
 import { generateNewRefreshToken, hashRefreshToken, signAccessToken } from './tokens';
 
 /**
@@ -39,14 +39,19 @@ export async function refreshTokens(req: Request, res: Response): Promise<void> 
   }
 
   const oldRefreshTokenHash = hashRefreshToken(refreshToken);
-  const oldRefreshToken = await deleteRefreshTokenByHash(oldRefreshTokenHash);
-  if (!oldRefreshToken || oldRefreshToken.expiresAt <= new Date()) {
+  const newRefreshToken = generateNewRefreshToken();
+  const userId = await rotateRefreshToken(oldRefreshTokenHash, {
+    tokenHash: newRefreshToken.hash,
+    expiresAt: newRefreshToken.expiresAt,
+  });
+  if (!userId) {
     res.status(401).json({ error: 'Invalid or expired refresh token' });
     return;
   }
 
-  const newTokens = await issueTokens(oldRefreshToken.userId);
-  res.status(200).json(newTokens);
+  const accessToken = signAccessToken(userId);
+  const newRefreshTokenRaw = newRefreshToken.raw;
+  res.status(200).json({ accessToken, refreshToken: newRefreshTokenRaw });
 }
 
 /**

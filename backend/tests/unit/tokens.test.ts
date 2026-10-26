@@ -24,10 +24,13 @@ describe('Unit: access tokens', () => {
   // Expected behavior: expires one hour after it was issued
   test('Expires after one hour', () => {
     const token = signAccessToken('user-123');
-    const payload = jwt.decode(token) as jwt.JwtPayload;
-    const duration = payload.exp! - payload.iat!;
+    const payload = jwt.decode(token);
 
-    expect(duration).toBe(60 * 60);
+    if (!payload || typeof payload === 'string' || typeof payload.exp !== 'number' || typeof payload.iat !== 'number') {
+      throw new Error('signed token is missing numeric exp or iat');
+    }
+
+    expect(payload.exp - payload.iat).toBe(60 * 60);
   });
 
   // Input: a token whose exp is in the past

@@ -25,11 +25,13 @@ const mockedGetUserByGoogleSub = jest.mocked(getUserByGoogleSub);
 const mockedCreateRefreshToken = jest.mocked(createRefreshToken);
 
 // The access token belongs to the user and only the refresh token's hash is stored
-function expectTokensIssuedFor(body: { accessToken: string; refreshToken: string }, userId: string) {
-  expect(verifyAccessToken(body.accessToken)).toBe(userId);
+function expectTokensIssuedFor(body: unknown, userId: string) {
+  const { accessToken, refreshToken } = body as { accessToken: string; refreshToken: string };
+
+  expect(verifyAccessToken(accessToken)).toBe(userId);
   expect(mockedCreateRefreshToken).toHaveBeenCalledWith({
     userId,
-    tokenHash: hashRefreshToken(body.refreshToken),
+    tokenHash: hashRefreshToken(refreshToken),
     expiresAt: expect.any(Date),
   });
 }
