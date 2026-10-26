@@ -205,7 +205,7 @@ describe("Mocked: GET /games", () => {
   test("Returns 500 when the repository throws unexpectedly", async () => {
     const consoleError = jest
       .spyOn(console, "error")
-      .mockImplementation(() => {});
+      .mockImplementation(() => undefined);
     mockedFetchGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp()).get("/games").query({ gameId });
@@ -253,7 +253,7 @@ describe("Mocked: DELETE /games", () => {
   test("Returns 500 when the game does not exist", async () => {
     const consoleError = jest
       .spyOn(console, "error")
-      .mockImplementation(() => {});
+      .mockImplementation(() => undefined);
     mockedDeleteGame.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError("Record to delete not found", {
         code: "P2025",
@@ -273,7 +273,7 @@ describe("Mocked: DELETE /games", () => {
   test("Returns 500 when the repository throws unexpectedly", async () => {
     const consoleError = jest
       .spyOn(console, "error")
-      .mockImplementation(() => {});
+      .mockImplementation(() => undefined);
     mockedDeleteGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
