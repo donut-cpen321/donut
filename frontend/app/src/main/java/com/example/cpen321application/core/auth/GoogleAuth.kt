@@ -59,22 +59,7 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
         }
     } catch (e: NoCredentialException) {
         Log.e("Auth", "No Google account found on device: ${e.message}", e)
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                "No Google account on device. Opening Settings to add one...",
-                Toast.LENGTH_LONG
-            ).show()
-            try {
-                val intent = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
-                    putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (intentErr: Exception) {
-                Log.e("Auth", "Failed to open Add Account screen", intentErr)
-            }
-        }
+        addGoogleAccountToDevice(context)
         null
     } catch (e: GetCredentialCancellationException) {
         Log.i("Auth", "User cancelled Google Sign-In prompt")
@@ -87,9 +72,29 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
         null
     } catch (e: Exception) {
         Log.e("Auth", "Unexpected error during Google Sign-In: ${e.message}", e)
-        null
+        throw e
     }
 }
+
+suspend fun addGoogleAccountToDevice(context: Context) {
+    withContext(Dispatchers.Main) {
+        Toast.makeText(
+            context,
+            "No Google account on device. Opening Settings to add one...",
+            Toast.LENGTH_LONG
+        ).show()
+        try {
+            val intent = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
+                putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (intentErr: Exception) {
+            Log.e("Auth", "Failed to open Add Account screen", intentErr)
+        }
+    }
+}
+
 
 /**
  * Signs out a user from the app

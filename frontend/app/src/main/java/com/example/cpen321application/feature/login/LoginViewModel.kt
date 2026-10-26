@@ -37,7 +37,7 @@ class LoginViewModel(
                 }.onFailure { error ->
                     _uiState.update {
                         it.copy(
-                            isLoading = false,
+                            isLoading =false,
                             errorMessage = error.localizedMessage ?: "Backend authentication failed."
                         )
                     }
