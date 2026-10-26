@@ -1,19 +1,14 @@
 import { prisma } from "../db";
-import { Prisma } from "../generated/prisma/client";
-import type { GameSource, GameStatus } from "../generated/prisma/enums";
-import type { CreateGameInput } from "./games.schemas";
+import { Game, GameInput } from "./games.types";
 
 // explicit type definition for Codacy
-type Game = Prisma.GameGetPayload<null>;
 
 /**
  * Creates a game row using the given game information
  * @param game the paramaters of the game being made
  * @returns the created game, along with its ID
  */
-export async function createGame(
-  game: CreateGameInput & { status: GameStatus; gameSource: GameSource },
-): Promise<Game> {
+export async function createGame(game: GameInput): Promise<Game> {
   try {
     return await prisma.game.create({ data: game });
   } catch (e) {
