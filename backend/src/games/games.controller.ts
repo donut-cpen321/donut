@@ -83,7 +83,7 @@ gamesRouter.delete(
 
     try {
       await cancelGame(parsedGameId.data as string);
-      res.status(204).json();
+      res.sendStatus(204);
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Internal server error" });
