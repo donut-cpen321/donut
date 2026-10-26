@@ -20,14 +20,10 @@ class AuthRepositoryImpl(
         return try {
             val response = apiService.loginWithBackend(LoginRequestDto(idToken))
             Result.success(User(username = response.username))
-        } catch (e: CancellationException) {
-            throw e
         } catch (e: HttpException) {
             Result.failure(e)
         } catch (e: IOException) {
             Result.failure(e)
-        } catch (e: Exception) {
-            throw e
         }
     }
 }

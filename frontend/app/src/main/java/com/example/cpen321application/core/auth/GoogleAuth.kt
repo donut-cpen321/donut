@@ -1,5 +1,6 @@
 package com.example.cpen321application.core.auth
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -8,6 +9,7 @@ import android.widget.Toast
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
@@ -61,7 +63,7 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
         Log.e("Auth", "No Google account found on device: ${e.message}", e)
         addGoogleAccountToDevice(context)
         null
-    } catch (e: GetCredentialCancellationException) {
+    } catch (_: GetCredentialCancellationException) {
         Log.i("Auth", "User cancelled Google Sign-In prompt")
         null
     } catch (e: GetCredentialException) {
@@ -89,8 +91,10 @@ suspend fun addGoogleAccountToDevice(context: Context) {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-        } catch (intentErr: Exception) {
-            Log.e("Auth", "Failed to open Add Account screen", intentErr)
+        } catch (e: ActivityNotFoundException) {
+            Log.e("Auth", "Add Account screen not found on device", e)
+        } catch (e: SecurityException) {
+            Log.e("Auth", "Permission denied to open Add Account screen", e)
         }
     }
 }
@@ -103,7 +107,7 @@ suspend fun addGoogleAccountToDevice(context: Context) {
 suspend fun signOut(context: Context) {
     try {
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
-    } catch (e: Exception) {
+    } catch (e: ClearCredentialException) {
         Log.e("Auth", "Failed to clear credentials", e)
     }
 }
