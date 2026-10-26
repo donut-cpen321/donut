@@ -20,7 +20,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 data class User(
-    val username: String
+    val username: String,
+    val accessToken: String,
+    val refreshToken: String
 )
 
 /**
@@ -135,7 +137,9 @@ suspend fun loginWithBackend(apiBaseUrl: String, idToken: String): User? = withC
                 try {
                     val json = JSONObject(body)
                     User(
-                        username = json.getString("username")
+                        username = json.getString("username"),
+                        accessToken = json.getString("accessToken"),
+                        refreshToken = json.getString("refreshToken")
                     )
                 } catch (e: Exception) {
                     null
