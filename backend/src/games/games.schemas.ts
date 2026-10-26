@@ -6,8 +6,8 @@ export const createGameSchema = z.strictObject({
   format: z.enum(Format),
   startsAt: z.iso
     .datetime({ offset: true })
-    .transform((value) => new Date(value))
-    .refine((date) => date > new Date(), "must be in the future"),
+    .transform((value: string) => new Date(value))
+    .refine((date: Date) => date > new Date(), "must be in the future"),
   courtId: z.int32().positive(),
   gameSource: z.enum(GameSource),
 });
