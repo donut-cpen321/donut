@@ -74,9 +74,6 @@ suspend fun signInWithGoogle(context: Context, serverClientId: String): String? 
             Toast.makeText(context, "Google Sign-In failed: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
         null
-    } catch (e: Exception) {
-        Log.e("Auth", "Unexpected error during Google Sign-In: ${e.message}", e)
-        throw e
     }
 }
 
