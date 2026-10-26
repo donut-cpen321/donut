@@ -12,7 +12,7 @@ services:
     env_file:
       - path: ./backend/.env
     environment:
-      DATABASE_URL: postgresql://donut:donut@postgres:5432/donut
+      DATABASE_URL: postgresql://donut:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in ./.env}@postgres:5432/donut
     depends_on:
       postgres:
         condition: service_healthy
@@ -22,10 +22,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: donut
-      POSTGRES_PASSWORD: donut
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in ./.env}
       POSTGRES_DB: donut
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
