@@ -26,10 +26,10 @@ jobs:
 
       - run: npm ci
 
-      - run: npx prisma generate
+      - run: npm run generate
 
-      # The generated client is committed so Codacy can resolve its types.
-      # Fail if it no longer matches schema.prisma.
+      # The generated client and copied Prisma runtime types are committed so Codacy
+      # can resolve them. Fail if they no longer match schema.prisma or the installed Prisma.
       - name: Verify committed client is up to date
         run: |
           if [ -n "$(git status --porcelain -- src/generated)" ]; then

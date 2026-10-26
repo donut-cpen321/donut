@@ -10,7 +10,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest",
-    "generate": "npx prisma generate"
+    "generate": "npx prisma generate && node scripts/vendor-prisma-runtime-types.mjs"
   },
   "engines": {
     "node": ">=22.0.0 <23.0.0",

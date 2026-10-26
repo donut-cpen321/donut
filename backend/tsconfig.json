@@ -20,7 +20,15 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    // Committed copies of Prisma's runtime types, so analysis without node_modules
+    // (Codacy) can resolve the generated client. See scripts/vendor-prisma-runtime-types.mjs.
+    "paths": {
+      "@prisma/client/runtime/client": ["./src/generated/prisma-runtime/client/client.d.ts"],
+      "@prisma/client/runtime/index-browser": ["./src/generated/prisma-runtime/client/index-browser.d.ts"],
+      "@prisma/client-runtime-utils": ["./src/generated/prisma-runtime/client-runtime-utils/index.d.ts"]
+    }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }
