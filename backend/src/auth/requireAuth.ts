@@ -2,11 +2,9 @@ import { type Request, type Response, type NextFunction } from 'express';
 import { verifyAccessToken } from './tokens';
 
 // Add userId to the request object on every route behind requireAuth
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    userId?: string;
   }
 }
 
