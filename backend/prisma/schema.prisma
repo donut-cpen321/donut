@@ -49,7 +49,6 @@ model User {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   rating          Float @default(1500) // starting value
-  gamesPlayed     Int   @default(0) // shown as a stat on the player's profile
   preferredCourts Court[]
   availabilities  UserAvailability[]
   games           GameUser[]
