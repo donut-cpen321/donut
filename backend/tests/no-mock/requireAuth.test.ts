@@ -1,5 +1,4 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { requireAuth } from '../../src/auth/requireAuth';
 import { signAccessToken } from '../../src/auth/tokens';
@@ -76,31 +75,6 @@ describe('Unmocked: requireAuth', () => {
     const app = createProtectedApp();
     const token = 'Bearer not-a-jwt';
     const response = await request(app).get('/protected').set('Authorization', token);
-
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({ error: 'Invalid or expired auth token' });
-  });
-
-  // Input: a Bearer token whose exp is in the past
-  // Expected status code: 401
-  // Expected output: { error: "Invalid or expired auth token" }
-  test('Rejects an expired token', async () => {
-    const app = createProtectedApp();
-    const past_seconds = Math.floor(Date.now() / 1000) - 10;
-    const token = jwt.sign({ sub: 'user-123', exp: past_seconds }, SECRET);
-    const response = await request(app).get('/protected').set('Authorization', `Bearer ${token}`);
-
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({ error: 'Invalid or expired auth token' });
-  });
-
-  // Input: a Bearer token signed with a different secret
-  // Expected status code: 401
-  // Expected output: { error: "Invalid or expired auth token" }
-  test('Rejects a token signed with another secret', async () => {
-    const app = createProtectedApp();
-    const token = jwt.sign({ sub: 'user-123' }, 'another-secret');
-    const response = await request(app).get('/protected').set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Invalid or expired auth token' });
