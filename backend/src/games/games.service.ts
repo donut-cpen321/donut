@@ -1,5 +1,10 @@
 import { GameStatus } from "../generated/prisma/enums";
-import { createGame, deleteGame, fetchGame } from "./games.repository";
+import {
+  createGame,
+  deleteGame,
+  fetchGame,
+  isUserInGame,
+} from "./games.repository";
 import { CreateGameInput, GameIdInput } from "./games.schemas";
 
 /**
@@ -27,6 +32,12 @@ export async function getGame(gameId: GameIdInput) {
  * Cancels a game with the given game ID
  * @param gameId the game ID of the game to be deleted
  */
-export async function cancelGame(gameId: GameIdInput) {
-  await deleteGame(gameId);
+export async function cancelGame(gameId: GameIdInput, userId: string) {
+  const canDelete = await isUserInGame(userId, gameId);
+  if (canDelete) {
+    await deleteGame(gameId);
+    return { success: true };
+  } else {
+    return { success: false, error: "Unauthorized" };
+  }
 }

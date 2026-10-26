@@ -2,11 +2,12 @@ import { NextFunction, Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { createGameSchema, gameIdSchema } from "./games.schemas";
 import { cancelGame, getGame, newGame } from "./games.service";
+import { requireAuth } from "../auth/requireAuth";
 
 export const gamesRouter = Router();
 
-gamesRouter.use((_req: Request, _res: Response, next: NextFunction) => {
-  next();
+gamesRouter.use((req: Request, res: Response, next: NextFunction) => {
+  requireAuth(req, res, next);
 });
 
 gamesRouter.post("/", async (req: Request, res: Response) => {
@@ -64,9 +65,22 @@ gamesRouter.delete("/", async (req: Request, res: Response) => {
     return;
   }
 
+  if (!req.userId) {
+    res.sendStatus(401);
+    return;
+  }
+
   try {
-    await cancelGame(parsedGameId.data as string);
-    res.sendStatus(204);
+    const { success: cancelGameSuccess } = await cancelGame(
+      parsedGameId.data as string,
+      req.userId,
+    );
+
+    if (cancelGameSuccess) {
+      res.sendStatus(204);
+    } else {
+      res.sendStatus(403);
+    }
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });

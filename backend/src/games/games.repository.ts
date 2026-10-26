@@ -29,3 +29,16 @@ export async function fetchGame(gameId: GameIdInput): Promise<Game | null> {
 export async function deleteGame(gameId: GameIdInput): Promise<void> {
   await prisma.game.delete({ where: { id: gameId } });
 }
+
+/**
+ * Checks if a specified user is in a given game
+ * @param GameUser the user ID and game ID of the requested game user
+ * @returns true if the user is in the game, otherwise false
+ */
+export async function isUserInGame(userId: string, gameId: string) {
+  const gameUserCount = await prisma.gameUser.count({
+    where: { gameId, userId },
+  });
+
+  return !!gameUserCount;
+}
