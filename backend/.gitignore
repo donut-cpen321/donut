@@ -9,5 +9,3 @@ coverage/
 *.log
 .DS_Store
 
-# Prisma generated files
-src/generated/
