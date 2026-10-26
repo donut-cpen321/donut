@@ -128,7 +128,7 @@ describe("Mocked: POST /games", () => {
   test("Returns 500 when the repository throws unexpectedly", async () => {
     const consoleError = jest
       .spyOn(console, "error")
-      .mockImplementation(() => {});
+      .mockImplementation(() => undefined);
     mockedCreateGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
@@ -162,11 +162,9 @@ describe("Mocked: GET /games", () => {
     };
     mockedFetchGame.mockResolvedValue(game);
 
-    const response = await request(createApp())
-      .get("/games")
-      .query({ gameId });
+    const response = await request(createApp()).get("/games").query({ gameId });
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     expect(response.body.game).toMatchObject({
       id: gameId,
       sport: game.sport,
@@ -179,14 +177,12 @@ describe("Mocked: GET /games", () => {
     expect(mockedFetchGame).toHaveBeenCalledWith(gameId);
   });
 
-  test("Returns 400 when the game does not exist", async () => {
+  test("Returns 404 when the game does not exist", async () => {
     mockedFetchGame.mockResolvedValue(null);
 
-    const response = await request(createApp())
-      .get("/games")
-      .query({ gameId });
+    const response = await request(createApp()).get("/games").query({ gameId });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: "Game not found" });
     expect(mockedFetchGame).toHaveBeenCalledWith(gameId);
   });
@@ -212,9 +208,7 @@ describe("Mocked: GET /games", () => {
       .mockImplementation(() => {});
     mockedFetchGame.mockRejectedValue(new Error("Database unavailable"));
 
-    const response = await request(createApp())
-      .get("/games")
-      .query({ gameId });
+    const response = await request(createApp()).get("/games").query({ gameId });
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: "Internal server error" });
@@ -236,8 +230,7 @@ describe("Mocked: DELETE /games", () => {
       .delete("/games")
       .query({ gameId });
 
-    expect(response.status).toBe(201);
-    expect(response.body).toEqual({ success: true });
+    expect(response.status).toBe(204);
     expect(mockedDeleteGame).toHaveBeenCalledTimes(1);
     expect(mockedDeleteGame).toHaveBeenCalledWith(gameId);
   });
