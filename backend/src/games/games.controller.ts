@@ -1,33 +1,72 @@
 import { NextFunction, Router, type Request, type Response } from "express";
 import { z } from "zod";
-import { createGameSchema } from "./games.schemas";
-import { newGame } from "./games.service";
+import { createGameSchema, gameIdSchema } from "./games.schemas";
+import { cancelGame, getGame, newGame } from "./games.service";
 
-// Routes: create, delete, update, join, feed, accept, score.
 export const gamesRouter = Router();
 
 gamesRouter.use((_req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-gamesRouter.post("/create", async (req: Request, res: Response) => {
-  const parsed = createGameSchema.safeParse(req.body);
+gamesRouter.post("/", async (req: Request, res: Response) => {
+  const parsedBody = createGameSchema.safeParse(req.body);
 
-  if (!parsed.success) {
+  if (!parsedBody.success) {
     res.status(400).json({
       error: "Invalid request body",
-      details: z.flattenError(parsed.error),
+      details: z.flattenError(parsedBody.error),
     });
     return;
   }
 
   try {
-    const game = await newGame(parsed.data);
+    const game = await newGame(parsedBody.data);
+    res.status(201).json({ game });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+gamesRouter.get("/", async (req: Request, res: Response) => {
+  const parsedGameId = gameIdSchema.safeParse(req.query.gameId);
+
+  if (!parsedGameId.success) {
+    res.status(400).json({
+      error: "Invalid request query",
+      details: z.flattenError(parsedGameId.error),
+    });
+    return;
+  }
+
+  try {
+    const game = await getGame(parsedGameId.data);
     if (game === null) {
-      res.status(400).json({ error: "Court ID does not exist" });
+      res.status(400).json({ error: "Game not found" });
       return;
     }
     res.status(201).json({ game });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+gamesRouter.delete("/", async (req: Request, res: Response) => {
+  const parsedGameId = gameIdSchema.safeParse(req.query.gameId);
+
+  if (!parsedGameId.success) {
+    res.status(400).json({
+      error: "Invalid request query",
+      details: z.flattenError(parsedGameId.error),
+    });
+    return;
+  }
+
+  try {
+    await cancelGame(parsedGameId.data);
+    res.status(201).json({ success: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });
