@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { Format, GameSource, Sport } from "../generated/prisma/enums";
+import { Format, GameSource } from "../generated/prisma/enums";
 
 export const createGameSchema = z.strictObject({
-  sport: z.enum(Sport),
   format: z.enum(Format),
   startsAt: z.iso
     .datetime({ offset: true })

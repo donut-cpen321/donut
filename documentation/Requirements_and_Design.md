@@ -4,13 +4,13 @@
 
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
-| _Nothing to show_ |
+| Oct 23, 2026 | 2, 3.1, 3.3, 3.4, 3.5, 4.1, 4.2, 4.7 | Narrowed the first version to tennis only. Pickleball and badminton were dropped, so players no longer pick a sport. |
 
 ---
 
 ## 2. Project Description
 
-Donut is an instant matchmaking and ranking app for people who play competitive racket sports (tennis, pickleball and badminton, in singles and doubles) but can't commit to a weekly league. A player can ask for a game right now and the system finds opponents of similar skill, books a court among the players' preferred courts, and notifies everyone. Players can also schedule a game for later and let others join it from a feed. During a game, the score is updated live on every player's phone, and when the game ends each player's per-sport ELO rating changes based on the result and the margin of victory.
+Donut is an instant matchmaking and ranking app for people who play competitive tennis (singles and doubles) but can't commit to a weekly league. A player can ask for a game right now and the system finds opponents of similar skill, books a court among the players' preferred courts, and notifies everyone. Players can also schedule a game for later and let others join it from a feed. During a game, the score is updated live on every player's phone, and when the game ends each player's ELO rating changes based on the result and the margin of victory.
 
 The target users are recreational players in a city who want a game this week without joining a league, ladder or club, and who want a fair opponent and a rating that shows how they are improving.
 
@@ -24,7 +24,7 @@ The target users are recreational players in a city who want a game this week wi
 Users sign in with their Google account. After the first login, the user sets up their profile by picking their preferred courts on a Google Map; they can edit them later.
 
 #### **Live matchmaking**
-Users can start live matchmaking by choosing a sport and a format (singles, doubles or either). Our system matches players of a similar rating, books a game one hour later at a court from the players' preferred courts, and notifies everyone. The game is booked once every player accepts.
+Users can start live matchmaking by choosing a format (singles, doubles or either). Our system matches players of a similar rating, books a game one hour later at a court from the players' preferred courts, and notifies everyone. The game is booked once every player accepts.
 
 #### **Schedule match**
 Users can schedule a match for a future time, and the open match shows up in the feed, with the weather forecast for that time. Players can join it from the feed and add it to their Google Calendar.
@@ -32,13 +32,13 @@ Users can schedule a match for a future time, and the open match shows up in the
 #### **Live game info update**
 During an active game, the owner updates the game information (rounds and score), and it syncs to every device that joined the game.
 
-#### **Sports specific ranking**
-An ELO-based ranking for each sport that shows a player's skill level compared to others.
+#### **ELO ranking**
+An ELO-based ranking that shows a player's skill level compared to others.
 
 **Project scope requirements:**
 - **External API**: *Schedule match* and *Authentication* use Google Maps to pick courts; *Schedule match* uses OpenWeather and Google Calendar.
 - **External event**: *Live matchmaking* and *Live game info update* change the app's state when another player acts (a match notification through Firebase Cloud Messaging, a score update through a live connection).
-- **Our own computation**: *Live matchmaking* (the matching algorithm) and *Sports specific ranking* (ELO with margin of victory).
+- **Our own computation**: *Live matchmaking* (the matching algorithm) and *ELO ranking* (ELO with margin of victory).
 
 ### **3.2. Use Case Diagram**
 ![Use case diagram](images/use_case_diagram.png)
@@ -46,7 +46,7 @@ An ELO-based ranking for each sport that shows a player's skill level compared t
 External services are connected with plain lines (no arrows) because they support use cases but never start one. The «extend» arrows mark use cases reached from another one: *View Previous Matches* from *View Profile*, and *View/Update Score* and *Leave Match* from *View Upcoming Matches*. The diagram uses screen-level names. *Join Live Matchmaking* covers *Initiate live match* and *Accept or decline a match*, *View/Update Score* covers *Update game information* and *Submit final score*, and *Join Scheduled Match* and *Leave Match* together cover *Manage scheduled match* (§3.4). The steps done by the system (matchmaking, live game data syncing, ELO change calculation and updating the leaderboard) are not drawn because no actor starts them.
 
 ### **3.3. Actors Description**
-1. **User**: a recreational racket-sport player who signs in with Google, joins or accepts games, and enters the score of the games they own. The game owner is a User with extra permissions on that one game, not a separate role.
+1. **User**: a recreational tennis player who signs in with Google, joins or accepts games, and enters the score of the games they own. The game owner is a User with extra permissions on that one game, not a separate role.
 2. **Google Sign-In** *(external service)*: authenticates players and provides the identity token our backend trusts.
 3. **Google Maps Platform** *(external service)*: shows the courts on a map so players can pick preferred courts and the court of a scheduled game.
 4. **Firebase Cloud Messaging** *(external service)*: delivers match and game notifications to players' devices.
@@ -59,13 +59,13 @@ External services are connected with plain lines (no arrows) because they suppor
 2. **Set up profile**: After the first sign-in, the user picks at least one preferred court on a Google Map. They can change their preferred courts later.
 
 - Use cases for feature 2: Live matchmaking
-3. **Initiate live match**: User picks a sport and a format and taps a button, and the server places the player into a queue to be matched. The user can cancel at any time, and the request is removed after 2 hours without a match.
-4. **Matchmaking**: Every 30 seconds, the system selects players who share the sport and format and have close ratings, books a game one hour later at a court from their preferred courts, then notifies all of them.
+3. **Initiate live match**: User picks a format and taps a button, and the server places the player into a queue to be matched. The user can cancel at any time, and the request is removed after 2 hours without a match.
+4. **Matchmaking**: Every 30 seconds, the system selects players who want a compatible format and have close ratings, books a game one hour later at a court from their preferred courts, then notifies all of them.
 5. **Accept or decline a match**: Each notified player accepts or declines. The first player to accept becomes the game's owner. When all accept, the game is booked. If anyone declines, or has not accepted 30 minutes before the start, the match is cancelled for everyone, and the players who did accept go back into the queue.
 
 - Use cases for feature 3: Schedule match
-6. **Create a scheduled match**: User creates a scheduled match with sports type, format, court (picked on a Google Map) and start time, and becomes its owner.
-7. **Browse scheduled matches**: A separate feed that shows all the upcoming scheduled games and relevant game information like other players' ELO rating, format, sports type, court information and the weather forecast.
+6. **Create a scheduled match**: User creates a scheduled match with format, court (picked on a Google Map) and start time, and becomes its owner.
+7. **Browse scheduled matches**: A separate feed that shows all the upcoming scheduled games and relevant game information like other players' ELO rating, format, court information and the weather forecast.
 8. **Manage scheduled match**: User can join a scheduled match in the feed, and they can leave the game unless it starts in less than 30 minutes. The owner of the scheduled game can also delete the game at any time.
 9. **Add game to Google Calendar**: User adds a booked game to their Google Calendar with its court and start time.
 10. **Starting a scheduled match**: User can confirm they are present within 30 minutes after the starting time of the game. A game can only be started if all players confirm they are present within 30 minutes after the starting time, otherwise the game is cancelled automatically. Booked matched games start the same way.
@@ -74,34 +74,34 @@ External services are connected with plain lines (no arrows) because they suppor
 11. **Update game information**: The owner of the game can update score and round information using the app.
 12. **Live game data syncing**: Live game information like score and rounds is updated across all devices that joined the game.
 
-- Use cases for feature 5: Sports specific ranking
+- Use cases for feature 5: ELO ranking
 13. **Submit final score**: The game owner ends the game and submits the final score, and every player sees the match summary with their rating change.
 14. **ELO change calculation**: When the final score is submitted, the system calculates each player's ELO change and saves it to the match summary.
-15. **Update leaderboard**: The system applies the ELO changes to the sport's leaderboard.
-16. **View sport leaderboard**: User views the leaderboard for a sport, which ranks players by their ELO for that sport.
+15. **Update leaderboard**: The system applies the ELO changes to the leaderboard.
+16. **View leaderboard**: User views the leaderboard, which ranks players by their ELO.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 <a name="uc1"></a>
 
 #### Use Case 1: Initiate live match
 
-**Description**: A user asks to be matched for a sport and format. The system puts them in the matchmaking queue, finds players with a close rating, books a court and a start time for them, and notifies everyone.
+**Description**: A user asks to be matched for a format. The system puts them in the matchmaking queue, finds players with a close rating, books a court and a start time for them, and notifies everyone.
 
 **Primary actor(s)**: User
 
 **Preconditions**: The user is signed in and has set up their profile, so they have at least one preferred court.
 
-**Postconditions**: A proposed game exists with the sport, format, start time (one hour after the match was found), court and teams set, and every matched player in it. The matched players are no longer in the queue, and each one can accept or decline the game (*Accept or decline a match*).
+**Postconditions**: A proposed game exists with the format, start time (one hour after the match was found), court and teams set, and every matched player in it. The matched players are no longer in the queue, and each one can accept or decline the game (*Accept or decline a match*).
 
 **Main success scenario**:
 1. The user opens the Play tab and taps "Find a match".
-2. The system shows a form for sport and format (singles, doubles or either).
-3. The user picks a sport and a format and submits the form.
+2. The system shows a form for format (singles, doubles or either).
+3. The user picks a format and submits the form.
 4. The system adds the user to the matchmaking queue and shows a "Searching" status.
-5. Every 30 seconds, the system looks for enough queued players (2 for singles, 4 for doubles) who want the same sport and a compatible format ("either" fits both). It takes the longest-waiting player first and groups them with the closest-rated players. The ratings in a group must be within 200 points for singles and 400 points for doubles.
+5. Every 30 seconds, the system looks for enough queued players (2 for singles, 4 for doubles) who want a compatible format ("either" fits both). It takes the longest-waiting player first and groups them with the closest-rated players. The ratings in a group must be within 200 points for singles and 400 points for doubles.
 6. The system creates a proposed game that starts one hour from now, at a preferred court all the players share, or else at the court closest to all of their preferred courts. For doubles, it balances the teams: the highest- and lowest-rated players against the middle two. The players are taken out of the queue.
 7. The system sends a match notification to every player in the game through Firebase Cloud Messaging.
-8. The user opens the notification. The system shows the proposed game (sport, format, court, start time, the other players' ratings) with Accept and Decline buttons.
+8. The user opens the notification. The system shows the proposed game (format, court, start time, the other players' ratings) with Accept and Decline buttons.
 
 **Failure scenario(s)**:
 - 4a. The user is already in the matchmaking queue.
@@ -171,22 +171,22 @@ External services are connected with plain lines (no arrows) because they suppor
 <a name="uc3"></a>
 
 #### Use Case 3: Submit final score
-**Description**: When the game owner submits the final score, the system decides the winner and calculates each player's ELO change for that sport. It then saves the changes to the match summary and applies them to the sport's leaderboard.
+**Description**: When the game owner submits the final score, the system decides the winner and calculates each player's ELO change. It then saves the changes to the match summary and applies them to the leaderboard.
 
 **Primary actor(s)**: User
 
 **Preconditions**: The user is signed in and is a player in a game that has started and has no final score.
 
-**Postconditions**: The game is completed and its final score can no longer be changed. Each player's rating for the sport is updated, the match summary shows each player's rating before and after, and the sport's leaderboard reflects the new ratings.
+**Postconditions**: The game is completed and its final score can no longer be changed. Each player's rating is updated, the match summary shows each player's rating before and after, and the leaderboard reflects the new ratings.
 
 **Main success scenario**:
 1. The game owner taps "End game" on the current game in the Play tab.
 2. The system shows the rounds recorded during the game as the final score.
 3. The owner reviews the final score, corrects any round if needed, and submits it.
 4. The system validates the score and decides the winner: the side that won more rounds.
-5. The system reads every player's rating for the sport. A player with no rating in that sport yet starts at 1500.
-6. The system calculates the rating change using ELO with margin of victory and the sport's parameters (§7 of the Product Design). In doubles, each team is rated by its players' average rating, and each player receives half of the team's change.
-7. The system saves the final score, the new ratings and each player's rating change to the match summary, marks the game as completed, and updates the sport's leaderboard (*Update leaderboard*).
+5. The system reads every player's rating. A player with no rating yet starts at 1500.
+6. The system calculates the rating change using ELO with margin of victory and the tennis parameters (§7 of the Product Design). In doubles, each team is rated by its players' average rating, and each player receives half of the team's change.
+7. The system saves the final score, the new ratings and each player's rating change to the match summary, marks the game as completed, and updates the leaderboard (*Update leaderboard*).
 8. The system notifies every player through Firebase Cloud Messaging and shows the match summary with each player's rating before and after the game.
 
 **Failure scenario(s)**:
@@ -219,7 +219,7 @@ External services are connected with plain lines (no arrows) because they suppor
 <a name="uc4"></a>
 
 #### Use Case 4: Create a scheduled match
-**Description**: A user creates a game for a future time by choosing the sport, format, start time and a court on a Google Map. The game appears in the feed so other players can join it.
+**Description**: A user creates a game for a future time by choosing the format, start time and a court on a Google Map. The game appears in the feed so other players can join it.
 
 **Primary actor(s)**: User
 
@@ -229,8 +229,8 @@ External services are connected with plain lines (no arrows) because they suppor
 
 **Main success scenario**:
 1. The user opens the Play tab and taps "Schedule a match".
-2. The system shows a form for sport, format and start date and time, and a Google Map with the courts as markers.
-3. The user fills in the sport, format and start time, and taps a court marker.
+2. The system shows a form for format and start date and time, and a Google Map with the courts as markers.
+3. The user fills in the format and start time, and taps a court marker.
 4. The system shows the selected court's name.
 5. The user submits the form.
 6. The system validates the game and creates it with the user as owner and first player.
@@ -371,7 +371,7 @@ Not included. The formal use cases describe each screen in enough detail for thi
         4. `Match[] runMatchmaking()` - In
             - **Purpose**: Called by the matchmaking job: reads the queue, finds matches, creates games and notifies players. It also removes requests older than 2 hours.
 4. **Scoring**
-    - **Purpose**: Owns per-sport ratings, the ELO calculation (with margin of victory and doubles team averages) and the leaderboards.
+    - **Purpose**: Owns ratings, the ELO calculation (with margin of victory and doubles team averages) and the leaderboards.
     - **Rationale**: This is our own computation. It is a pure function that is easy to unit test, and it is the only code allowed to change ratings. Alternative considered: ratings as columns that Games updates directly. Rejected because Matchmaking and the feed also read ratings, and only one component should write them.
     - **Interfaces**:
         1. `RatingChange[] applyGameResult(gameId: string, players: PlayerInfo[], game: GameInfo)` - In
@@ -385,7 +385,7 @@ Not included. The formal use cases describe each screen in enough detail for thi
 
 ### **4.2. Databases**
 1. **PostgreSQL (`donut`)**
-    - **Purpose**: Stores users, per-sport ratings, courts, preferred courts, the matchmaking queue, games, game players and rounds (`backend/prisma/schema.prisma`).
+    - **Purpose**: Stores users, ratings, courts, preferred courts, the matchmaking queue, games, game players and rounds (`backend/prisma/schema.prisma`).
     - **Rationale**: The data is relational: a match joins the queue with ratings and courts, and a game joins players and rounds. One relational database keeps those joins in single queries and lets a match or a final score be saved in one transaction. Alternative considered: MongoDB. Rejected because nothing here is document-shaped, and we would lose transactions across collections.
 
 ### **4.3. External Modules**
@@ -501,4 +501,4 @@ An arrow from A to B means A calls B through at least one interface defined in B
 2. [**API response time**](#nfr2)
     - **Implementation**: The columns we filter on most (user, court, game) are indexed. The feed loads games, players and ratings in one query instead of one per game. Forecasts are cached per court and hour, so the feed rarely waits on OpenWeather. Matchmaking runs in a background job, outside the request path.
 3. [**Match found latency**](#nfr3)
-    - **Implementation**: The matchmaking job runs every 30 seconds with no overlap between runs. The greedy matcher sorts each sport and format queue once, so a run takes milliseconds for our expected queue sizes. Each match is saved in its own transaction, and the notifications are sent right after it commits.
+    - **Implementation**: The matchmaking job runs every 30 seconds with no overlap between runs. The greedy matcher sorts each format queue once, so a run takes milliseconds for our expected queue sizes. Each match is saved in its own transaction, and the notifications are sent right after it commits.

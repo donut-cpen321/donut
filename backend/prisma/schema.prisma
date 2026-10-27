@@ -10,12 +10,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Sport {
-  TENNIS
-  PICKLEBALL
-  BADMINTON
-}
-
 enum Format {
   SINGLES
   DOUBLES
@@ -54,7 +48,7 @@ model User {
   fcmToken  String? // for push notifications
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
-  ratings         UserRating[]
+  rating          Float @default(1500) // starting value
   preferredCourts Court[]
   availabilities  UserAvailability[]
   games           GameUser[]
@@ -62,22 +56,6 @@ model User {
   refreshTokens   RefreshToken[]
 
   @@map("users")
-}
-
-// One rating per player per sport. A row is created when the player first enters matchmaking or plays in that sport.
-model UserRating {
-  userId      String @db.Uuid
-  sport       Sport
-  rating      Float  @default(1500) // starting value
-  gamesPlayed Int    @default(0) // drives the K factor for the elo calculation
-
-  // One-to-many relation between User and UserRating
-  user User @relation(fields: [userId], references: [id])
-
-  matchmakingRequests MatchmakingRequest[]
-
-  @@id([userId, sport])
-  @@map("user_ratings")
 }
 
 model Court {
@@ -97,7 +75,6 @@ model Court {
 model UserAvailability {
   id        Int              @id @default(autoincrement())
   userId    String           @db.Uuid
-  sport     Sport
   format    FormatPreference
   weekday   Int? // 0 = Sunday ... 6 = Saturday
   date      DateTime?        @db.Date
@@ -114,15 +91,11 @@ model UserAvailability {
 // A player searching for a game right now.
 model MatchmakingRequest {
   userId    String           @id @db.Uuid
-  sport     Sport
   format    FormatPreference
   createdAt DateTime         @default(now()) @db.Timestamptz(3)
 
   // One-to-one relation between User and MatchmakingRequest
   user User @relation(fields: [userId], references: [id])
-
-  // One-to-one relation between UserRating and MatchmakingRequest
-  userRating UserRating @relation(fields: [userId, sport], references: [userId, sport])
 
   @@map("matchmaking_requests")
 }
@@ -144,7 +117,6 @@ model RefreshToken {
 
 model Game {
   id         String     @id @default(uuid()) @db.Uuid
-  sport      Sport
   format     Format
   status     GameStatus
   startsAt   DateTime   @db.Timestamptz(3)
@@ -180,7 +152,7 @@ model GameUser {
   @@map("game_users")
 }
 
-// A set in tennis, a game in pickleball/badminton
+// A set in tennis
 model GameRound {
   gameId     String @db.Uuid
   number     Int

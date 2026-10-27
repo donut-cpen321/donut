@@ -10,20 +10,18 @@ export async function getCandidates(): Promise<Candidate[]> {
   const requests = await prisma.matchmakingRequest.findMany({
     select: {
       userId: true,
-      sport: true,
       format: true,
       createdAt: true,
-      userRating: { select: { rating: true } },
+      user: { select: { rating: true } },
     },
   });
 
   // Map the requests to the Candidate interface.
-  const candidates: Candidate[] = requests.map(({ userId, sport, format, createdAt, userRating }) => ({
+  const candidates: Candidate[] = requests.map(({ userId, format, createdAt, user }) => ({
     userId,
-    sport,
     format,
     createdAt,
-    rating: userRating.rating,
+    rating: user.rating,
   }));
   
   return candidates;
@@ -41,7 +39,7 @@ export async function claimMatch(match: Match): Promise<boolean> {
   try {
     await prisma.$transaction(async (tx) => {
       const { count } = await tx.matchmakingRequest.deleteMany({
-        where: { userId: { in: match.userIds }, sport: match.sport },
+        where: { userId: { in: match.userIds } },
       });
 
       // If not all players are still waiting

@@ -5,7 +5,6 @@ import {
   Format,
   GameSource,
   GameStatus,
-  Sport,
 } from "../../src/generated/prisma/enums";
 import {
   createGame,
@@ -49,7 +48,6 @@ const futureStartsAt = () =>
   new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
 const validBody = () => ({
-  sport: Sport.TENNIS,
   format: Format.SINGLES,
   startsAt: futureStartsAt(),
   courtId: 1,
@@ -124,7 +122,6 @@ describe("Mocked: POST /games", () => {
     expect(response.status).toBe(201);
     expect(response.body.game).toMatchObject({
       id: createdGame.id,
-      sport: body.sport,
       format: body.format,
       courtId: body.courtId,
       gameSource: body.gameSource,
@@ -167,8 +164,7 @@ describe("Mocked: POST /games", () => {
   });
 
   test.each([
-    ["missing sport", { sport: undefined }],
-    ["invalid sport", { sport: "SOCCER" }],
+    ["removed sport field", { sport: "TENNIS" }],
     ["invalid format", { format: "TRIPLES" }],
     ["non-ISO startsAt", { startsAt: "tomorrow" }],
     ["startsAt without offset", { startsAt: "2099-01-01T10:00:00" }],
@@ -205,6 +201,9 @@ describe("Mocked: POST /games", () => {
   });
 
   test("Returns 500 when the court does not exist", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     mockedCreateGame.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError(
         "Foreign key constraint violated",
@@ -220,6 +219,7 @@ describe("Mocked: POST /games", () => {
       .send(validBody());
 
     expect(response.status).toBe(500);
+    consoleError.mockRestore();
   });
 
   test("Returns 500 when the repository throws unexpectedly", async () => {
@@ -249,7 +249,6 @@ describe("Mocked: GET /games", () => {
     const startsAt = new Date(futureStartsAt());
     const game = {
       id: gameId,
-      sport: Sport.TENNIS,
       format: Format.SINGLES,
       startsAt,
       courtId: 1,
@@ -264,7 +263,6 @@ describe("Mocked: GET /games", () => {
     expect(response.status).toBe(200);
     expect(response.body.game).toMatchObject({
       id: gameId,
-      sport: game.sport,
       format: game.format,
       courtId: game.courtId,
       gameSource: game.gameSource,
@@ -460,7 +458,6 @@ describe("Mocked: getGame", () => {
     const gameId = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
     const game = {
       id: gameId,
-      sport: Sport.PICKLEBALL,
       format: Format.DOUBLES,
       startsAt: new Date(futureStartsAt()),
       courtId: 7,
@@ -489,7 +486,6 @@ describe("Mocked: newGame", () => {
   });
 
   const input = () => ({
-    sport: Sport.PICKLEBALL,
     format: Format.DOUBLES,
     startsAt: new Date(futureStartsAt()),
     courtId: 7,
