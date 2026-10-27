@@ -23,8 +23,7 @@ ALTER TABLE "matchmaking_requests" DROP COLUMN "sport";
 ALTER TABLE "user_availabilities" DROP COLUMN "sport";
 
 -- AlterTable
-ALTER TABLE "users" ADD COLUMN     "gamesPlayed" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "rating" DOUBLE PRECISION NOT NULL DEFAULT 1500;
+ALTER TABLE "users" ADD COLUMN     "rating" DOUBLE PRECISION NOT NULL DEFAULT 1500;
 
 -- DropTable
 DROP TABLE "user_ratings";
