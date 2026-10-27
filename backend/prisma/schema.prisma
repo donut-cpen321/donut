@@ -39,6 +39,26 @@ enum GameSource {
   MATCHED
 }
 
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model Friendship {
+  requesterId String           @db.Uuid
+  addresseeId String           @db.Uuid
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  acceptedAt  DateTime?
+
+  requester User @relation("FriendshipsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendshipsReceived", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@id([requesterId, addresseeId])
+  @@index([addresseeId])
+  @@map("friendships")
+}
+
 model User {
   id        String   @id @default(uuid()) @db.Uuid
   googleSub String   @unique // Google's stable account id
@@ -54,6 +74,9 @@ model User {
   games           GameUser[]
   matchmakingRequest MatchmakingRequest?
   refreshTokens   RefreshToken[]
+
+  friendshipsSent     Friendship[] @relation("FriendshipsSent")
+  friendshipsReceived Friendship[] @relation("FriendshipsReceived")
 
   @@map("users")
 }
