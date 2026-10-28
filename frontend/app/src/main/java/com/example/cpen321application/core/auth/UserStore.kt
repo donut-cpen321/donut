@@ -1,14 +1,22 @@
 package com.example.cpen321application.core.auth
 
 import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 
 /**
  * Saves the signed-in user and their tokens so they stay signed in after the app restarts.
  * @param context any context, only the application context is kept
  */
 class UserStore(context: Context) {
-    // SharedPreferences are private to the app
-    private val prefs = context.applicationContext.getSharedPreferences("auth", Context.MODE_PRIVATE)
+    // Tokens are encrypted with a key kept in the Android Keystore
+    private val prefs = EncryptedSharedPreferences.create(
+        "auth_encrypted",
+        MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
+        context.applicationContext,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
 
     /**
      * @return the saved user, null if nobody is signed in

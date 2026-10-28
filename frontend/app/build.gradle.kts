@@ -85,6 +85,7 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
+    implementation(libs.androidx.security.crypto)
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
     testImplementation(libs.mockwebserver)

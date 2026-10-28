@@ -33,9 +33,9 @@ fun MainScreen(
 
     // Sign-in, sign-out and a rejected refresh token all change the user, so every auth redirect happens here
     LaunchedEffect(isSignedIn) {
-        val onLogin = navController.currentDestination?.route == Screen.Login.route
-        if (isSignedIn == onLogin) {
-            navController.navigate(if (isSignedIn) Screen.Profile.route else Screen.Login.route) {
+        val target = authRedirect(isSignedIn, navController.currentDestination?.route)
+        if (target != null) {
+            navController.navigate(target) {
                 popUpTo(navController.graph.id) { inclusive = true }
             }
         }
@@ -57,4 +57,22 @@ fun MainScreen(
             modifier = Modifier.padding(innerPadding)
         )
     }
+}
+
+/**
+ * Where the user has to go after their sign-in state changed
+ * @param isSignedIn whether a user is signed in
+ * @param currentRoute the route on screen, null before the first one
+ * @return Profile for a signed-in user on Login, Login for a signed-out user anywhere else, null to stay
+ */
+fun authRedirect(isSignedIn: Boolean, currentRoute: String?): String? {
+    // Signed in but stuck on Login → go to Profile
+    if (isSignedIn && currentRoute == Screen.Login.route) {
+        return Screen.Profile.route   
+    }
+    // Signed out but on some other screen → go to Login
+    if (!isSignedIn && currentRoute != Screen.Login.route) {
+        return Screen.Login.route     
+    }
+    return null
 }
