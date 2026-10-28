@@ -1,70 +1,25 @@
 package com.example.cpen321application.core.auth
 
-import kotlinx.coroutines.Dispatchers
+import com.example.cpen321application.core.network.ApiService
+import com.example.cpen321application.core.network.dto.RefreshRequestDto
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
+import retrofit2.HttpException
 import java.io.IOException
 import java.net.HttpURLConnection
-import java.net.URL
-
-data class HttpResponse(val code: Int, val body: String)
-
-/**
- * Sends a JSON request to the backend
- * @param url full URL of the endpoint
- * @param method HTTP method, e.g. "GET" or "POST"
- * @param body JSON body to send, null for none
- * @param accessToken sent as `Authorization: Bearer <accessToken>` when not null
- * @return the status code and response body, for error codes too
- * @throws IOException if the backend is unreachable
- */
-suspend fun httpRequest(
-    url: String,
-    method: String,
-    body: JSONObject? = null,
-    accessToken: String? = null
-): HttpResponse = withContext(Dispatchers.IO) {
-    val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-        requestMethod = method
-        connectTimeout = 5_000
-        readTimeout = 5_000
-        setRequestProperty("Content-Type", "application/json")
-        if (accessToken != null) {
-            setRequestProperty("Authorization", "Bearer $accessToken")
-        }
-    }
-
-    try {
-        if (body != null) {
-            connection.doOutput = true
-            connection.outputStream.use { it.write(body.toString().toByteArray()) }
-        }
-
-        val code = connection.responseCode
-        // Error responses (4xx/5xx) are read from errorStream, which is null when the body is empty
-        val stream = if (code < 400) connection.inputStream else connection.errorStream
-        HttpResponse(code, stream?.bufferedReader()?.use { it.readText() } ?: "")
-    } finally {
-        connection.disconnect()
-    }
-}
 
 /**
  * Owns the signed-in user and their tokens.
  * Sends authenticated requests, refreshes the access token when it expires and logs out.
- * @param apiBaseUrl The base URL of the backend
+ * @param api the backend routes
  * @param initialUser the user saved from the last session, null if signed out
  * @param onUserChanged called with the new user after sign-in or a refresh, null after sign-out
  */
 class AuthSession(
-    apiBaseUrl: String,
+    private val api: ApiService,
     initialUser: User?,
     private val onUserChanged: (User?) -> Unit
 ) {
-    private val baseUrl = apiBaseUrl.trimEnd('/')
-
     // Refresh tokens only work once, so two refreshes at the same time would sign the user out
     private val lock = Mutex()
 
@@ -78,22 +33,22 @@ class AuthSession(
     fun signIn(user: User) = setUser(user)
 
     /**
-     * Sends a request with the access token. If it expired, refreshes it once and retries.
-     * @param method HTTP method, e.g. "GET" or "POST"
-     * @param path endpoint path, e.g. "/games"
-     * @param body JSON body to send, null for none
-     * @return the backend's response, null if no user is signed in
+     * Calls an ApiService route with the access token. If it expired, refreshes it once and retries.
+     * @param call the route, given the `Authorization` header value. It must throw HttpException on errors,
+     * so return the body type, not Response<T>.
+     * @return the route's result, null if no user is signed in
+     * @throws HttpException if the backend rejects the request, a 401 if the token could not be refreshed
      * @throws IOException if the backend is unreachable
      */
-    suspend fun request(method: String, path: String, body: JSONObject? = null): HttpResponse? {
+    suspend fun <T> authorized(call: suspend (authorization: String) -> T): T? {
         val sentAs = user ?: return null
-        val response = httpRequest("$baseUrl$path", method, body, sentAs.accessToken)
-        if (response.code != HttpURLConnection.HTTP_UNAUTHORIZED) {
-            return response
+        try {
+            return call("Bearer ${sentAs.accessToken}")
+        } catch (e: HttpException) {
+            if (e.code() != HttpURLConnection.HTTP_UNAUTHORIZED) throw e
+            val refreshedUser = refreshTokens(sentAs) ?: throw e
+            return call("Bearer ${refreshedUser.accessToken}")
         }
-
-        val refreshedUser = refreshTokens(sentAs) ?: return response
-        return httpRequest("$baseUrl$path", method, body, refreshedUser.accessToken)
     }
 
     /**
@@ -108,7 +63,7 @@ class AuthSession(
         }
 
         try {
-            httpRequest("$baseUrl/user/logout", "POST", JSONObject().put("refreshToken", signedOut.refreshToken))
+            api.logout(RefreshRequestDto(signedOut.refreshToken))
         } catch (e: IOException) {
             // Already signed out here; the refresh token expires on its own
         }
@@ -126,30 +81,20 @@ class AuthSession(
             return@withLock current
         }
 
-        val response = httpRequest(
-            "$baseUrl/user/refresh",
-            "POST",
-            JSONObject().put("refreshToken", staleUser.refreshToken)
-        )
-
-        when (response.code) {
-            HttpURLConnection.HTTP_OK -> {
-                val json = JSONObject(response.body)
-                val refreshedUser = staleUser.copy(
-                    accessToken = json.getString("accessToken"),
-                    refreshToken = json.getString("refreshToken")
-                )
-                setUser(refreshedUser)
-                refreshedUser
-            }
+        val tokens = try {
+            api.refreshTokens(RefreshRequestDto(staleUser.refreshToken))
+        } catch (e: HttpException) {
             // Refresh token used, expired or logged out: the user has to sign in with Google again
-            HttpURLConnection.HTTP_UNAUTHORIZED -> {
+            if (e.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
                 setUser(null)
-                null
             }
-            // Server error: keep the session, the next request tries again
-            else -> null
+            // Otherwise a server error: keep the session, the next request tries again
+            return@withLock null
         }
+
+        val refreshedUser = staleUser.copy(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
+        setUser(refreshedUser)
+        refreshedUser
     }
 
     private fun setUser(newUser: User?) {

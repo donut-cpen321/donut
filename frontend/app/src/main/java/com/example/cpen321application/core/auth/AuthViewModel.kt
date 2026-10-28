@@ -3,7 +3,7 @@ package com.example.cpen321application.core.auth
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.cpen321application.BuildConfig
+import com.example.cpen321application.core.network.RetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +20,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _user = MutableStateFlow(userStore.load())
     val user: StateFlow<User?> = _user.asStateFlow()
 
-    val session = AuthSession(BuildConfig.API_BASE_URL, _user.value) { newUser ->
+    val session = AuthSession(RetrofitClient.apiService, _user.value) { newUser ->
         userStore.save(newUser)
         _user.value = newUser
     }

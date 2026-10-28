@@ -1,8 +1,10 @@
 package com.example.cpen321application.core.auth
 
+import com.example.cpen321application.core.network.ApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import okhttp3.ResponseBody
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -12,12 +14,24 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import retrofit2.HttpException
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.GET
+import retrofit2.http.Header
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+
+// A protected route for the tests, ApiService has none yet
+private interface GamesApi {
+    @GET("games")
+    suspend fun games(@Header("Authorization") authorization: String): ResponseBody
+}
 
 /**
  * AuthSession against a fake backend (MockWebServer), so no emulator is needed.
@@ -51,8 +65,19 @@ class AuthSessionTest {
         server.shutdown()
     }
 
+    // Created on first use, after the server started
+    private val retrofit by lazy {
+        Retrofit.Builder()
+            .baseUrl(server.url("/"))
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
     private fun session(user: User? = signedIn) =
-        AuthSession(server.url("/").toString(), user) { userChanges.add(it) }
+        AuthSession(retrofit.create(ApiService::class.java), user) { userChanges.add(it) }
+
+    private suspend fun AuthSession.getGames() =
+        authorized { retrofit.create(GamesApi::class.java).games(it) }?.string()
 
     private fun response(code: Int, body: String = "") = MockResponse().setResponseCode(code).setBody(body)
 
@@ -82,9 +107,9 @@ class AuthSessionTest {
         }
         refreshRoute(200, newTokensJson)
 
-        val result = session().request("GET", "/games")
+        val result = session().getGames()
 
-        assertEquals(HttpResponse(200, "ok"), result)
+        assertEquals("ok", result)
         assertEquals(0, refreshCalls.get())
     }
 
@@ -97,9 +122,9 @@ class AuthSessionTest {
         refreshRoute(200, newTokensJson)
         val session = session()
 
-        val result = session.request("GET", "/games")
+        val result = session.getGames()
 
-        assertEquals(HttpResponse(200, "ok"), result)
+        assertEquals("ok", result)
         assertEquals(refreshed, session.user)
         assertEquals(listOf(refreshed), userChanges)
         assertEquals("old-refresh", JSONObject(requestBodies[1]).getString("refreshToken"))
@@ -107,32 +132,32 @@ class AuthSessionTest {
 
     // Input: expired access token, and /user/refresh rejects the refresh token (used, expired or logged out)
     // Expected behavior: the user is signed out so the app goes back to Google sign-in
-    // Expected output: the original 401 response
+    // Expected output: the original 401 is thrown
     @Test
     fun signsOutWhenTheRefreshTokenIsRejected() = runBlocking {
         protectedRoute()
         refreshRoute(401, """{"error":"Invalid or expired refresh token"}""")
         val session = session()
 
-        val result = session.request("GET", "/games")
+        val error = assertThrows(HttpException::class.java) { runBlocking { session.getGames() } }
 
-        assertEquals(401, result?.code)
+        assertEquals(401, error.code())
         assertNull(session.user)
         assertEquals(listOf<User?>(null), userChanges)
     }
 
     // Input: expired access token, and /user/refresh fails with a server error
     // Expected behavior: the session is kept, a server outage must not sign the user out
-    // Expected output: the original 401 response
+    // Expected output: the original 401 is thrown
     @Test
     fun keepsTheSessionWhenRefreshHasAServerError() = runBlocking {
         protectedRoute()
         refreshRoute(500)
         val session = session()
 
-        val result = session.request("GET", "/games")
+        val error = assertThrows(HttpException::class.java) { runBlocking { session.getGames() } }
 
-        assertEquals(401, result?.code)
+        assertEquals(401, error.code())
         assertEquals(signedIn, session.user)
         assertEquals(emptyList<User?>(), userChanges)
     }
@@ -156,11 +181,11 @@ class AuthSessionTest {
         refreshRoute(200, newTokensJson)
         val session = session()
 
-        val first = async(Dispatchers.IO) { session.request("GET", "/games") }
-        val second = async(Dispatchers.IO) { session.request("GET", "/games") }
+        val first = async(Dispatchers.IO) { session.getGames() }
+        val second = async(Dispatchers.IO) { session.getGames() }
 
-        assertEquals(HttpResponse(200, "ok"), first.await())
-        assertEquals(HttpResponse(200, "ok"), second.await())
+        assertEquals("ok", first.await())
+        assertEquals("ok", second.await())
         assertEquals(1, refreshCalls.get())
     }
 
@@ -171,7 +196,7 @@ class AuthSessionTest {
     fun sendsNothingWhenSignedOut() = runBlocking {
         protectedRoute()
 
-        val result = session(user = null).request("GET", "/games")
+        val result = session(user = null).getGames()
 
         assertNull(result)
         assertEquals(0, server.requestCount)
