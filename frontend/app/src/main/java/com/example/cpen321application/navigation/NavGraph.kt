@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.cpen321application.core.auth.User
 import com.example.cpen321application.feature.leaderboard.LeaderboardRoute
 import com.example.cpen321application.feature.login.LoginRoute
 import com.example.cpen321application.feature.matchmaking.MatchmakingRoute
@@ -23,25 +24,24 @@ sealed class Screen(val route: String) {
 fun AppNavGraph(
     navController: NavHostController,
     serverClientId: String,
+    startRoute: String,
+    onLoginSuccess: (User) -> Unit,
+    onSignOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route,
+        startDestination = startRoute,
         modifier = modifier
     ) {
         composable(Screen.Login.route) {
             LoginRoute(
                 serverClientId = serverClientId,
-                onLoginSuccess = { _ ->
-                    navController.navigate(Screen.Profile.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
-                }
+                onLoginSuccess = onLoginSuccess
             )
         }
         composable(Screen.Profile.route) {
-            ProfileRoute()
+            ProfileRoute(onSignOut = onSignOut)
         }
         composable(Screen.Matchmaking.route) {
             MatchmakingRoute()
