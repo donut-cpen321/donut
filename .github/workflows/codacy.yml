@@ -1,0 +1,52 @@
+name: Codacy Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  codacy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      # The Prisma client is gitignored (backend/src/generated), so generate it
+      # before analysis or every import from it resolves to an unknown type.
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Run Codacy CLI analysis
+        run: |
+          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) install
+          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) analyze --format sarif --output results.sarif
+
+      - name: Upload results to Codacy
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) upload \
+            --sarif-path results.sarif \
+            --commit-uuid ${{ github.event.pull_request.head.sha || github.sha }} \
+            --project-token ${{ secrets.CODACY_PROJECT_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codacy-results
+          path: results.sarif
+          if-no-files-found: ignore
