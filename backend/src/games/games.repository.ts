@@ -1,5 +1,6 @@
 import { prisma } from "../db";
 import { Game } from "../generated/prisma/client";
+import { GameStatus } from "../generated/prisma/enums";
 
 /**
  * Creates a game row using the given game information
@@ -25,6 +26,56 @@ export async function fetchGame(gameId: string): Promise<Game | null> {
  */
 export async function deleteGame(gameId: string): Promise<void> {
   await prisma.game.delete({ where: { id: gameId } });
+}
+
+/**
+ * Updates the given fields of a game with the given game ID
+ * @param gameId the game ID of the game to update
+ * @param data the fields to change
+ * @returns the updated game
+ */
+export async function updateGame(
+  gameId: string,
+  data: Partial<Pick<Game, "startsAt" | "courtId">>,
+) {
+  return (await prisma.game.update({ where: { id: gameId }, data })) as Game;
+}
+
+/**
+ * Saves the final rounds of a game and marks it as completed in one transaction,
+ * replacing any rounds saved during the game
+ * @param gameId the game ID of the game to complete
+ * @param rounds the [team 1 score, team 2 score] of each round, in order
+ * @returns the completed game and its rounds, or null if the game was already completed or cancelled
+ */
+export async function completeGame(gameId: string, rounds: [number, number][]) {
+  return await prisma.$transaction(async (tx) => {
+    // Only complete a game that is still open, so two reports at once can't both save rounds
+    const { count } = await tx.game.updateMany({
+      where: {
+        id: gameId,
+        status: { notIn: [GameStatus.COMPLETED, GameStatus.CANCELLED] },
+      },
+      data: { status: GameStatus.COMPLETED },
+    });
+
+    if (count === 0) {
+      return null;
+    }
+
+    await tx.gameRound.deleteMany({ where: { gameId } });
+    const savedRounds = await tx.gameRound.createManyAndReturn({
+      data: rounds.map(([team1Score, team2Score], index) => ({
+        gameId,
+        number: index + 1,
+        team1Score,
+        team2Score,
+      })),
+    });
+    const game = (await tx.game.findUniqueOrThrow({ where: { id: gameId } })) as Game;
+
+    return { game, rounds: savedRounds };
+  });
 }
 
 /**
