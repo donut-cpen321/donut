@@ -48,8 +48,8 @@ model Friendship {
   requesterId String           @db.Uuid
   addresseeId String           @db.Uuid
   status      FriendshipStatus @default(PENDING)
-  createdAt   DateTime         @default(now())
-  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+  acceptedAt  DateTime?        @db.Timestamptz(3)
 
   requester User @relation("FriendshipsSent", fields: [requesterId], references: [id], onDelete: Cascade)
   addressee User @relation("FriendshipsReceived", fields: [addresseeId], references: [id], onDelete: Cascade)
