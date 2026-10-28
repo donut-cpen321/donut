@@ -87,10 +87,6 @@ class AuthSession(
         }
     }
 
-    /**
-     * Clears the user on this device
-     * @return the user who was signed in, null if nobody was
-     */
     private suspend fun signOutOnDevice(): User? {
         lock.withLock {
             val currentUser = user
@@ -101,11 +97,6 @@ class AuthSession(
         }
     }
 
-    /**
-     * Trades the refresh token for new tokens
-     * @param staleUser the user whose access token got a 401
-     * @return the user with new tokens, null if the user has to sign in again or the refresh failed
-     */
     private suspend fun refreshTokens(staleUser: User): User? {
         lock.withLock {
             val currentUser = user
