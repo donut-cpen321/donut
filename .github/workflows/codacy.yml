@@ -1,0 +1,60 @@
+name: Codacy Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  codacy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      # The Prisma client is gitignored (backend/src/generated), so generate it
+      # before analysis or every import from it resolves to an unknown type.
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      # Uses the legacy Codacy Analysis CLI (Docker-based) because codacy-cli-v2
+      # does not support detekt. Tool settings come from the root .codacy.yml.
+      - name: Run Codacy analysis and upload results
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: codacy/codacy-analysis-cli-action@v4.4.7
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          upload: true
+          max-allowed-issues: 0
+          verbose: true
+
+      # Fork PRs have no access to secrets, so analyze locally without uploading.
+      - name: Run Codacy analysis (fork PR, no upload)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: codacy/codacy-analysis-cli-action@v4.4.7
+        with:
+          format: sarif
+          output: results.sarif
+          max-allowed-issues: 0
+          verbose: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codacy-results
+          path: results.sarif
+          if-no-files-found: ignore
