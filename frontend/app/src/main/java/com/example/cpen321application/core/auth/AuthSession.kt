@@ -2,6 +2,7 @@ package com.example.cpen321application.core.auth
 
 import com.example.cpen321application.core.network.ApiService
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
+import com.example.cpen321application.core.network.dto.TokensResponseDto
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException
@@ -23,6 +24,8 @@ class AuthSession(
     // Refresh tokens only work once, so two refreshes at the same time would sign the user out
     private val lock = Mutex()
 
+    // The signed-in user, null if signed out. Anyone can read it, only this class changes it.
+    // @Volatile because requests on different threads read it.
     @Volatile
     var user: User? = initialUser
         private set
@@ -30,24 +33,40 @@ class AuthSession(
     /**
      * Starts a session with the user returned by loginWithBackend
      */
-    fun signIn(user: User) = setUser(user)
+    fun signIn(newUser: User) {
+        setUser(newUser)
+    }
 
     /**
      * Calls an ApiService route with the access token. If it expired, refreshes it once and retries.
-     * @param call the route, given the `Authorization` header value. It must throw HttpException on errors,
-     * so return the body type, not Response<T>.
+     *
+     * Example: `session.authorized { authorization -> api.getGames(authorization) }`
+     *
+     * @param call the route to call. It gets the `Authorization` header value ("Bearer <token>").
+     * It must throw HttpException on errors, so the route returns the body type, not Response<T>.
      * @return the route's result, null if no user is signed in
      * @throws HttpException if the backend rejects the request, a 401 if the token could not be refreshed
      * @throws IOException if the backend is unreachable
      */
     suspend fun <T> authorized(call: suspend (authorization: String) -> T): T? {
-        val sentAs = user ?: return null
+        val currentUser = user
+        if (currentUser == null) {
+            return null
+        }
+
         try {
-            return call("Bearer ${sentAs.accessToken}")
+            return call("Bearer " + currentUser.accessToken)
         } catch (e: HttpException) {
-            if (e.code() != HttpURLConnection.HTTP_UNAUTHORIZED) throw e
-            val refreshedUser = refreshTokens(sentAs) ?: throw e
-            return call("Bearer ${refreshedUser.accessToken}")
+            if (e.code() != HttpURLConnection.HTTP_UNAUTHORIZED) {
+                throw e  // Not a token problem, the caller handles it
+            }
+
+            val refreshedUser = refreshTokens(currentUser)
+            if (refreshedUser == null) {
+                throw e  // Could not refresh, pass on the original 401
+            }
+
+            return call("Bearer " + refreshedUser.accessToken)
         }
     }
 
@@ -56,16 +75,29 @@ class AuthSession(
      * The user is signed out even if the backend is unreachable.
      */
     suspend fun logout() {
-        val signedOut = lock.withLock {
-            val current = user ?: return
-            setUser(null)
-            current
+        val signedOutUser = signOutOnDevice()
+        if (signedOutUser == null) {
+            return  // Nobody was signed in
         }
 
         try {
-            api.logout(RefreshRequestDto(signedOut.refreshToken))
+            api.logout(RefreshRequestDto(signedOutUser.refreshToken))
         } catch (e: IOException) {
             // Already signed out here; the refresh token expires on its own
+        }
+    }
+
+    /**
+     * Clears the user on this device
+     * @return the user who was signed in, null if nobody was
+     */
+    private suspend fun signOutOnDevice(): User? {
+        lock.withLock {
+            val currentUser = user
+            if (currentUser != null) {
+                setUser(null)
+            }
+            return currentUser
         }
     }
 
@@ -74,27 +106,30 @@ class AuthSession(
      * @param staleUser the user whose access token got a 401
      * @return the user with new tokens, null if the user has to sign in again or the refresh failed
      */
-    private suspend fun refreshTokens(staleUser: User): User? = lock.withLock {
-        val current = user
-        // Another request already refreshed, or the user signed out, while this one waited
-        if (current != staleUser) {
-            return@withLock current
-        }
-
-        val tokens = try {
-            api.refreshTokens(RefreshRequestDto(staleUser.refreshToken))
-        } catch (e: HttpException) {
-            // Refresh token used, expired or logged out: the user has to sign in with Google again
-            if (e.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
-                setUser(null)
+    private suspend fun refreshTokens(staleUser: User): User? {
+        lock.withLock {
+            val currentUser = user
+            if (currentUser != staleUser) {
+                // Another request already refreshed, or the user signed out, while this one waited
+                return currentUser
             }
-            // Otherwise a server error: keep the session, the next request tries again
-            return@withLock null
-        }
 
-        val refreshedUser = staleUser.copy(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
-        setUser(refreshedUser)
-        refreshedUser
+            val tokens: TokensResponseDto
+            try {
+                tokens = api.refreshTokens(RefreshRequestDto(staleUser.refreshToken))
+            } catch (e: HttpException) {
+                if (e.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                    // Refresh token used, expired or logged out: the user has to sign in with Google again
+                    setUser(null)
+                }
+                // Otherwise a server error: keep the session, the next request tries again
+                return null
+            }
+
+            val refreshedUser = User(staleUser.username, tokens.accessToken, tokens.refreshToken)
+            setUser(refreshedUser)
+            return refreshedUser
+        }
     }
 
     private fun setUser(newUser: User?) {

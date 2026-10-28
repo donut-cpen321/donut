@@ -29,7 +29,13 @@ fun MainScreen(
     val isSignedIn = user != null
 
     // Picked once: changing NavHost's start destination would reset the back stack
-    val startRoute = rememberSaveable { if (isSignedIn) Screen.Profile.route else Screen.Login.route }
+    val startRoute = rememberSaveable {
+        if (isSignedIn) {
+            Screen.Profile.route
+        } else {
+            Screen.Login.route
+        }
+    }
 
     // Sign-in, sign-out and a rejected refresh token all change the user, so every auth redirect happens here
     LaunchedEffect(isSignedIn) {
@@ -52,8 +58,8 @@ fun MainScreen(
             navController = navController,
             serverClientId = serverClientId,
             startRoute = startRoute,
-            onLoginSuccess = authViewModel::signIn,
-            onSignOut = authViewModel::logout,
+            onLoginSuccess = { newUser -> authViewModel.signIn(newUser) },
+            onSignOut = { authViewModel.logout() },
             modifier = Modifier.padding(innerPadding)
         )
     }

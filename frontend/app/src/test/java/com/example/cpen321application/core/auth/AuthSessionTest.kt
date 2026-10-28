@@ -76,8 +76,15 @@ class AuthSessionTest {
     private fun session(user: User? = signedIn) =
         AuthSession(retrofit.create(ApiService::class.java), user) { userChanges.add(it) }
 
-    private suspend fun AuthSession.getGames() =
-        authorized { retrofit.create(GamesApi::class.java).games(it) }?.string()
+    // Calls the protected route through session.authorized, like a screen would
+    private suspend fun getGames(session: AuthSession): String? {
+        val gamesApi = retrofit.create(GamesApi::class.java)
+        val body = session.authorized { authorization -> gamesApi.games(authorization) }
+        if (body == null) {
+            return null
+        }
+        return body.string()
+    }
 
     private fun response(code: Int, body: String = "") = MockResponse().setResponseCode(code).setBody(body)
 
@@ -107,7 +114,7 @@ class AuthSessionTest {
         }
         refreshRoute(200, newTokensJson)
 
-        val result = session().getGames()
+        val result = getGames(session())
 
         assertEquals("ok", result)
         assertEquals(0, refreshCalls.get())
@@ -122,7 +129,7 @@ class AuthSessionTest {
         refreshRoute(200, newTokensJson)
         val session = session()
 
-        val result = session.getGames()
+        val result = getGames(session)
 
         assertEquals("ok", result)
         assertEquals(refreshed, session.user)
@@ -139,7 +146,7 @@ class AuthSessionTest {
         refreshRoute(401, """{"error":"Invalid or expired refresh token"}""")
         val session = session()
 
-        val error = assertThrows(HttpException::class.java) { runBlocking { session.getGames() } }
+        val error = assertThrows(HttpException::class.java) { runBlocking { getGames(session) } }
 
         assertEquals(401, error.code())
         assertNull(session.user)
@@ -155,7 +162,7 @@ class AuthSessionTest {
         refreshRoute(500)
         val session = session()
 
-        val error = assertThrows(HttpException::class.java) { runBlocking { session.getGames() } }
+        val error = assertThrows(HttpException::class.java) { runBlocking { getGames(session) } }
 
         assertEquals(401, error.code())
         assertEquals(signedIn, session.user)
@@ -181,8 +188,8 @@ class AuthSessionTest {
         refreshRoute(200, newTokensJson)
         val session = session()
 
-        val first = async(Dispatchers.IO) { session.getGames() }
-        val second = async(Dispatchers.IO) { session.getGames() }
+        val first = async(Dispatchers.IO) { getGames(session) }
+        val second = async(Dispatchers.IO) { getGames(session) }
 
         assertEquals("ok", first.await())
         assertEquals("ok", second.await())
@@ -196,7 +203,7 @@ class AuthSessionTest {
     fun sendsNothingWhenSignedOut() = runBlocking {
         protectedRoute()
 
-        val result = session(user = null).getGames()
+        val result = getGames(session(user = null))
 
         assertNull(result)
         assertEquals(0, server.requestCount)

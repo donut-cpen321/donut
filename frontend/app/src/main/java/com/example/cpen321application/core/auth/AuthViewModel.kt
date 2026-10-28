@@ -16,19 +16,26 @@ import kotlinx.coroutines.launch
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val userStore = UserStore(application)
 
-    // Signed in from the last run if tokens were saved
+    // The signed-in user, starting with the one saved from the last run (null if signed out).
+    // _user is changed here; screens watch the read-only `user` and redraw when it changes.
     private val _user = MutableStateFlow(userStore.load())
     val user: StateFlow<User?> = _user.asStateFlow()
 
-    val session = AuthSession(RetrofitClient.apiService, _user.value) { newUser ->
-        userStore.save(newUser)
-        _user.value = newUser
-    }
+    val session = AuthSession(
+        api = RetrofitClient.apiService,
+        initialUser = _user.value,
+        onUserChanged = { newUser ->
+            userStore.save(newUser)
+            _user.value = newUser
+        }
+    )
 
     /**
      * Starts a session with the user returned by the backend login
      */
-    fun signIn(user: User) = session.signIn(user)
+    fun signIn(newUser: User) {
+        session.signIn(newUser)
+    }
 
     /**
      * Signs out on the backend and clears the Google credential so the account picker shows next time

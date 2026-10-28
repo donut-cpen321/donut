@@ -22,9 +22,12 @@ class UserStore(context: Context) {
      * @return the saved user, null if nobody is signed in
      */
     fun load(): User? {
-        val username = prefs.getString(USERNAME, null) ?: return null
-        val accessToken = prefs.getString(ACCESS_TOKEN, null) ?: return null
-        val refreshToken = prefs.getString(REFRESH_TOKEN, null) ?: return null
+        val username = prefs.getString(USERNAME, null)
+        val accessToken = prefs.getString(ACCESS_TOKEN, null)
+        val refreshToken = prefs.getString(REFRESH_TOKEN, null)
+        if (username == null || accessToken == null || refreshToken == null) {
+            return null
+        }
         return User(username, accessToken, refreshToken)
     }
 
@@ -37,12 +40,13 @@ class UserStore(context: Context) {
             editor.clear()
         } else {
             editor.putString(USERNAME, user.username)
-                .putString(ACCESS_TOKEN, user.accessToken)
-                .putString(REFRESH_TOKEN, user.refreshToken)
+            editor.putString(ACCESS_TOKEN, user.accessToken)
+            editor.putString(REFRESH_TOKEN, user.refreshToken)
         }
         editor.apply()
     }
 
+    // Key names in the file, like Java's `private static final`
     private companion object {
         const val USERNAME = "username"
         const val ACCESS_TOKEN = "accessToken"
