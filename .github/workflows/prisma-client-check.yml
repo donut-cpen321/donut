@@ -1,0 +1,39 @@
+name: Prisma Client Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-generated:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run generate
+
+      # The generated client and copied Prisma runtime types are committed so Codacy
+      # can resolve them. Fail if they no longer match schema.prisma or the installed Prisma.
+      - name: Verify committed client is up to date
+        run: |
+          if [ -n "$(git status --porcelain -- src/generated)" ]; then
+            git status --short -- src/generated
+            echo "::error::backend/src/generated is out of date. Run 'npm run generate' in backend/ and commit the result."
+            exit 1
+          fi
