@@ -31,18 +31,26 @@ jobs:
         working-directory: backend
         run: npx prisma generate
 
-      - name: Run Codacy CLI analysis
-        run: |
-          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) install
-          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) analyze --format sarif --output results.sarif
-
-      - name: Upload results to Codacy
+      # Uses the legacy Codacy Analysis CLI (Docker-based) because codacy-cli-v2
+      # does not support detekt. Tool settings come from the root .codacy.yml.
+      - name: Run Codacy analysis and upload results
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) upload \
-            --sarif-path results.sarif \
-            --commit-uuid ${{ github.event.pull_request.head.sha || github.sha }} \
-            --project-token ${{ secrets.CODACY_PROJECT_TOKEN }}
+        uses: codacy/codacy-analysis-cli-action@v4.4.7
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          upload: true
+          max-allowed-issues: 2147483647
+          verbose: true
+
+      # Fork PRs have no access to secrets, so analyze locally without uploading.
+      - name: Run Codacy analysis (fork PR, no upload)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: codacy/codacy-analysis-cli-action@v4.4.7
+        with:
+          format: sarif
+          output: results.sarif
+          max-allowed-issues: 2147483647
+          verbose: true
 
       - uses: actions/upload-artifact@v4
         if: always()

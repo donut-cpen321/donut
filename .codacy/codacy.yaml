@@ -1,22 +1,5 @@
----
-engines:
-  detekt:
-    enabled: true
-    exclude_paths:
-      - "**/build/**"
-      - "**/generated/**"
-  eslint:
-    enabled: true
-    exclude_paths:
-      - "**/node_modules/**"
-      - "**/dist/**"
-      - "**/*.min.js"
-  trivy:
-    enabled: true
-
-exclude_paths:
-  - "**/node_modules/**"
-  - "**/build/**"
-  - "**/dist/**"
-  - "**/.gradle/**"
-  - "**/coverage/**"
+runtimes:
+    - node@22.2.0
+tools:
+    - eslint@8.57.0
+    - trivy@0.69.3
