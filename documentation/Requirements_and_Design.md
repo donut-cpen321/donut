@@ -5,6 +5,7 @@
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
 | Oct 23, 2026 | 2, 3.1, 3.3, 3.4, 3.5, 4.1, 4.2, 4.7 | Narrowed the first version to tennis only. Pickleball and badminton were dropped, so players no longer pick a sport. |
+| Oct 28, 2026 | 4.1 | Added the Games interfaces that change a game's start time and court, and replaced the planned final-score interface with the implemented `POST /games/score`. |
 
 ---
 
@@ -346,17 +347,21 @@ Not included. The formal use cases describe each screen in enough detail for thi
             - **Purpose**: Deletes a game
         5. `POST /games/join` with `{ gameId }` → `Game`, `POST /games/leave` with `{ gameId }` → `204` - E
             - **Purpose**: Join or leave a scheduled game
-        6. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
+        6. `PATCH /games/time` with `{ gameId, startsAt }` → `{ game: Game }` - E
+            - **Purpose**: Moves a game to a new start time, which must be in the future. The caller must be in the game, and the game must not be completed or cancelled (`403` and `409` otherwise).
+        7. `PATCH /games/location` with `{ gameId, courtId }` → `{ game: Game }` - E
+            - **Purpose**: Moves a game to a different court, with the same rules as `PATCH /games/time`. Returns `404` if the court does not exist.
+        8. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
             - **Purpose**: Accept or decline a matched game.
-        7. `POST /games/:id/check-in` → `Game` - E
+        9. `POST /games/:id/check-in` → `Game` - E
             - **Purpose**: Confirms the player is at the court; starts the game when every player has confirmed.
-        8. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
+        10. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
             - **Purpose**: The owner saves one round's live score.
-        9. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
+        11. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
             - **Purpose**: Pushes each saved round to every player connected to the game.
-        10. `POST /games/:id/final-score` with `{ rounds: RoundScore[] }` → `{ game: Game, ratingChanges: RatingChange[] }` - E
-            - **Purpose**: The owner ends the game; triggers the rating update.
-        11. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
+        12. `POST /games/score` with `{ gameId, rounds: [team1Score, team2Score][] }` → `{ game: Game, rounds: GameRound[] }` - E
+            - **Purpose**: Ends the game with its final score. The rounds replace any saved during the game, and the game is marked as completed in the same transaction, so the score can only be reported once (`409` after that). Rejected with `400` if there are no rounds, a round score is not a non-negative whole number, a round is tied, or both teams won the same number of rounds. The caller must be in the game. Ratings are not updated yet: `applyGameResult` will run in this transaction once Scoring stores ratings.
+        13. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
             - **Purpose**: Used by Matchmaking to create a proposed game.
 3. **Matchmaking**
     - **Purpose**: Owns the matchmaking queue and the matching algorithm, run by a background job every 30 seconds.

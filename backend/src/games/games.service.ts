@@ -1,13 +1,28 @@
 import { GameStatus } from "../generated/prisma/enums";
 import {
+  completeGame,
   createGame,
   createGameUser,
   deleteGame,
   deleteGameUser,
   fetchGame,
   isUserInGame,
+  updateGame,
 } from "./games.repository";
-import { CreateGameInput, GameIdInput } from "./games.schemas";
+import {
+  CreateGameInput,
+  GameIdInput,
+  ReportScoreInput,
+} from "./games.schemas";
+
+export const gameEditErrors = {
+  NotFound: "Game not found",
+  NotInGame: "User not in game",
+  Closed: "Game is already completed or cancelled",
+} as const;
+
+export type GameEditError =
+  (typeof gameEditErrors)[keyof typeof gameEditErrors];
 
 /**
  * Creates a game using the given game information and adds the given user to the game on team 1
@@ -69,4 +84,105 @@ export async function joinGame(
  */
 export async function leaveGame(gameId: string, userId: string) {
   await deleteGameUser(gameId, userId);
+}
+
+/**
+ * Checks that a game exists, that the given user is in it, and that it is not completed or cancelled
+ * @param gameId the game ID of the game to edit
+ * @param userId the user editing the game
+ * @returns the reason the user cannot edit the game, or null if they can
+ */
+async function checkCanEditGame(
+  gameId: string,
+  userId: string,
+): Promise<GameEditError | null> {
+  const game = await fetchGame(gameId);
+  if (game === null) {
+    return gameEditErrors.NotFound;
+  }
+
+  if (!(await isUserInGame(userId, gameId))) {
+    return gameEditErrors.NotInGame;
+  }
+
+  if (
+    game.status === GameStatus.COMPLETED ||
+    game.status === GameStatus.CANCELLED
+  ) {
+    return gameEditErrors.Closed;
+  }
+
+  return null;
+}
+
+/**
+ * Moves a game to a new start time
+ * @param gameId the game ID of the game to change
+ * @param userId the user changing the game, who must be in it
+ * @param startsAt the new start time
+ * @returns the updated game, or the reason the game cannot be changed
+ */
+export async function changeGameTime(
+  gameId: string,
+  userId: string,
+  startsAt: Date,
+) {
+  const error = await checkCanEditGame(gameId, userId);
+  if (error) {
+    return { success: false, error } as const;
+  }
+
+  return {
+    success: true,
+    game: await updateGame(gameId, { startsAt }),
+  } as const;
+}
+
+/**
+ * Moves a game to a different court
+ * @param gameId the game ID of the game to change
+ * @param userId the user changing the game, who must be in it
+ * @param courtId the ID of the new court
+ * @returns the updated game, or the reason the game cannot be changed
+ */
+export async function changeGameLocation(
+  gameId: string,
+  userId: string,
+  courtId: number,
+) {
+  const error = await checkCanEditGame(gameId, userId);
+  if (error) {
+    return { success: false, error } as const;
+  }
+
+  return {
+    success: true,
+    game: await updateGame(gameId, { courtId }),
+  } as const;
+}
+
+/**
+ * Reports the final score of a game: saves its rounds and marks it as completed
+ * @param gameId the game ID of the game the score is for
+ * @param userId the user reporting the score, who must be in the game
+ * @param rounds the [team 1 score, team 2 score] of each round, in order
+ * @returns the completed game and its rounds, or the reason the score cannot be reported
+ */
+export async function reportScore(
+  gameId: string,
+  userId: string,
+  rounds: ReportScoreInput["rounds"],
+) {
+  const error = await checkCanEditGame(gameId, userId);
+  if (error) {
+    return { success: false, error } as const;
+  }
+
+  const completed = await completeGame(gameId, rounds);
+  if (completed === null) {
+    // Another report completed the game after the check above
+    return { success: false, error: gameEditErrors.Closed } as const;
+  }
+
+  return { success: true, ...completed } as const;
 }
