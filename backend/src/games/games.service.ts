@@ -9,15 +9,20 @@ import {
   isUserInGame,
   updateGame,
 } from "./games.repository";
-import { CreateGameInput, GameIdInput, ReportScoreInput } from "./games.schemas";
+import {
+  CreateGameInput,
+  GameIdInput,
+  ReportScoreInput,
+} from "./games.schemas";
 
-export const GameEditError = {
+export const gameEditErrors = {
   NotFound: "Game not found",
   NotInGame: "User not in game",
   Closed: "Game is already completed or cancelled",
 } as const;
 
-export type GameEditError = (typeof GameEditError)[keyof typeof GameEditError];
+export type GameEditError =
+  (typeof gameEditErrors)[keyof typeof gameEditErrors];
 
 /**
  * Creates a game using the given game information and adds the given user to the game on team 1
@@ -90,21 +95,21 @@ export async function leaveGame(gameId: string, userId: string) {
 async function checkCanEditGame(
   gameId: string,
   userId: string,
-): Promise<GameEditError | null> {
+): Promise<GameEditErrorString | null> {
   const game = await fetchGame(gameId);
   if (game === null) {
-    return GameEditError.NotFound;
+    return GameEditErrorString.NotFound;
   }
 
   if (!(await isUserInGame(userId, gameId))) {
-    return GameEditError.NotInGame;
+    return GameEditErrorString.NotInGame;
   }
 
   if (
     game.status === GameStatus.COMPLETED ||
     game.status === GameStatus.CANCELLED
   ) {
-    return GameEditError.Closed;
+    return GameEditErrorString.Closed;
   }
 
   return null;
@@ -127,7 +132,10 @@ export async function changeGameTime(
     return { success: false, error } as const;
   }
 
-  return { success: true, game: await updateGame(gameId, { startsAt }) } as const;
+  return {
+    success: true,
+    game: await updateGame(gameId, { startsAt }),
+  } as const;
 }
 
 /**
@@ -147,7 +155,10 @@ export async function changeGameLocation(
     return { success: false, error } as const;
   }
 
-  return { success: true, game: await updateGame(gameId, { courtId }) } as const;
+  return {
+    success: true,
+    game: await updateGame(gameId, { courtId }),
+  } as const;
 }
 
 /**
@@ -170,7 +181,7 @@ export async function reportScore(
   const completed = await completeGame(gameId, rounds);
   if (completed === null) {
     // Another report completed the game after the check above
-    return { success: false, error: GameEditError.Closed } as const;
+    return { success: false, error: GameEditErrorString.Closed } as const;
   }
 
   return { success: true, ...completed } as const;

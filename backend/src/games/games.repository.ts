@@ -8,7 +8,7 @@ import { GameStatus } from "../generated/prisma/enums";
  * @returns the created game, along with its ID
  */
 export async function createGame(game: Omit<Game, "id" | "createdAt">) {
-  return (await prisma.game.create({ data: game })) as Game;
+  return await prisma.game.create({ data: game });
 }
 
 /**
@@ -17,7 +17,7 @@ export async function createGame(game: Omit<Game, "id" | "createdAt">) {
  * @returns The respective game as a Game or null if the game was not found
  */
 export async function fetchGame(gameId: string): Promise<Game | null> {
-  return (await prisma.game.findUnique({ where: { id: gameId } })) as Game;
+  return await prisma.game.findUnique({ where: { id: gameId } });
 }
 
 /**
@@ -38,7 +38,7 @@ export async function updateGame(
   gameId: string,
   data: Partial<Pick<Game, "startsAt" | "courtId">>,
 ) {
-  return (await prisma.game.update({ where: { id: gameId }, data })) as Game;
+  return await prisma.game.update({ where: { id: gameId }, data });
 }
 
 /**
@@ -72,7 +72,7 @@ export async function completeGame(gameId: string, rounds: [number, number][]) {
         team2Score,
       })),
     });
-    const game = (await tx.game.findUniqueOrThrow({ where: { id: gameId } })) as Game;
+    const game = await tx.game.findUniqueOrThrow({ where: { id: gameId } });
 
     return { game, rounds: savedRounds };
   });
