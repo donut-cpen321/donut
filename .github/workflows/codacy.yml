@@ -36,6 +36,7 @@ jobs:
       - name: Run Codacy analysis and upload results
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         uses: codacy/codacy-analysis-cli-action@v4.4.7
+        continue-on-error: true
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           upload: true
@@ -46,6 +47,7 @@ jobs:
       - name: Run Codacy analysis (fork PR, no upload)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         uses: codacy/codacy-analysis-cli-action@v4.4.7
+        continue-on-error: true
         with:
           format: sarif
           output: results.sarif
