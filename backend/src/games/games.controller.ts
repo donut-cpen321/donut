@@ -15,7 +15,8 @@ import {
   cancelGame,
   changeGameLocation,
   changeGameTime,
-  GameEditError,
+  type GameEditError,
+  gameEditErrors,
   getGame,
   joinGame,
   leaveGame,
@@ -26,9 +27,9 @@ import {
 export const gamesRouter = Router();
 
 const gameEditErrorStatus: Record<GameEditError, number> = {
-  [GameEditError.NotFound]: 404,
-  [GameEditError.NotInGame]: 403,
-  [GameEditError.Closed]: 409,
+  [gameEditErrors.NotFound]: 404,
+  [gameEditErrors.NotInGame]: 403,
+  [gameEditErrors.Closed]: 409,
 };
 
 gamesRouter.use((req: Request, res: Response, next: NextFunction) => {
@@ -207,7 +208,9 @@ gamesRouter.patch("/time", async (req: Request, res: Response) => {
     const result = await changeGameTime(gameId, req.userId, startsAt);
 
     if (!result.success) {
-      res.status(gameEditErrorStatus[result.error]).json({ error: result.error });
+      res
+        .status(gameEditErrorStatus[result.error])
+        .json({ error: result.error });
       return;
     }
     res.status(200).json({ game: result.game });
@@ -245,7 +248,9 @@ gamesRouter.patch("/location", async (req: Request, res: Response) => {
     const result = await changeGameLocation(gameId, req.userId, courtId);
 
     if (!result.success) {
-      res.status(gameEditErrorStatus[result.error]).json({ error: result.error });
+      res
+        .status(gameEditErrorStatus[result.error])
+        .json({ error: result.error });
       return;
     }
     res.status(200).json({ game: result.game });
@@ -286,7 +291,9 @@ gamesRouter.post("/score", async (req: Request, res: Response) => {
     const result = await reportScore(gameId, req.userId, rounds);
 
     if (!result.success) {
-      res.status(gameEditErrorStatus[result.error]).json({ error: result.error });
+      res
+        .status(gameEditErrorStatus[result.error])
+        .json({ error: result.error });
       return;
     }
     res.status(200).json({ game: result.game, rounds: result.rounds });

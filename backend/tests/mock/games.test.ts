@@ -20,7 +20,7 @@ import {
   cancelGame,
   changeGameLocation,
   changeGameTime,
-  GameEditError,
+  gameEditErrors,
   getGame,
   joinGame,
   leaveGame,
@@ -71,16 +71,51 @@ describe("Mocked: /games requireAuth", () => {
 
   const gameId = "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b";
 
-  const routes = () => [
-    ["POST /games", () => request(createApp()).post("/games").send(validBody())],
-    ["GET /games", () => request(createApp()).get("/games").query({ gameId })],
-    ["DELETE /games", () => request(createApp()).delete("/games").query({ gameId })],
-    ["POST /games/join", () => request(createApp()).post("/games/join").send({ gameId, team: 1 })],
-    ["POST /games/leave", () => request(createApp()).post("/games/leave").send({ gameId })],
-    ["PATCH /games/time", () => request(createApp()).patch("/games/time").send({ gameId, startsAt: futureStartsAt() })],
-    ["PATCH /games/location", () => request(createApp()).patch("/games/location").send({ gameId, courtId: 2 })],
-    ["POST /games/score", () => request(createApp()).post("/games/score").send({ gameId, rounds: [[6, 4]] })],
-  ] as const;
+  const routes = () =>
+    [
+      [
+        "POST /games",
+        () => request(createApp()).post("/games").send(validBody()),
+      ],
+      [
+        "GET /games",
+        () => request(createApp()).get("/games").query({ gameId }),
+      ],
+      [
+        "DELETE /games",
+        () => request(createApp()).delete("/games").query({ gameId }),
+      ],
+      [
+        "POST /games/join",
+        () =>
+          request(createApp()).post("/games/join").send({ gameId, team: 1 }),
+      ],
+      [
+        "POST /games/leave",
+        () => request(createApp()).post("/games/leave").send({ gameId }),
+      ],
+      [
+        "PATCH /games/time",
+        () =>
+          request(createApp())
+            .patch("/games/time")
+            .send({ gameId, startsAt: futureStartsAt() }),
+      ],
+      [
+        "PATCH /games/location",
+        () =>
+          request(createApp())
+            .patch("/games/location")
+            .send({ gameId, courtId: 2 }),
+      ],
+      [
+        "POST /games/score",
+        () =>
+          request(createApp())
+            .post("/games/score")
+            .send({ gameId, rounds: [[6, 4]] }),
+      ],
+    ] as const;
 
   const expectNoRepositoryCalls = () => {
     expect(mockedCreateGame).not.toHaveBeenCalled();
@@ -93,21 +128,27 @@ describe("Mocked: /games requireAuth", () => {
     expect(mockedCompleteGame).not.toHaveBeenCalled();
   };
 
-  test.each(routes())("Rejects %s without an Authorization header", async (_route, send) => {
-    const response = await send();
+  test.each(routes())(
+    "Rejects %s without an Authorization header",
+    async (_route, send) => {
+      const response = await send();
 
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({ error: "Missing auth token" });
-    expectNoRepositoryCalls();
-  });
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: "Missing auth token" });
+      expectNoRepositoryCalls();
+    },
+  );
 
-  test.each(routes())("Rejects %s with an invalid token", async (_route, send) => {
-    const response = await send().set("Authorization", "Bearer not-a-jwt");
+  test.each(routes())(
+    "Rejects %s with an invalid token",
+    async (_route, send) => {
+      const response = await send().set("Authorization", "Bearer not-a-jwt");
 
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({ error: "Invalid or expired auth token" });
-    expectNoRepositoryCalls();
-  });
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: "Invalid or expired auth token" });
+      expectNoRepositoryCalls();
+    },
+  );
 });
 
 describe("Mocked: POST /games", () => {
@@ -132,7 +173,10 @@ describe("Mocked: POST /games", () => {
       acceptedAt: new Date(),
     });
 
-    const response = await request(createApp()).post("/games").set("Authorization", authHeader).send(body);
+    const response = await request(createApp())
+      .post("/games")
+      .set("Authorization", authHeader)
+      .send(body);
 
     expect(response.status).toBe(201);
     expect(response.body.game).toMatchObject({
@@ -170,7 +214,8 @@ describe("Mocked: POST /games", () => {
     mockedCreateGameUser.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .post("/games").set("Authorization", authHeader)
+      .post("/games")
+      .set("Authorization", authHeader)
       .send(validBody());
 
     expect(response.status).toBe(500);
@@ -190,7 +235,8 @@ describe("Mocked: POST /games", () => {
     ["unknown field", { status: GameStatus.COMPLETED }],
   ])("Rejects a body with %s", async (_description, overrides) => {
     const response = await request(createApp())
-      .post("/games").set("Authorization", authHeader)
+      .post("/games")
+      .set("Authorization", authHeader)
       .send({ ...validBody(), ...overrides });
 
     expect(response.status).toBe(400);
@@ -205,7 +251,8 @@ describe("Mocked: POST /games", () => {
     ["at the current time", () => new Date().toISOString()],
   ])("Rejects a start time %s", async (_description, startsAt) => {
     const response = await request(createApp())
-      .post("/games").set("Authorization", authHeader)
+      .post("/games")
+      .set("Authorization", authHeader)
       .send({ ...validBody(), startsAt: startsAt() });
 
     expect(response.status).toBe(400);
@@ -230,7 +277,8 @@ describe("Mocked: POST /games", () => {
     );
 
     const response = await request(createApp())
-      .post("/games").set("Authorization", authHeader)
+      .post("/games")
+      .set("Authorization", authHeader)
       .send(validBody());
 
     expect(response.status).toBe(500);
@@ -244,7 +292,8 @@ describe("Mocked: POST /games", () => {
     mockedCreateGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .post("/games").set("Authorization", authHeader)
+      .post("/games")
+      .set("Authorization", authHeader)
       .send(validBody());
 
     expect(response.status).toBe(500);
@@ -273,7 +322,10 @@ describe("Mocked: GET /games", () => {
     };
     mockedFetchGame.mockResolvedValue(game);
 
-    const response = await request(createApp()).get("/games").set("Authorization", authHeader).query({ gameId });
+    const response = await request(createApp())
+      .get("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId });
 
     expect(response.status).toBe(200);
     expect(response.body.game).toMatchObject({
@@ -290,7 +342,10 @@ describe("Mocked: GET /games", () => {
   test("Returns 404 when the game does not exist", async () => {
     mockedFetchGame.mockResolvedValue(null);
 
-    const response = await request(createApp()).get("/games").set("Authorization", authHeader).query({ gameId });
+    const response = await request(createApp())
+      .get("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId });
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: "Game not found" });
@@ -304,7 +359,10 @@ describe("Mocked: GET /games", () => {
     ["a numeric gameId", { gameId: "123" }],
     ["multiple gameIds", { gameId: [gameId, gameId] }],
   ])("Rejects a query with %s", async (_description, query) => {
-    const response = await request(createApp()).get("/games").set("Authorization", authHeader).query(query);
+    const response = await request(createApp())
+      .get("/games")
+      .set("Authorization", authHeader)
+      .query(query);
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe("Invalid request query");
@@ -318,7 +376,10 @@ describe("Mocked: GET /games", () => {
       .mockImplementation(() => undefined);
     mockedFetchGame.mockRejectedValue(new Error("Database unavailable"));
 
-    const response = await request(createApp()).get("/games").set("Authorization", authHeader).query({ gameId });
+    const response = await request(createApp())
+      .get("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId });
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: "Internal server error" });
@@ -338,7 +399,8 @@ describe("Mocked: DELETE /games", () => {
     mockedDeleteGame.mockResolvedValue();
 
     const response = await request(createApp())
-      .delete("/games").set("Authorization", authHeader)
+      .delete("/games")
+      .set("Authorization", authHeader)
       .query({ gameId });
 
     expect(response.status).toBe(204);
@@ -351,7 +413,8 @@ describe("Mocked: DELETE /games", () => {
     mockedIsUserInGame.mockResolvedValue(false);
 
     const response = await request(createApp())
-      .delete("/games").set("Authorization", authHeader)
+      .delete("/games")
+      .set("Authorization", authHeader)
       .query({ gameId });
 
     expect(response.status).toBe(403);
@@ -366,7 +429,10 @@ describe("Mocked: DELETE /games", () => {
     ["a numeric gameId", { gameId: "123" }],
     ["multiple gameIds", { gameId: [gameId, gameId] }],
   ])("Rejects a query with %s", async (_description, query) => {
-    const response = await request(createApp()).delete("/games").set("Authorization", authHeader).query(query);
+    const response = await request(createApp())
+      .delete("/games")
+      .set("Authorization", authHeader)
+      .query(query);
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe("Invalid request query");
@@ -387,7 +453,8 @@ describe("Mocked: DELETE /games", () => {
     );
 
     const response = await request(createApp())
-      .delete("/games").set("Authorization", authHeader)
+      .delete("/games")
+      .set("Authorization", authHeader)
       .query({ gameId });
 
     expect(response.status).toBe(500);
@@ -402,7 +469,8 @@ describe("Mocked: DELETE /games", () => {
     mockedDeleteGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .delete("/games").set("Authorization", authHeader)
+      .delete("/games")
+      .set("Authorization", authHeader)
       .query({ gameId });
 
     expect(response.status).toBe(500);
@@ -417,7 +485,8 @@ describe("Mocked: DELETE /games", () => {
     mockedIsUserInGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .delete("/games").set("Authorization", authHeader)
+      .delete("/games")
+      .set("Authorization", authHeader)
       .query({ gameId });
 
     expect(response.status).toBe(500);
@@ -582,7 +651,8 @@ describe("Mocked: POST /games/join", () => {
     });
 
     const response = await request(createApp())
-      .post("/games/join").set("Authorization", authHeader)
+      .post("/games/join")
+      .set("Authorization", authHeader)
       .send(body);
 
     expect(response.status).toBe(204);
@@ -598,10 +668,15 @@ describe("Mocked: POST /games/join", () => {
 
   test("Accepts team 0", async () => {
     const body = { ...validJoinBody(), team: 0 };
-    mockedCreateGameUser.mockResolvedValue({ ...body, userId, acceptedAt: null });
+    mockedCreateGameUser.mockResolvedValue({
+      ...body,
+      userId,
+      acceptedAt: null,
+    });
 
     const response = await request(createApp())
-      .post("/games/join").set("Authorization", authHeader)
+      .post("/games/join")
+      .set("Authorization", authHeader)
       .send(body);
 
     expect(response.status).toBe(204);
@@ -624,7 +699,8 @@ describe("Mocked: POST /games/join", () => {
     ["unknown field", { accepted: false }],
   ])("Rejects a body with %s", async (_description, overrides) => {
     const response = await request(createApp())
-      .post("/games/join").set("Authorization", authHeader)
+      .post("/games/join")
+      .set("Authorization", authHeader)
       .send({ ...validJoinBody(), ...overrides });
 
     expect(response.status).toBe(400);
@@ -637,7 +713,8 @@ describe("Mocked: POST /games/join", () => {
     mockedCreateGameUser.mockRejectedValue(prismaError("P2002"));
 
     const response = await request(createApp())
-      .post("/games/join").set("Authorization", authHeader)
+      .post("/games/join")
+      .set("Authorization", authHeader)
       .send(validJoinBody());
 
     expect(response.status).toBe(409);
@@ -648,7 +725,8 @@ describe("Mocked: POST /games/join", () => {
     mockedCreateGameUser.mockRejectedValue(prismaError("P2003"));
 
     const response = await request(createApp())
-      .post("/games/join").set("Authorization", authHeader)
+      .post("/games/join")
+      .set("Authorization", authHeader)
       .send(validJoinBody());
 
     expect(response.status).toBe(404);
@@ -662,7 +740,8 @@ describe("Mocked: POST /games/join", () => {
     mockedCreateGameUser.mockRejectedValue(prismaError("P2025"));
 
     const response = await request(createApp())
-      .post("/games/join").set("Authorization", authHeader)
+      .post("/games/join")
+      .set("Authorization", authHeader)
       .send(validJoinBody());
 
     expect(response.status).toBe(500);
@@ -677,7 +756,8 @@ describe("Mocked: POST /games/join", () => {
     mockedCreateGameUser.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .post("/games/join").set("Authorization", authHeader)
+      .post("/games/join")
+      .set("Authorization", authHeader)
       .send(validJoinBody());
 
     expect(response.status).toBe(500);
@@ -698,7 +778,8 @@ describe("Mocked: POST /games/leave", () => {
     mockedDeleteGameUser.mockResolvedValue();
 
     const response = await request(createApp())
-      .post("/games/leave").set("Authorization", authHeader)
+      .post("/games/leave")
+      .set("Authorization", authHeader)
       .send(body);
 
     expect(response.status).toBe(204);
@@ -714,7 +795,8 @@ describe("Mocked: POST /games/leave", () => {
     ["unknown field", { team: 1 }],
   ])("Rejects a body with %s", async (_description, overrides) => {
     const response = await request(createApp())
-      .post("/games/leave").set("Authorization", authHeader)
+      .post("/games/leave")
+      .set("Authorization", authHeader)
       .send({ ...validLeaveBody(), ...overrides });
 
     expect(response.status).toBe(400);
@@ -727,7 +809,8 @@ describe("Mocked: POST /games/leave", () => {
     mockedDeleteGameUser.mockRejectedValue(prismaError("P2025"));
 
     const response = await request(createApp())
-      .post("/games/leave").set("Authorization", authHeader)
+      .post("/games/leave")
+      .set("Authorization", authHeader)
       .send(validLeaveBody());
 
     expect(response.status).toBe(404);
@@ -741,7 +824,8 @@ describe("Mocked: POST /games/leave", () => {
     mockedDeleteGameUser.mockRejectedValue(prismaError("P2003"));
 
     const response = await request(createApp())
-      .post("/games/leave").set("Authorization", authHeader)
+      .post("/games/leave")
+      .set("Authorization", authHeader)
       .send(validLeaveBody());
 
     expect(response.status).toBe(500);
@@ -756,7 +840,8 @@ describe("Mocked: POST /games/leave", () => {
     mockedDeleteGameUser.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .post("/games/leave").set("Authorization", authHeader)
+      .post("/games/leave")
+      .set("Authorization", authHeader)
       .send(validLeaveBody());
 
     expect(response.status).toBe(500);
@@ -771,19 +856,36 @@ describe("Mocked: joinGame", () => {
   });
 
   test("Creates an accepted game user by default", async () => {
-    const gameUser = { gameId: joinGameId, userId, team: 1, acceptedAt: new Date() };
+    const gameUser = {
+      gameId: joinGameId,
+      userId,
+      team: 1,
+      acceptedAt: new Date(),
+    };
     mockedCreateGameUser.mockResolvedValue(gameUser);
 
     await expect(joinGame(joinGameId, userId, 1)).resolves.toBe(gameUser);
-    expect(mockedCreateGameUser).toHaveBeenCalledWith(joinGameId, userId, 1, true);
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(
+      joinGameId,
+      userId,
+      1,
+      true,
+    );
   });
 
   test("Passes accepted = false through to the repository", async () => {
     const gameUser = { gameId: joinGameId, userId, team: 2, acceptedAt: null };
     mockedCreateGameUser.mockResolvedValue(gameUser);
 
-    await expect(joinGame(joinGameId, userId, 2, false)).resolves.toBe(gameUser);
-    expect(mockedCreateGameUser).toHaveBeenCalledWith(joinGameId, userId, 2, false);
+    await expect(joinGame(joinGameId, userId, 2, false)).resolves.toBe(
+      gameUser,
+    );
+    expect(mockedCreateGameUser).toHaveBeenCalledWith(
+      joinGameId,
+      userId,
+      2,
+      false,
+    );
   });
 
   test("Propagates repository errors", async () => {
@@ -829,9 +931,30 @@ const existingGame = (overrides: Partial<Game> = {}): Game => ({
 
 // Every edit route runs the same game, membership and status checks before changing anything
 describe.each([
-  ["PATCH /games/time", () => request(createApp()).patch("/games/time").set("Authorization", authHeader).send({ gameId: editGameId, startsAt: futureStartsAt() })],
-  ["PATCH /games/location", () => request(createApp()).patch("/games/location").set("Authorization", authHeader).send({ gameId: editGameId, courtId: 2 })],
-  ["POST /games/score", () => request(createApp()).post("/games/score").set("Authorization", authHeader).send({ gameId: editGameId, rounds: [[6, 4]] })],
+  [
+    "PATCH /games/time",
+    () =>
+      request(createApp())
+        .patch("/games/time")
+        .set("Authorization", authHeader)
+        .send({ gameId: editGameId, startsAt: futureStartsAt() }),
+  ],
+  [
+    "PATCH /games/location",
+    () =>
+      request(createApp())
+        .patch("/games/location")
+        .set("Authorization", authHeader)
+        .send({ gameId: editGameId, courtId: 2 }),
+  ],
+  [
+    "POST /games/score",
+    () =>
+      request(createApp())
+        .post("/games/score")
+        .set("Authorization", authHeader)
+        .send({ gameId: editGameId, rounds: [[6, 4]] }),
+  ],
 ] as const)("Mocked: %s edit checks", (_route, send) => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -903,7 +1026,10 @@ describe("Mocked: PATCH /games/time", () => {
     mockedIsUserInGame.mockResolvedValue(true);
   });
 
-  const validTimeBody = () => ({ gameId: editGameId, startsAt: futureStartsAt() });
+  const validTimeBody = () => ({
+    gameId: editGameId,
+    startsAt: futureStartsAt(),
+  });
 
   test.each([GameStatus.OPEN, GameStatus.BOOKED])(
     "Moves a %s game to the new start time",
@@ -915,7 +1041,8 @@ describe("Mocked: PATCH /games/time", () => {
       );
 
       const response = await request(createApp())
-        .patch("/games/time").set("Authorization", authHeader)
+        .patch("/games/time")
+        .set("Authorization", authHeader)
         .send(body);
 
       expect(response.status).toBe(200);
@@ -938,12 +1065,16 @@ describe("Mocked: PATCH /games/time", () => {
     ["missing startsAt", { startsAt: undefined }],
     ["non-ISO startsAt", { startsAt: "tomorrow" }],
     ["startsAt without offset", { startsAt: "2099-01-01T10:00:00" }],
-    ["startsAt in the past", { startsAt: new Date(Date.now() - 60 * 1000).toISOString() }],
+    [
+      "startsAt in the past",
+      { startsAt: new Date(Date.now() - 60 * 1000).toISOString() },
+    ],
     ["userId in the body", { userId: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" }],
     ["unknown field", { courtId: 2 }],
   ])("Rejects a body with %s", async (_description, overrides) => {
     const response = await request(createApp())
-      .patch("/games/time").set("Authorization", authHeader)
+      .patch("/games/time")
+      .set("Authorization", authHeader)
       .send({ ...validTimeBody(), ...overrides });
 
     expect(response.status).toBe(400);
@@ -957,7 +1088,8 @@ describe("Mocked: PATCH /games/time", () => {
     mockedUpdateGame.mockRejectedValue(prismaError("P2025"));
 
     const response = await request(createApp())
-      .patch("/games/time").set("Authorization", authHeader)
+      .patch("/games/time")
+      .set("Authorization", authHeader)
       .send(validTimeBody());
 
     expect(response.status).toBe(404);
@@ -971,7 +1103,8 @@ describe("Mocked: PATCH /games/time", () => {
     mockedUpdateGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .patch("/games/time").set("Authorization", authHeader)
+      .patch("/games/time")
+      .set("Authorization", authHeader)
       .send(validTimeBody());
 
     expect(response.status).toBe(500);
@@ -993,7 +1126,8 @@ describe("Mocked: PATCH /games/location", () => {
     mockedUpdateGame.mockResolvedValue(existingGame({ courtId: 2 }));
 
     const response = await request(createApp())
-      .patch("/games/location").set("Authorization", authHeader)
+      .patch("/games/location")
+      .set("Authorization", authHeader)
       .send(validLocationBody());
 
     expect(response.status).toBe(200);
@@ -1014,7 +1148,8 @@ describe("Mocked: PATCH /games/location", () => {
     ["unknown field", { startsAt: futureStartsAt() }],
   ])("Rejects a body with %s", async (_description, overrides) => {
     const response = await request(createApp())
-      .patch("/games/location").set("Authorization", authHeader)
+      .patch("/games/location")
+      .set("Authorization", authHeader)
       .send({ ...validLocationBody(), ...overrides });
 
     expect(response.status).toBe(400);
@@ -1028,7 +1163,8 @@ describe("Mocked: PATCH /games/location", () => {
     mockedUpdateGame.mockRejectedValue(prismaError("P2003"));
 
     const response = await request(createApp())
-      .patch("/games/location").set("Authorization", authHeader)
+      .patch("/games/location")
+      .set("Authorization", authHeader)
       .send(validLocationBody());
 
     expect(response.status).toBe(404);
@@ -1039,7 +1175,8 @@ describe("Mocked: PATCH /games/location", () => {
     mockedUpdateGame.mockRejectedValue(prismaError("P2025"));
 
     const response = await request(createApp())
-      .patch("/games/location").set("Authorization", authHeader)
+      .patch("/games/location")
+      .set("Authorization", authHeader)
       .send(validLocationBody());
 
     expect(response.status).toBe(404);
@@ -1053,7 +1190,8 @@ describe("Mocked: PATCH /games/location", () => {
     mockedUpdateGame.mockRejectedValue(prismaError("P2002"));
 
     const response = await request(createApp())
-      .patch("/games/location").set("Authorization", authHeader)
+      .patch("/games/location")
+      .set("Authorization", authHeader)
       .send(validLocationBody());
 
     expect(response.status).toBe(500);
@@ -1069,7 +1207,11 @@ describe("Mocked: POST /games/score", () => {
     mockedIsUserInGame.mockResolvedValue(true);
   });
 
-  const rounds: [number, number][] = [[6, 4], [3, 6], [7, 5]];
+  const rounds: [number, number][] = [
+    [6, 4],
+    [3, 6],
+    [7, 5],
+  ];
   const validScoreBody = () => ({ gameId: editGameId, rounds });
 
   test("Saves the rounds and returns the completed game", async () => {
@@ -1085,7 +1227,8 @@ describe("Mocked: POST /games/score", () => {
     });
 
     const response = await request(createApp())
-      .post("/games/score").set("Authorization", authHeader)
+      .post("/games/score")
+      .set("Authorization", authHeader)
       .send(validScoreBody());
 
     expect(response.status).toBe(200);
@@ -1106,7 +1249,8 @@ describe("Mocked: POST /games/score", () => {
     });
 
     const response = await request(createApp())
-      .post("/games/score").set("Authorization", authHeader)
+      .post("/games/score")
+      .set("Authorization", authHeader)
       .send({ gameId: editGameId, rounds: [[0, 6]] });
 
     expect(response.status).toBe(200);
@@ -1117,7 +1261,8 @@ describe("Mocked: POST /games/score", () => {
     mockedCompleteGame.mockResolvedValue(null);
 
     const response = await request(createApp())
-      .post("/games/score").set("Authorization", authHeader)
+      .post("/games/score")
+      .set("Authorization", authHeader)
       .send(validScoreBody());
 
     expect(response.status).toBe(409);
@@ -1130,8 +1275,20 @@ describe("Mocked: POST /games/score", () => {
     ["missing gameId", { gameId: undefined }],
     ["non-UUID gameId", { gameId: "not-a-uuid" }],
     ["missing rounds", { rounds: undefined }],
-    ["rounds that are not an array", { rounds: { team1Score: 6, team2Score: 4 } }],
-    ["a negative score", { rounds: [[6, 4], [-1, 6], [6, 2]] }],
+    [
+      "rounds that are not an array",
+      { rounds: { team1Score: 6, team2Score: 4 } },
+    ],
+    [
+      "a negative score",
+      {
+        rounds: [
+          [6, 4],
+          [-1, 6],
+          [6, 2],
+        ],
+      },
+    ],
     ["a non-integer score", { rounds: [[6.5, 4]] }],
     ["a string score", { rounds: [["6", "4"]] }],
     ["a round with one score", { rounds: [[6]] }],
@@ -1140,7 +1297,8 @@ describe("Mocked: POST /games/score", () => {
     ["unknown field", { status: GameStatus.COMPLETED }],
   ])("Rejects a body with %s", async (_description, overrides) => {
     const response = await request(createApp())
-      .post("/games/score").set("Authorization", authHeader)
+      .post("/games/score")
+      .set("Authorization", authHeader)
       .send({ ...validScoreBody(), ...overrides });
 
     expect(response.status).toBe(400);
@@ -1152,11 +1310,27 @@ describe("Mocked: POST /games/score", () => {
 
   test.each([
     ["no rounds", [], "must have at least one round"],
-    ["a tied round", [[6, 4], [5, 5], [6, 2]], "round 2 is tied"],
-    ["no winner", [[6, 4], [4, 6]], "must have a winner"],
+    [
+      "a tied round",
+      [
+        [6, 4],
+        [5, 5],
+        [6, 2],
+      ],
+      "round 2 is tied",
+    ],
+    [
+      "no winner",
+      [
+        [6, 4],
+        [4, 6],
+      ],
+      "must have a winner",
+    ],
   ])("Rejects a score with %s", async (_description, badRounds, message) => {
     const response = await request(createApp())
-      .post("/games/score").set("Authorization", authHeader)
+      .post("/games/score")
+      .set("Authorization", authHeader)
       .send({ gameId: editGameId, rounds: badRounds });
 
     expect(response.status).toBe(400);
@@ -1171,7 +1345,8 @@ describe("Mocked: POST /games/score", () => {
     mockedCompleteGame.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await request(createApp())
-      .post("/games/score").set("Authorization", authHeader)
+      .post("/games/score")
+      .set("Authorization", authHeader)
       .send(validScoreBody());
 
     expect(response.status).toBe(500);
@@ -1193,20 +1368,24 @@ describe("Mocked: changeGameTime", () => {
     const updatedGame = existingGame({ startsAt });
     mockedUpdateGame.mockResolvedValue(updatedGame);
 
-    await expect(changeGameTime(editGameId, userId, startsAt)).resolves.toEqual({
-      success: true,
-      game: updatedGame,
-    });
+    await expect(changeGameTime(editGameId, userId, startsAt)).resolves.toEqual(
+      {
+        success: true,
+        game: updatedGame,
+      },
+    );
     expect(mockedUpdateGame).toHaveBeenCalledWith(editGameId, { startsAt });
   });
 
   test("Returns the reason and does not update when the user cannot edit the game", async () => {
     mockedIsUserInGame.mockResolvedValue(false);
 
-    await expect(changeGameTime(editGameId, userId, startsAt)).resolves.toEqual({
-      success: false,
-      error: GameEditError.NotInGame,
-    });
+    await expect(changeGameTime(editGameId, userId, startsAt)).resolves.toEqual(
+      {
+        success: false,
+        error: gameEditErrors.NotInGame,
+      },
+    );
     expect(mockedUpdateGame).not.toHaveBeenCalled();
   });
 
@@ -1214,7 +1393,9 @@ describe("Mocked: changeGameTime", () => {
     const error = new Error("Database unavailable");
     mockedUpdateGame.mockRejectedValue(error);
 
-    await expect(changeGameTime(editGameId, userId, startsAt)).rejects.toBe(error);
+    await expect(changeGameTime(editGameId, userId, startsAt)).rejects.toBe(
+      error,
+    );
   });
 });
 
@@ -1241,7 +1422,7 @@ describe("Mocked: changeGameLocation", () => {
 
     await expect(changeGameLocation(editGameId, userId, 2)).resolves.toEqual({
       success: false,
-      error: GameEditError.NotFound,
+      error: gameEditErrors.NotFound,
     });
     expect(mockedUpdateGame).not.toHaveBeenCalled();
   });
@@ -1261,7 +1442,10 @@ describe("Mocked: reportScore", () => {
     mockedIsUserInGame.mockResolvedValue(true);
   });
 
-  const rounds: [number, number][] = [[6, 4], [6, 3]];
+  const rounds: [number, number][] = [
+    [6, 4],
+    [6, 3],
+  ];
 
   test("Completes the game with the given rounds", async () => {
     const completed = {
@@ -1281,11 +1465,13 @@ describe("Mocked: reportScore", () => {
   });
 
   test("Returns the reason and does not save when the game is already completed", async () => {
-    mockedFetchGame.mockResolvedValue(existingGame({ status: GameStatus.COMPLETED }));
+    mockedFetchGame.mockResolvedValue(
+      existingGame({ status: GameStatus.COMPLETED }),
+    );
 
     await expect(reportScore(editGameId, userId, rounds)).resolves.toEqual({
       success: false,
-      error: GameEditError.Closed,
+      error: gameEditErrors.Closed,
     });
     expect(mockedCompleteGame).not.toHaveBeenCalled();
   });
@@ -1295,7 +1481,7 @@ describe("Mocked: reportScore", () => {
 
     await expect(reportScore(editGameId, userId, rounds)).resolves.toEqual({
       success: false,
-      error: GameEditError.Closed,
+      error: gameEditErrors.Closed,
     });
   });
 

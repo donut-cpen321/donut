@@ -95,21 +95,21 @@ export async function leaveGame(gameId: string, userId: string) {
 async function checkCanEditGame(
   gameId: string,
   userId: string,
-): Promise<GameEditErrorString | null> {
+): Promise<GameEditError | null> {
   const game = await fetchGame(gameId);
   if (game === null) {
-    return GameEditErrorString.NotFound;
+    return gameEditErrors.NotFound;
   }
 
   if (!(await isUserInGame(userId, gameId))) {
-    return GameEditErrorString.NotInGame;
+    return gameEditErrors.NotInGame;
   }
 
   if (
     game.status === GameStatus.COMPLETED ||
     game.status === GameStatus.CANCELLED
   ) {
-    return GameEditErrorString.Closed;
+    return gameEditErrors.Closed;
   }
 
   return null;
@@ -181,7 +181,7 @@ export async function reportScore(
   const completed = await completeGame(gameId, rounds);
   if (completed === null) {
     // Another report completed the game after the check above
-    return { success: false, error: GameEditErrorString.Closed } as const;
+    return { success: false, error: gameEditErrors.Closed } as const;
   }
 
   return { success: true, ...completed } as const;
