@@ -1,6 +1,6 @@
 // Finds matches and proposes games (via games.service); cancels unaccepted matches at the deadline.
 import { GameSource, GameStatus, type Format, type FormatPreference } from '../generated/prisma/enums';
-import { claimMatch, getCandidates, getMatchedPlayers } from './matchmaking.repository';
+import { claimMatch, getCandidates, getMatchedPlayers, getRandomCourtId } from './matchmaking.repository';
 
 // Matched games start one hour after the match is found
 const MATCH_START_DELAY_MS = 60 * 60 * 1000;
@@ -99,9 +99,9 @@ export function findMatches(candidates: Candidate[]): Match[] {
  * Picks the court that appears in the most players' preferred courts.
  *
  * @param players - The matched players with their preferred courts.
- * @returns The id of the chosen court.
+ * @returns The id of the chosen court, or undefined if no player has a preferred court.
  */
-export function chooseCourt(players: MatchedPlayer[]): number {
+export function chooseCourt(players: MatchedPlayer[]): number | undefined {
   const votes = new Map<number, number>();
   const preferredCourts = players.flatMap((player) => player.preferredCourts);
   for (const court of preferredCourts) {
@@ -109,8 +109,7 @@ export function chooseCourt(players: MatchedPlayer[]): number {
   }
 
   const [mostPreferred] = [...votes].sort(([, a], [, b]) => b - a);
-  if (!mostPreferred) throw new Error('Matched players have no preferred courts');
-  return mostPreferred[0];
+  return mostPreferred?.[0];
 }
 
 /**
@@ -150,7 +149,7 @@ export async function runMatchmaking(): Promise<Match[]> {
   const claimedMatches: Match[] = [];
   for (const match of matches) {
     const players = await getMatchedPlayers(match.userIds);
-    const courtId = chooseCourt(players);
+    const courtId = chooseCourt(players) ?? (await getRandomCourtId());
     const startTime = new Date(Date.now() + MATCH_START_DELAY_MS);
     const teams = assignTeams(match, players);
     

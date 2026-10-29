@@ -1,4 +1,5 @@
 // Queries for overlapping availabilities, nearby courts, close ratings.
+import { randomInt } from 'node:crypto';
 import { prisma } from '../db';
 import type { Prisma } from '../generated/prisma/client';
 import type { Candidate, MatchedPlayer } from './matchmaking.service';
@@ -42,6 +43,16 @@ export async function getMatchedPlayers(userIds: string[]): Promise<MatchedPlaye
       preferredCourts: { select: { id: true, latitude: true, longitude: true } },
     },
   });
+}
+
+/**
+ * Get a random court, for matches where no player has a preferred court.
+ * @returns The id of the court.
+ */
+export async function getRandomCourtId(): Promise<number> {
+  const count = await prisma.court.count();
+  const court = await prisma.court.findFirstOrThrow({ select: { id: true }, skip: randomInt(count) });
+  return court.id;
 }
 
 class MatchUnavailableError extends Error {}

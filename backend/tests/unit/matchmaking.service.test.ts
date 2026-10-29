@@ -2,6 +2,7 @@ import {
   claimMatch,
   getCandidates,
   getMatchedPlayers,
+  getRandomCourtId,
 } from '../../src/matchmaking/matchmaking.repository';
 import {
   assignTeams,
@@ -17,6 +18,7 @@ import {
 jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
   getCandidates: jest.fn(),
   getMatchedPlayers: jest.fn(),
+  getRandomCourtId: jest.fn(),
   claimMatch: jest.fn(),
 }));
 
@@ -171,6 +173,7 @@ describe('runMatchmaking', () => {
 
   beforeEach(() => {
     jest.mocked(claimMatch).mockReset();
+    jest.mocked(getRandomCourtId).mockReset().mockResolvedValue(7);
     jest.mocked(getMatchedPlayers).mockReset().mockImplementation(async (userIds) =>
       userIds.map((id) => matchedPlayerStub(id)),
     );
@@ -195,6 +198,21 @@ describe('runMatchmaking', () => {
       gameSource: 'MATCHED',
       players: { create: [{ userId: 'a', team: 1 }, { userId: 'b', team: 2 }] },
     });
+    expect(getRandomCourtId).not.toHaveBeenCalled();
+  });
+
+  // Input: two compatible candidates, neither with a preferred court
+  // Expected behavior: the game is proposed on a random court instead of aborting the run
+  // Expected output: one match; claimMatch called with the random court
+  test('Falls back to a random court when no player has a preferred court', async () => {
+    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b')]);
+    jest.mocked(getMatchedPlayers).mockImplementation(async (userIds) =>
+      userIds.map((id) => matchedPlayerStub(id, 1500, [])),
+    );
+    jest.mocked(claimMatch).mockResolvedValue(true);
+
+    await expect(runMatchmaking()).resolves.toEqual([{ format: 'SINGLES', userIds: ['a', 'b'] }]);
+    expect(claimMatch).toHaveBeenCalledWith(['a', 'b'], expect.objectContaining({ courtId: 7 }));
   });
 
   // Input: two matches found; the first claim fails because a player left the queue
@@ -256,11 +274,11 @@ describe('chooseCourt', () => {
 
   // Input: neither player has a preferred court
   // Expected behavior: no court can be chosen
-  // Expected output: throws
-  test('Throws when no player has a preferred court', () => {
+  // Expected output: undefined
+  test('Returns undefined when no player has a preferred court', () => {
     const players = [matchedPlayerStub('a', 1500, []), matchedPlayerStub('b', 1500, [])];
 
-    expect(() => chooseCourt(players)).toThrow('Matched players have no preferred courts');
+    expect(chooseCourt(players)).toBeUndefined();
   });
 });
 
