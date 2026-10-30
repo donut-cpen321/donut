@@ -174,8 +174,8 @@ describe('runMatchmaking', () => {
   beforeEach(() => {
     jest.mocked(claimMatch).mockReset();
     jest.mocked(getRandomCourtId).mockReset().mockResolvedValue(7);
-    jest.mocked(getMatchedPlayers).mockReset().mockImplementation(async (userIds) =>
-      userIds.map((id) => matchedPlayerStub(id)),
+    jest.mocked(getMatchedPlayers).mockReset().mockImplementation((userIds) =>
+      Promise.resolve(userIds.map((id) => matchedPlayerStub(id))),
     );
   });
 
@@ -211,8 +211,8 @@ describe('runMatchmaking', () => {
   // Expected output: one match; claimMatch called with the random court
   test('Falls back to a random court when no player has a preferred court', async () => {
     jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b')]);
-    jest.mocked(getMatchedPlayers).mockImplementation(async (userIds) =>
-      userIds.map((id) => matchedPlayerStub(id, 1500, [])),
+    jest.mocked(getMatchedPlayers).mockImplementation((userIds) =>
+      Promise.resolve(userIds.map((id) => matchedPlayerStub(id, 1500, []))),
     );
     jest.mocked(claimMatch).mockResolvedValue(true);
 
