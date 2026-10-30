@@ -64,7 +64,7 @@ class MatchUnavailableError extends Error {}
  * @param game - The game to create for them.
  * @returns true if every player was still waiting and the game was created.
  */
-export async function claimMatch(userIds: string[], game: Prisma.GameUncheckedCreateInput): Promise<boolean> {
+export async function claimMatch(userIds: string[], game: Prisma.GameCreateInput): Promise<boolean> {
   try {
     await prisma.$transaction(async (tx) => {
       const { count } = await tx.matchmakingRequest.deleteMany({

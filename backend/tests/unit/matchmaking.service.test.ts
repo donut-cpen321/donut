@@ -194,9 +194,14 @@ describe('runMatchmaking', () => {
       format: 'SINGLES',
       status: 'OPEN',
       startsAt: new Date(now + 60 * 60 * 1000),
-      courtId: 1,
+      court: { connect: { id: 1 } },
       gameSource: 'MATCHED',
-      players: { create: [{ userId: 'a', team: 1 }, { userId: 'b', team: 2 }] },
+      players: {
+        create: [
+          { team: 1, user: { connect: { id: 'a' } } },
+          { team: 2, user: { connect: { id: 'b' } } },
+        ],
+      },
     });
     expect(getRandomCourtId).not.toHaveBeenCalled();
   });
@@ -212,7 +217,7 @@ describe('runMatchmaking', () => {
     jest.mocked(claimMatch).mockResolvedValue(true);
 
     await expect(runMatchmaking()).resolves.toEqual([{ format: 'SINGLES', userIds: ['a', 'b'] }]);
-    expect(claimMatch).toHaveBeenCalledWith(['a', 'b'], expect.objectContaining({ courtId: 7 }));
+    expect(claimMatch).toHaveBeenCalledWith(['a', 'b'], expect.objectContaining({ court: { connect: { id: 7 } } }));
   });
 
   // Input: two matches found; the first claim fails because a player left the queue

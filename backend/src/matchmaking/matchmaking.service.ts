@@ -1,4 +1,5 @@
 // Finds matches and proposes games (via games.service); cancels unaccepted matches at the deadline.
+import { Prisma } from '../generated/prisma/client';
 import { GameSource, GameStatus, type Format, type FormatPreference } from '../generated/prisma/enums';
 import { claimMatch, getCandidates, getMatchedPlayers, getRandomCourtId } from './matchmaking.repository';
 
@@ -152,14 +153,17 @@ export async function runMatchmaking(): Promise<Match[]> {
     const courtId = chooseCourt(players) ?? (await getRandomCourtId());
     const startTime = new Date(Date.now() + MATCH_START_DELAY_MS);
     const teams = assignTeams(match, players);
+    const playersData = teams.map(({ userId, team }) => ({ team, user: { connect: { id: userId } } }));
     
     const game = {
       format: match.format,
       status: GameStatus.OPEN,
       startsAt: startTime,
-      courtId,
+      court: { connect: { id: courtId } },
       gameSource: GameSource.MATCHED,
-      players: { create: teams },
+      players: {
+        create: playersData,
+      },
     };
 
     if (await claimMatch(match.userIds, game)) claimedMatches.push(match);
