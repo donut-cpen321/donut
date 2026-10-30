@@ -1,6 +1,9 @@
 // Finds matches and proposes games (via games.service); cancels unaccepted matches at the deadline.
-import type { Format, FormatPreference } from '../generated/prisma/enums';
-import { claimMatch, getCandidates } from './matchmaking.repository';
+import { GameSource, GameStatus, type Format, type FormatPreference } from '../generated/prisma/enums';
+import { claimMatch, getCandidates, getMatchedPlayers, getRandomCourtId } from './matchmaking.repository';
+
+// Matched games start one hour after the match is found
+const MATCH_START_DELAY_MS = 60 * 60 * 1000;
 
 interface FormatRule {
   format: Format;
@@ -18,6 +21,18 @@ export interface Candidate {
 export interface Match {
   format: Format;
   userIds: string[];
+}
+
+export interface CourtLocation {
+  id: number;
+  latitude: number;
+  longitude: number;
+}
+
+export interface MatchedPlayer {
+  id: string;
+  rating: number;
+  preferredCourts: CourtLocation[];
 }
 
 const FORMAT_RULES: FormatRule[] = [
@@ -81,18 +96,76 @@ export function findMatches(candidates: Candidate[]): Match[] {
 }
 
 /**
- * Finds matches and proposes games (not implemented yet)
+ * Picks the court that appears in the most players' preferred courts.
+ *
+ * @param players - The matched players with their preferred courts.
+ * @returns The id of the chosen court, or undefined if no player has a preferred court.
+ */
+export function chooseCourt(players: MatchedPlayer[]): number | undefined {
+  const votes = new Map<number, number>();
+  const preferredCourts = players.flatMap((player) => player.preferredCourts);
+  for (const court of preferredCourts) {
+    votes.set(court.id, (votes.get(court.id) ?? 0) + 1);
+  }
+
+  const [mostPreferred] = [...votes].sort(([, a], [, b]) => b - a);
+  return mostPreferred?.[0];
+}
+
+/**
+ * Puts singles players on opposite teams. For doubles, the highest- and
+ * lowest-rated players play against the middle two.
+ *
+ * @param match - The match being claimed.
+ * @param players - The matched players with their ratings.
+ * @returns Each player's team.
+ */
+export function assignTeams(match: Match, players: MatchedPlayer[]): { userId: string; team: number }[] {
+  const playersSortedByRating = [...players].sort((a, b) => b.rating - a.rating);
+  const lastIndex = playersSortedByRating.length - 1;
+
+  return playersSortedByRating.map((player, index) => {
+    if (match.format === 'SINGLES') {
+      return { userId: player.id, team: index + 1 };
+    }
+
+    // First (best) and last (worst) players play on team 1, the rest on team 2
+    const team = (index === 0 || index === lastIndex) ? 1 : 2;
+    return { userId: player.id, team };
+  });
+}
+
+/**
+ * Finds matches and proposes a game for each one.
  * 
- * @returns A list of matches found by the matchmaking algorithm.
+ * @returns A list of the matches that were claimed.
  */
 export async function runMatchmaking(): Promise<Match[]> {
   const candidates = await getCandidates();
   const matches = findMatches(candidates);
+  if (matches.length === 0) return [];
 
   // Claim each match on its own
   const claimedMatches: Match[] = [];
   for (const match of matches) {
-    if (await claimMatch(match)) claimedMatches.push(match);
+    const players = await getMatchedPlayers(match.userIds);
+    const courtId = chooseCourt(players) ?? (await getRandomCourtId());
+    const startTime = new Date(Date.now() + MATCH_START_DELAY_MS);
+    const teams = assignTeams(match, players);
+    const playersData = teams.map(({ userId, team }) => ({ team, user: { connect: { id: userId } } }));
+    
+    const game = {
+      format: match.format,
+      status: GameStatus.OPEN,
+      startsAt: startTime,
+      court: { connect: { id: courtId } },
+      gameSource: GameSource.MATCHED,
+      players: {
+        create: playersData,
+      },
+    };
+
+    if (await claimMatch(match.userIds, game)) claimedMatches.push(match);
   }
 
   return claimedMatches;
