@@ -1,5 +1,4 @@
 // Finds matches and proposes games (via games.service); cancels unaccepted matches at the deadline.
-import { Prisma } from '../generated/prisma/client';
 import { GameSource, GameStatus, type Format, type FormatPreference } from '../generated/prisma/enums';
 import { claimMatch, getCandidates, getMatchedPlayers, getRandomCourtId } from './matchmaking.repository';
 
