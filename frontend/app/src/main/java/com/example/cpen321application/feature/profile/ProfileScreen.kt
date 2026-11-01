@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,10 +88,7 @@ fun ProfileRoute(
         onClearMessages = { viewModel.clearMessages() },
     )
 
-    ProfileScreen(
-        uiState = uiState,
-        actions = actions,
-    )
+    ProfileScreen(uiState = uiState, actions = actions)
 }
 
 @Composable
@@ -221,53 +219,16 @@ private fun ProfileHeader(
             .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            val initial = username.firstOrNull()?.uppercase() ?: "?"
-            Text(
-                text = initial,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-
+        UserAvatar(username = username)
         Spacer(modifier = Modifier.height(8.dp))
-
         Text(
             text = username.ifEmpty { "User" },
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            StatCard(
-                label = "1v1 Elo",
-                value = "$elo (TBD)",
-                modifier = Modifier.weight(1f),
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            StatCard(
-                label = "Friends",
-                value = friendCount.toString(),
-                modifier = Modifier.weight(1f),
-            )
-        }
-
+        StatsRow(elo = elo, friendCount = friendCount)
         Spacer(modifier = Modifier.height(16.dp))
-
         OutlinedButton(
             onClick = onSignOut,
             modifier = Modifier.fillMaxWidth(0.6f),
@@ -280,6 +241,44 @@ private fun ProfileHeader(
             Spacer(modifier = Modifier.width(8.dp))
             Text("Sign Out")
         }
+    }
+}
+
+@Composable
+private fun UserAvatar(username: String) {
+    Box(
+        modifier = Modifier
+            .size(72.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = username.firstOrNull()?.uppercase() ?: "?",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun StatsRow(elo: Int, friendCount: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        StatCard(
+            label = "1v1 Elo",
+            value = "$elo (TBD)",
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        StatCard(
+            label = "Friends",
+            value = friendCount.toString(),
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -512,63 +511,97 @@ private fun FriendsTabContent(
                 }
             }
 
-            if (uiState.friendRequests.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Friend Requests (${uiState.friendRequests.size})",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+            friendRequestsSection(uiState = uiState, actions = actions)
+            friendsListSection(uiState = uiState, actions = actions)
+        }
+    }
+}
 
-                items(uiState.friendRequests, key = { it.userId }) { request ->
-                    FriendRequestItem(
-                        request = request,
-                        isActionInProgress = uiState.isActionInProgress,
-                        onAccept = { actions.onAcceptRequest(request.userId) },
-                    )
-                }
+private fun LazyListScope.friendRequestsSection(
+    uiState: ProfileUiState,
+    actions: ProfileActions,
+) {
+    if (uiState.friendRequests.isEmpty()) return
 
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider()
-                }
-            }
+    item {
+        Text(
+            text = "Friend Requests (${uiState.friendRequests.size})",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
 
-            item {
+    items(uiState.friendRequests, key = { it.userId }) { request ->
+        FriendRequestItem(
+            request = request,
+            isActionInProgress = uiState.isActionInProgress,
+            onAccept = { actions.onAcceptRequest(request.userId) },
+        )
+    }
+
+    item {
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider()
+    }
+}
+
+private fun LazyListScope.friendsListSection(
+    uiState: ProfileUiState,
+    actions: ProfileActions,
+) {
+    item {
+        Text(
+            text = "Friends (${uiState.friends.size})",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+
+    if (uiState.friends.isEmpty()) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
-                    text = "Friends (${uiState.friends.size})",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    text = "No friends added yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
-            if (uiState.friends.isEmpty()) {
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = "No friends added yet.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            } else {
-                items(uiState.friends, key = { it.userId }) { friend ->
-                    FriendItem(
-                        friend = friend,
-                        isActionInProgress = uiState.isActionInProgress,
-                        onRemove = { actions.onRemoveFriend(friend.userId) },
-                    )
-                }
-            }
         }
+    } else {
+        items(uiState.friends, key = { it.userId }) { friend ->
+            FriendItem(
+                friend = friend,
+                isActionInProgress = uiState.isActionInProgress,
+                onRemove = { actions.onRemoveFriend(friend.userId) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ItemAvatar(
+    username: String,
+    backgroundColor: Color,
+    textColor: Color,
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(backgroundColor),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = username.firstOrNull()?.uppercase() ?: "?",
+            color = textColor,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -593,19 +626,11 @@ private fun FriendRequestItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = request.username.firstOrNull()?.uppercase() ?: "?",
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                ItemAvatar(
+                    username = request.username,
+                    backgroundColor = MaterialTheme.colorScheme.primary,
+                    textColor = MaterialTheme.colorScheme.onPrimary,
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
@@ -658,19 +683,11 @@ private fun FriendItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.secondary),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = friend.username.firstOrNull()?.uppercase() ?: "?",
-                        color = MaterialTheme.colorScheme.onSecondary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                ItemAvatar(
+                    username = friend.username,
+                    backgroundColor = MaterialTheme.colorScheme.secondary,
+                    textColor = MaterialTheme.colorScheme.onSecondary,
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(

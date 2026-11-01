@@ -11,6 +11,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.reflect.TypeToken
 import retrofit2.HttpException
+import java.io.IOException
 
 interface FriendsRepository {
     suspend fun getFriends(session: AuthSession): Result<List<FriendDto>>
@@ -22,7 +23,7 @@ interface FriendsRepository {
 
 class FriendsRepositoryImpl(
     private val apiService: ApiService = RetrofitClient.apiService,
-    private val gson: Gson = Gson(),
+    private val gson: Gson = Gson()
 ) : FriendsRepository {
 
     override suspend fun getFriends(session: AuthSession): Result<List<FriendDto>> {
@@ -32,7 +33,9 @@ class FriendsRepositoryImpl(
             }
             val friends = parseFlexibleList<FriendDto>(jsonElement, "friends")
             Result.success(friends)
-        } catch (e: Exception) {
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
             Result.failure(e)
         }
     }
@@ -42,14 +45,16 @@ class FriendsRepositoryImpl(
             val response = session.authorized { auth ->
                 apiService.removeFriend(auth, userId)
             }
-            if (response?.isSuccessful == true) {
+            if (response != null && response.isSuccessful) {
                 Result.success(Unit)
             } else if (response != null) {
                 Result.failure(HttpException(response))
             } else {
-                Result.failure(IllegalStateException("Not authenticated"))
+                Result.failure(Exception("Not authenticated"))
             }
-        } catch (e: Exception) {
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
             Result.failure(e)
         }
     }
@@ -61,7 +66,9 @@ class FriendsRepositoryImpl(
             }
             val requests = parseFlexibleList<FriendRequestDto>(jsonElement, "requests", "friendRequests")
             Result.success(requests)
-        } catch (e: Exception) {
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
             Result.failure(e)
         }
     }
@@ -71,14 +78,16 @@ class FriendsRepositoryImpl(
             val response = session.authorized { auth ->
                 apiService.acceptFriendRequest(auth, AcceptFriendRequestDto(userId))
             }
-            if (response?.isSuccessful == true) {
+            if (response != null && response.isSuccessful) {
                 Result.success(Unit)
             } else if (response != null) {
                 Result.failure(HttpException(response))
             } else {
-                Result.failure(IllegalStateException("Not authenticated"))
+                Result.failure(Exception("Not authenticated"))
             }
-        } catch (e: Exception) {
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
             Result.failure(e)
         }
     }
@@ -90,14 +99,16 @@ class FriendsRepositoryImpl(
             }
             val matches = parseFlexibleList<MatchDto>(jsonElement, "matches", "matchHistory", "history")
             Result.success(matches)
-        } catch (e: Exception) {
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
             Result.failure(e)
         }
     }
 
     private inline fun <reified T> parseFlexibleList(
         jsonElement: JsonElement?,
-        vararg preferredKeys: String,
+        vararg preferredKeys: String
     ): List<T> {
         if (jsonElement == null || jsonElement.isJsonNull) return emptyList()
 
@@ -115,8 +126,8 @@ class FriendsRepositoryImpl(
             // Check preferred keys first ("friends", "requests", "matches", etc.)
             val candidateKeys = preferredKeys.toList() + listOf("data", "items", "results", "list")
             for (key in candidateKeys) {
-                if (obj.has(key) && obj[key].isJsonArray) {
-                    return gson.fromJson(obj[key], type) ?: emptyList()
+                if (obj.has(key) && obj.get(key).isJsonArray) {
+                    return gson.fromJson(obj.get(key), type) ?: emptyList()
                 }
             }
 
