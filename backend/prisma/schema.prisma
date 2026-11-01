@@ -78,6 +78,7 @@ model User {
   friendshipsSent     Friendship[] @relation("FriendshipsSent")
   friendshipsReceived Friendship[] @relation("FriendshipsReceived")
 
+  @@index([rating(sort: Desc), username]) // leaderboard order
   @@map("users")
 }
 

@@ -4,8 +4,13 @@ import { calculateELOChange } from "./elo";
 import { PlayerInfo, RatingChange, RoundScore } from "./ranking.types";
 import {
   fetchGamePlayerRatingsForUpdate,
+  fetchLeaderboard,
+  fetchLeaderboardUser,
+  type LeaderboardUser,
   saveRatingChanges,
 } from "./ratings.repository";
+
+export type LeaderboardEntry = LeaderboardUser & { rank: number };
 
 // Thrown when a game can't be rated because its teams are not full
 export class IncompleteTeamsError extends Error {
@@ -68,4 +73,25 @@ export async function applyGameResult(
   await saveRatingChanges(tx, gameId, changes);
 
   return changes;
+}
+
+/**
+ * Gets the top of the leaderboard and the caller's own position on it
+ * @param userId the user viewing the leaderboard
+ * @param limit how many players to return
+ * @returns the top players with their ranks, and the caller's entry (null if the user does not exist)
+ */
+export async function getLeaderboard(
+  userId: string,
+  limit: number,
+): Promise<{ leaderboard: LeaderboardEntry[]; me: LeaderboardEntry | null }> {
+  const [top, me] = await Promise.all([
+    fetchLeaderboard(limit),
+    fetchLeaderboardUser(userId),
+  ]);
+
+  return {
+    leaderboard: top.map((user, index) => ({ ...user, rank: index + 1 })),
+    me: me && { ...me.user, rank: me.rank },
+  };
 }

@@ -1,6 +1,26 @@
 // Queries for player ratings: users.rating and the match summary in game_users.
+import { prisma } from "../db";
 import { Prisma } from "../generated/prisma/client";
 import { RatingChange } from "./ranking.types";
+
+// The user fields shown on the leaderboard
+const leaderboardUserSelect = {
+  id: true,
+  username: true,
+  name: true,
+  rating: true,
+} satisfies Prisma.UserSelect;
+
+export type LeaderboardUser = Prisma.UserGetPayload<{
+  select: typeof leaderboardUserSelect;
+}>;
+
+// Highest rating first; the full decimal rating breaks ties the rounded rating can't,
+// and username breaks exact ties (e.g. new players at 1500) so the order is stable
+const leaderboardOrder = [
+  { rating: "desc" },
+  { username: "asc" },
+] satisfies Prisma.UserOrderByWithRelationInput[];
 
 export interface GamePlayerRating {
   userId: string;
@@ -66,4 +86,48 @@ export async function saveRatingChanges(
       { cause: e },
     );
   }
+}
+
+/**
+ * Fetches the top of the leaderboard
+ * @param limit how many players to return
+ * @returns the players with the highest ratings, in leaderboard order
+ */
+export async function fetchLeaderboard(
+  limit: number,
+): Promise<LeaderboardUser[]> {
+  return await prisma.user.findMany({
+    select: leaderboardUserSelect,
+    orderBy: leaderboardOrder,
+    take: limit,
+  });
+}
+
+/**
+ * Fetches a user with their position on the leaderboard
+ * @param userId the user to look up
+ * @returns the user and their 1-based rank, or null if the user does not exist
+ */
+export async function fetchLeaderboardUser(
+  userId: string,
+): Promise<{ user: LeaderboardUser; rank: number } | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: leaderboardUserSelect,
+  });
+  if (user === null) {
+    return null;
+  }
+
+  // Everyone ahead of the user in leaderboardOrder
+  const ahead = await prisma.user.count({
+    where: {
+      OR: [
+        { rating: { gt: user.rating } },
+        { rating: user.rating, username: { lt: user.username } },
+      ],
+    },
+  });
+
+  return { user, rank: ahead + 1 };
 }

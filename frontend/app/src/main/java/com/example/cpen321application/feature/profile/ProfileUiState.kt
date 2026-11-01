@@ -11,7 +11,7 @@ enum class ProfileTab {
 
 data class ProfileUiState(
     val username: String = "",
-    val elo: Int = 1000, // TODO: get from repo
+    val elo: Int = 1500, // starting rating; TODO: get from GET /user/me
     val selectedTab: ProfileTab = ProfileTab.FRIENDS,
     val friends: List<FriendDto> = emptyList(),
     val friendRequests: List<FriendRequestDto> = emptyList(),

@@ -7,6 +7,7 @@
 | Oct 23, 2026 | 2, 3.1, 3.3, 3.4, 3.5, 4.1, 4.2, 4.7 | Narrowed the first version to tennis only. Pickleball and badminton were dropped, so players no longer pick a sport. |
 | Oct 28, 2026 | 4.1 | Added the Games interfaces that change a game's start time and court, and replaced the planned final-score interface with the implemented `POST /games/score`. |
 | Nov 1, 2026 | 4.1, 4.2 | `POST /games/score` now updates ratings through the implemented `applyGameResult` and returns each player's rating change. Removed the leftover `sport` parameters from the Games, Matchmaking and Ranking interfaces. |
+| Nov 1, 2026 | 4.1, 4.2 | Added the implemented `GET /leaderboard` and `GET /user/me`, and an index for the leaderboard order. |
 
 ---
 
@@ -330,9 +331,11 @@ Not included. The formal use cases describe each screen in enough detail for thi
             - **Purpose**: Replaces the player's preferred courts (profile setup and later edits).
         4. `PUT /user/me/fcm-token` with `{ fcmToken: string }` → `204` - E
             - **Purpose**: Registers the device that receives the player's notifications.
-        5. `Court[][] getPreferredCourts(userIds: string[])` - In
+        5. `GET /user/me` → `{ user: User }` - E
+            - **Purpose**: Returns the signed-in player's profile, including their rating (full decimal; the app rounds it for display). `404` if the account no longer exists.
+        6. `Court[][] getPreferredCourts(userIds: string[])` - In
             - **Purpose**: Used by Matchmaking to choose the court of a matched game.
-        6. `string[] getFcmTokens(userIds: string[])` - In
+        7. `string[] getFcmTokens(userIds: string[])` - In
             - **Purpose**: Used by Matchmaking and Games to send notifications.
 2. **Games**
     - **Purpose**: Owns games, their players, rounds and lifecycle: create, feed, join, leave, delete, accept, check-in, live score and final score. It also runs the deadline jobs (acceptance and check-in) and the live connection for score updates.
@@ -386,8 +389,8 @@ Not included. The formal use cases describe each screen in enough detail for thi
             - **Purpose**: The pure ELO calculation used by `applyGameResult`. Teams are numbered 1 and 2, as everywhere else in the backend.
         3. `Map<string, number> getRatings(userIds: string[])` - In
             - **Purpose**: Used by Games to show players' ratings in the feed and in a proposed game.
-        4. `GET /leaderboard` → `LeaderboardEntry[]` - E
-            - **Purpose**: Returns the players ranked by rating.
+        4. `GET /leaderboard` with an optional `limit` query parameter (1–100, default 50) → `{ leaderboard: LeaderboardEntry[], me: LeaderboardEntry }` - E
+            - **Purpose**: Returns the top players and the caller's own entry, each with `rank`, `id`, `username`, `name` and `rating`. Ratings are stored and sent with their decimals and the app shows them rounded to whole numbers. Players are ranked by the full decimal rating, so two players who show the same rounded rating are still ordered, and exact ties (such as new players at 1500) are ordered by username.
 
 ### **4.2. Databases**
 1. **PostgreSQL (`donut`)**
