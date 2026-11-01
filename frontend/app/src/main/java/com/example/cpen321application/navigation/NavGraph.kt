@@ -12,6 +12,8 @@ import com.example.cpen321application.feature.matchmaking.MatchmakingRoute
 import com.example.cpen321application.feature.profile.ProfileRoute
 import com.example.cpen321application.feature.scheduledgame.ScheduledGameRoute
 
+import com.example.cpen321application.core.auth.AuthViewModel
+
 sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Profile : Screen("profile")
@@ -25,6 +27,7 @@ fun AppNavGraph(
     navController: NavHostController,
     serverClientId: String,
     startRoute: String,
+    authViewModel: AuthViewModel,
     onLoginSuccess: (User) -> Unit,
     onSignOut: () -> Unit,
     modifier: Modifier = Modifier
@@ -41,7 +44,10 @@ fun AppNavGraph(
             )
         }
         composable(Screen.Profile.route) {
-            ProfileRoute(onSignOut = onSignOut)
+            ProfileRoute(
+                authViewModel = authViewModel,
+                onSignOut = onSignOut
+            )
         }
         composable(Screen.Matchmaking.route) {
             MatchmakingRoute()

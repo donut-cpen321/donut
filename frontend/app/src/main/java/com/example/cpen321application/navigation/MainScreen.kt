@@ -58,6 +58,7 @@ fun MainScreen(
             navController = navController,
             serverClientId = serverClientId,
             startRoute = startRoute,
+            authViewModel = authViewModel,
             onLoginSuccess = { newUser -> authViewModel.signIn(newUser) },
             onSignOut = { authViewModel.logout() },
             modifier = Modifier.padding(innerPadding)
