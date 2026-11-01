@@ -17,9 +17,15 @@ import {
   changeGameTime,
   type GameEditError,
   gameEditErrors,
+  getFeed,
   getGame,
+  getUserGames,
   joinGame,
+  type JoinGameError,
+  joinGameErrors,
   leaveGame,
+  type LeaveGameError,
+  leaveGameErrors,
   newGame,
   reportScore,
 } from "./games.service";
@@ -31,6 +37,18 @@ const gameEditErrorStatus: Record<GameEditError, number> = {
   [gameEditErrors.NotInGame]: 403,
   [gameEditErrors.Closed]: 409,
   [gameEditErrors.IncompleteTeams]: 409,
+};
+
+const joinGameErrorStatus: Record<JoinGameError, number> = {
+  [joinGameErrors.NotFound]: 404,
+  [joinGameErrors.NotJoinable]: 409,
+  [joinGameErrors.TeamFull]: 409,
+};
+
+const leaveGameErrorStatus: Record<LeaveGameError, number> = {
+  [leaveGameErrors.NotFound]: 404,
+  [leaveGameErrors.Closed]: 409,
+  [leaveGameErrors.TooLate]: 409,
 };
 
 gamesRouter.use((req: Request, res: Response, next: NextFunction) => {
@@ -80,6 +98,31 @@ gamesRouter.get("/", async (req: Request, res: Response) => {
       return;
     }
     res.status(200).json({ game });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+gamesRouter.get("/feed", async (_req: Request, res: Response) => {
+  try {
+    const games = await getFeed();
+    res.status(200).json({ games });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+gamesRouter.get("/me", async (req: Request, res: Response) => {
+  if (!req.userId) {
+    res.sendStatus(401);
+    return;
+  }
+
+  try {
+    const games = await getUserGames(req.userId);
+    res.status(200).json({ games });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });
@@ -137,7 +180,14 @@ gamesRouter.post("/join", async (req: Request, res: Response) => {
 
   try {
     const { gameId, team } = parsed.data;
-    await joinGame(gameId, req.userId, team);
+    const result = await joinGame(gameId, req.userId, team);
+
+    if (!result.success) {
+      res
+        .status(joinGameErrorStatus[result.error])
+        .json({ error: result.error });
+      return;
+    }
     res.sendStatus(204);
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError) {
@@ -173,7 +223,14 @@ gamesRouter.post("/leave", async (req: Request, res: Response) => {
 
   try {
     const { gameId } = parsed.data;
-    await leaveGame(gameId, req.userId);
+    const result = await leaveGame(gameId, req.userId);
+
+    if (!result.success) {
+      res
+        .status(leaveGameErrorStatus[result.error])
+        .json({ error: result.error });
+      return;
+    }
     res.sendStatus(204);
   } catch (e) {
     if (

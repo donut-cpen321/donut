@@ -6,6 +6,7 @@
 | ----------------- | --------------------- | ------------- |
 | Oct 23, 2026 | 2, 3.1, 3.3, 3.4, 3.5, 4.1, 4.2, 4.7 | Narrowed the first version to tennis only. Pickleball and badminton were dropped, so players no longer pick a sport. |
 | Oct 28, 2026 | 4.1 | Added the Games interfaces that change a game's start time and court, and replaced the planned final-score interface with the implemented `POST /games/score`. |
+| Nov 1, 2026 | 4.1, 4.3 | Implemented `GET /courts`, `GET /games/feed` (with the OpenWeather forecast) and the new `GET /games/me` that the front-end's Games tab needs, made `GET /games` return the court, players and rounds, and wrote down the join and leave rules (teams, free spots, the 30-minute leave deadline and the `OPEN`/`BOOKED` switch). |
 | Nov 1, 2026 | 4.1, 4.2 | `POST /games/score` now updates ratings through the implemented `applyGameResult` and returns each player's rating change. Removed the leftover `sport` parameters from the Games, Matchmaking and Ranking interfaces. |
 | Nov 1, 2026 | 4.1, 4.2 | Added the implemented `GET /leaderboard` and `GET /user/me`, and an index for the leaderboard order. |
 
@@ -325,8 +326,8 @@ Not included. The formal use cases describe each screen in enough detail for thi
     - **Interfaces**:
         1. `POST /user/login` with `{ idToken: string }` → `{ user: User }` - E
             - **Purpose**: Verifies the Google ID token and returns the player's account, creating it on the first sign-in. Every other request carries the Google ID token in the `Authorization` header and is verified the same way.
-        2. `GET /courts` → `Court[]` - E
-            - **Purpose**: Returns every court with its location, to show as markers on the map.
+        2. `GET /courts` → `{ courts: { id, name, latitude, longitude }[] }` - E
+            - **Purpose**: Returns every court with its location, ordered by name, to show as markers on the map.
         3. `PUT /user/me/courts` with `{ courtIds: number[] }` → `Court[]` - E
             - **Purpose**: Replaces the player's preferred courts (profile setup and later edits).
         4. `PUT /user/me/fcm-token` with `{ fcmToken: string }` → `204` - E
@@ -343,29 +344,31 @@ Not included. The formal use cases describe each screen in enough detail for thi
     - **Interfaces**:
         1. `POST /games` with `{ format, startsAt, courtId, gameSource }` → `201 { game: Game }` - E
             - **Purpose**: Creates a scheduled game owned by the caller.
-        2. `GET /games/feed` → `FeedGame[]` (game, players' ratings, forecast) - E
-            - **Purpose**: Returns the upcoming scheduled games for the feed.
-        3. `GET /games` with a `gameId` query parameter → `Game` - E
-            - **Purpose**: Returns one game with its players, status and rounds.
-        4. `DELETE /games` with a `gameId` query parameter -> `204`
+        2. `GET /games/feed` → `{ games: FeedGame[] }` - E
+            - **Purpose**: Returns the scheduled games that players can join: `OPEN` (not every spot filled) and not started, soonest first. A `FeedGame` is a `GameDetails` (see interface 3) with a `forecast` of `{ at, temperature, description, icon, precipitationChance }` for its court and start time, or `null` if the start time is more than 5 days away or OpenWeather cannot be reached.
+        3. `GET /games` with a `gameId` query parameter → `{ game: GameDetails }` - E
+            - **Purpose**: Returns one game with its court (`{ id, name, latitude, longitude }`), its players (`{ id, username, name, rating, team, acceptedAt }`, by team) and its rounds (`{ number, team1Score, team2Score }`, in order). `404` if the game does not exist.
+        4. `GET /games/me` → `{ games: GameDetails[] }` - E
+            - **Purpose**: Returns the caller's upcoming and current games for the Games tab, soonest first: every `BOOKED` game, and every `OPEN` game that has not started (a scheduled game still filling, or a matched game waiting for acceptance).
+        5. `DELETE /games` with a `gameId` query parameter -> `204`
             - **Purpose**: Deletes a game
-        5. `POST /games/join` with `{ gameId }` → `Game`, `POST /games/leave` with `{ gameId }` → `204` - E
-            - **Purpose**: Join or leave a scheduled game
-        6. `PATCH /games/time` with `{ gameId, startsAt }` → `{ game: Game }` - E
+        6. `POST /games/join` with `{ gameId, team: 1 | 2 }` → `204`, `POST /games/leave` with `{ gameId }` → `204` - E
+            - **Purpose**: Join or leave a scheduled game. Joining needs a scheduled game that is `OPEN` and has not started (`409` otherwise) and a free spot on the chosen team (1 per team in singles, 2 in doubles; `409` if the team is full). It is `409` if the caller is already in the game. The game becomes `BOOKED` when its last spot is filled, which takes it off the feed. Leaving is `409` once the game is completed or cancelled, or less than 30 minutes before the start, and `404` if the caller is not in the game. A `BOOKED` scheduled game goes back to `OPEN` when a player leaves. Both lock the game's row, so two players can't take the last spot at the same time.
+        7. `PATCH /games/time` with `{ gameId, startsAt }` → `{ game: Game }` - E
             - **Purpose**: Moves a game to a new start time, which must be in the future. The caller must be in the game, and the game must not be completed or cancelled (`403` and `409` otherwise).
-        7. `PATCH /games/location` with `{ gameId, courtId }` → `{ game: Game }` - E
+        8. `PATCH /games/location` with `{ gameId, courtId }` → `{ game: Game }` - E
             - **Purpose**: Moves a game to a different court, with the same rules as `PATCH /games/time`. Returns `404` if the court does not exist.
-        8. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
+        9. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
             - **Purpose**: Accept or decline a matched game.
-        9. `POST /games/:id/check-in` → `Game` - E
+        10. `POST /games/:id/check-in` → `Game` - E
             - **Purpose**: Confirms the player is at the court; starts the game when every player has confirmed.
-        10. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
+        11. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
             - **Purpose**: The owner saves one round's live score.
-        11. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
+        12. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
             - **Purpose**: Pushes each saved round to every player connected to the game.
-        12. `POST /games/score` with `{ gameId, rounds: [team1Score, team2Score][] }` → `{ game: Game, rounds: GameRound[], ratingChanges: RatingChange[] }` - E
+        13. `POST /games/score` with `{ gameId, rounds: [team1Score, team2Score][] }` → `{ game: Game, rounds: GameRound[], ratingChanges: RatingChange[] }` - E
             - **Purpose**: Ends the game with its final score. The rounds replace any saved during the game, and the game is marked as completed in the same transaction, so the score can only be reported once (`409` after that). Rejected with `400` if there are no rounds, a round score is not a non-negative whole number, a round is tied, or both teams won the same number of rounds. The caller must be in the game, and both teams must be full (`409` otherwise). `applyGameResult` updates every player's rating in the same transaction, so the score and ratings are saved together or not at all, and the response includes each player's rating before and after.
-        13. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
+        14. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
             - **Purpose**: Used by Matchmaking to create a proposed game.
 3. **Matchmaking**
     - **Purpose**: Owns the matchmaking queue and the matching algorithm, run by a background job every 30 seconds.
@@ -422,8 +425,8 @@ Not included. The formal use cases describe each screen in enough detail for thi
     - **Purpose**: Supplies the forecast for a scheduled game's court and time, shown in the feed.
     - **Rationale**: Most courts are outdoors, so the weather decides whether a game happens. Free tier is enough for our load.
     - **Interfaces we call**:
-        1. `GET /data/2.5/forecast?lat={lat}&lon={lon}` → `Forecast` (3-hour steps for 5 days) - called by Games
-            - **Purpose**: Gets the forecast at the court; Games picks the step closest to the game's start time.
+        1. `GET /data/2.5/forecast?lat={lat}&lon={lon}&units=metric&appid={key}` → `Forecast` (3-hour steps for 5 days) - called by Games
+            - **Purpose**: Gets the forecast at the court; Games picks the step closest to the game's start time (within 1.5 hours). Each court's forecast is cached for 10 minutes, so a feed request makes at most one call per court. A request times out after 2 seconds. The API key comes from `OPENWEATHER_API_KEY`; without it, or when a call fails, the feed shows games without a forecast.
 5. **Google Calendar API**
     - **Purpose**: Adds a booked game to the player's own Google Calendar.
     - **Rationale**: Players already use Google accounts to sign in, so they can add the game to their own calendar without a separate account.

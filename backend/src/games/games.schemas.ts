@@ -25,7 +25,7 @@ export const gameIdSchema = z.uuid();
 
 export const joinGameSchema = z.strictObject({
   gameId: z.uuid(),
-  team: z.number().nonnegative().int(),
+  team: z.union([z.literal(1), z.literal(2)]),
 });
 
 export const createGameUserSchema = z.strictObject({

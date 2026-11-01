@@ -67,6 +67,7 @@ Set at least:
 - `JWT_SECRET`: a long random string used to sign auth tokens.
 - `MONGODB_URI`: only needed for local development (default in `.env.example` assumes MongoDB on `localhost:27017`). Ignored when running via Docker Compose.
 - `PORT` (optional): defaults to `3000` if unset.
+- `OPENWEATHER_API_KEY` (optional): an [OpenWeather](https://openweathermap.org/api) key for the forecasts in the games feed. Without it, the feed shows games without a forecast.
 
 
 ### Option 1: Run locally
