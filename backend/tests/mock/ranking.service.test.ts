@@ -27,8 +27,8 @@ describe("Mocked: applyGameResult", () => {
   });
 
   // Input: equal-rated singles players, team 1 wins 6-4 6-4
-  // Expected behavior: team 1 is treated as elo team 0, so the winner gains and the loser loses the same amount
-  // Expected output: the changes are saved in the given transaction and returned
+  // Expected behavior: the winner gains and the loser loses the same amount
+  // Expected output: team 1 listed first, the changes are saved in the given transaction and returned
   test("Rates a singles game with teams 1 and 2 and saves the changes", async () => {
     mockedFetchPlayers.mockResolvedValue([
       { userId: "winner", team: 1, rating: 1500 },
@@ -40,11 +40,16 @@ describe("Mocked: applyGameResult", () => {
       [6, 4],
     ]);
 
-    const winner = changes.find((c) => c.userId === "winner")!;
-    const loser = changes.find((c) => c.userId === "loser")!;
-    expect(winner.ratingBefore).toBe(1500);
+    expect(changes).toEqual([
+      { userId: "winner", ratingBefore: 1500, ratingAfter: expect.any(Number) },
+      { userId: "loser", ratingBefore: 1500, ratingAfter: expect.any(Number) },
+    ]);
+    const [winner, loser] = changes;
+    if (!winner || !loser) {
+      throw new Error("Expected a rating change for both players");
+    }
     expect(winner.ratingAfter).toBeGreaterThan(1500);
-    expect(loser.ratingAfter).toBeCloseTo(1500 - (winner.ratingAfter - 1500));
+    expect(loser.ratingAfter).toBeCloseTo(3000 - winner.ratingAfter);
     expect(mockedFetchPlayers).toHaveBeenCalledWith(tx, gameId);
     expect(mockedSaveRatingChanges).toHaveBeenCalledWith(tx, gameId, changes);
   });

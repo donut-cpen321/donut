@@ -35,6 +35,7 @@ export async function fetchGamePlayerRatingsForUpdate(
  * @param tx the transaction the final score is being saved in
  * @param gameId the game ID of the finished game
  * @param changes the rating change of each player in the game
+ * @throws If a user or game player row can't be updated; the caller's transaction rolls back
  */
 export async function saveRatingChanges(
   tx: Prisma.TransactionClient,
@@ -42,13 +43,21 @@ export async function saveRatingChanges(
   changes: RatingChange[],
 ): Promise<void> {
   for (const { userId, ratingBefore, ratingAfter } of changes) {
-    await tx.user.update({
-      where: { id: userId },
-      data: { rating: ratingAfter },
-    });
-    await tx.gameUser.update({
-      where: { gameId_userId: { gameId, userId } },
-      data: { ratingBefore, ratingAfter },
-    });
+    try {
+      await tx.user.update({
+        where: { id: userId },
+        data: { rating: ratingAfter },
+      });
+      await tx.gameUser.update({
+        where: { gameId_userId: { gameId, userId } },
+        data: { ratingBefore, ratingAfter },
+      });
+    } catch (e) {
+      // Rethrow so the final-score transaction still rolls back
+      throw new Error(
+        `Failed to save rating change for user ${userId} in game ${gameId}`,
+        { cause: e },
+      );
+    }
   }
 }

@@ -17,10 +17,18 @@ export class IncompleteTeamsError extends Error {
   }
 }
 
-const TEAM_SIZE: Record<Format, number> = {
-  [Format.SINGLES]: 1,
-  [Format.DOUBLES]: 2,
-};
+/**
+ * @param format the format of the game
+ * @returns how many players each team needs
+ */
+function teamSizeFor(format: Format): number {
+  switch (format) {
+    case Format.SINGLES:
+      return 1;
+    case Format.DOUBLES:
+      return 2;
+  }
+}
 
 /**
  * Calculates and saves every player's new rating after a game. Must run inside the
@@ -46,10 +54,12 @@ export async function applyGameResult(
 
   const team1Size = eloPlayers.filter(({ team }) => team === 1).length;
   const team2Size = eloPlayers.filter(({ team }) => team === 2).length;
+
+  const teamSize = teamSizeFor(format);
   if (
     players.length !== eloPlayers.length ||
-    team1Size !== TEAM_SIZE[format] ||
-    team2Size !== TEAM_SIZE[format]
+    team1Size !== teamSize ||
+    team2Size !== teamSize
   ) {
     throw new IncompleteTeamsError(format, team1Size, team2Size);
   }
