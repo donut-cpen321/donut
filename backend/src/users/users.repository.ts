@@ -18,7 +18,7 @@ type NewUserData = Pick<Prisma.UserCreateInput, 'googleSub' | 'username' | 'name
  * @param googleSub google's unique identifier for a user
  * @returns 
  */
-export async function getUserByGoogleSub(googleSub: string) {
+export async function getUserByGoogleSub(googleSub: string): Promise<LoginUser | null> {
   return await prisma.user.findUnique({
     where: { googleSub },
     select: loginUserSelect,

@@ -2,15 +2,9 @@
 
 ## 1. Scope
 
-Donut is an instant matchmaking and ranking app for people who play competitive sports but can't commit to a weekly league.
+Donut is an instant matchmaking and ranking app for people who play competitive tennis but can't commit to a weekly league.
 
-The first version supports **racket sports only**:
-
-- Tennis
-- Pickleball
-- Badminton
-
-Every sport supports **singles (1v1)** and **doubles (2v2)** from the start. Other sports (e.g. basketball) may be added later; nothing in the design should assume racket sports beyond the scoring rules in [§6](#6-scoring).
+The first version supports **tennis only**, in **singles (1v1)** and **doubles (2v2)**. Other sports may be added later. The database keeps a `sport` field (only `TENNIS` for now), so adding a sport means adding its scoring rules ([§6](#6-scoring)) and rating parameters ([§7.2](#72-formula)).
 
 ## 2. Navigation
 
@@ -26,7 +20,6 @@ The app has three tabs.
 ### 3.1. Feed
 
 - Shows games happening **now or in the next 24 hours**.
-- Shows games in **every sport**, not only the sports the user plays. A tennis player still sees pickleball and badminton games.
 - Users can join a game from the feed if it has open spots.
 
 The feed exists for discovery and joining games by hand. Automatic matchmaking ([§5](#5-matchmaking)) is the other way to get a game.
@@ -42,7 +35,6 @@ The feed exists for discovery and joining games by hand. Automatic matchmaking (
 
 The creator picks:
 
-- Sport
 - Format: **singles or doubles**
 - Date and time
 - Court
@@ -61,7 +53,6 @@ Players can be matched without anyone creating a game, by posting when they are 
 
 A player posts availability with:
 
-- Sport
 - Format: **singles, doubles, or either**
 - Time, as one of:
   - a **weekly pattern** (e.g. every Tuesday 6–8pm), or
@@ -78,7 +69,6 @@ Each player saves a few preferred courts, picked on Google Maps. This is how the
 
 Players are matched when they share all of:
 
-- Sport
 - Format (a player who chose "either" fits singles and doubles)
 - An overlapping time slot
 - A preferred court
@@ -108,13 +98,7 @@ Open decision: when 4 players are matched, how they are split into teams (just b
 
 Every match is a list of **rounds**, each with a score per side. The winner is the side that wins more rounds.
 
-| Sport | A round is a… | Round score counts… | Example |
-| --- | --- | --- | --- |
-| Tennis | set | games | 6–4 |
-| Pickleball | game | points | 11–9 |
-| Badminton | game | points | 21–15 |
-
-The same data structure serves all three sports.
+In tennis, a round is a **set** and its score counts **games** (e.g. 6–4).
 
 ### 6.2. Who enters the score
 
@@ -126,7 +110,7 @@ The same data structure serves all three sports.
 
 ### 7.1. Model
 
-- Every player has a **separate rating per sport**, starting at **1500**.
+- Every player has one rating, starting at **1500**.
 - Ratings use **Elo with margin of victory**: the rating change depends on both the win/loss result and on whether the side won by more or less than expected.
 - **Doubles:** a team's rating is the average of its two players' ratings. Each player on a team receives **half of the team's rating change**, so both teammates move by the same amount.
 
@@ -148,16 +132,14 @@ R_B'  = R_B - Δ
 - `S_A` is 1 if A wins the match and 0 if A loses. The match winner is the side that wins more rounds (see 6.1).
 - `T_MOV` is A's total points minus B's total points across all rounds. The result uses rounds, but the margin uses points, because points show how close the match really was.
 - `E_MOV` grows with the rating gap but levels off at `α`, so a large gap never predicts an unrealistic blowout.
-- `400` is the standard Elo scale: a 400-point gap gives the stronger side 10-to-1 odds of winning. It is the same for every sport, since changing it would only rescale stored ratings.
+- `400` is the standard Elo scale: a 400-point gap gives the stronger side 10-to-1 odds of winning. Changing it would only rescale stored ratings.
 - Because of the margin term, a heavy favorite who wins by less than expected can lose a small amount of rating.
 
-The parameters are set per sport:
+The tennis parameters are:
 
-| Sport | `K` (kFactor) | `α` (maxExpectedMargin) | `β` (marginGrowthRate) | `λ` (marginWeight) |
-| --- | --- | --- | --- | --- |
-| Tennis | 50 | 6 | 0.0025 | 1.5 |
-| Pickleball | 60 | 8 | 0.0025 | 1.0 |
-| Badminton | 32 | 15 | 0.005 | 0.5 |
+| `K` (kFactor) | `α` (maxExpectedMargin) | `β` (marginGrowthRate) | `λ` (marginWeight) |
+| --- | --- | --- | --- |
+| 50 | 6 | 0.0025 | 1.5 |
 
 Players can be listed in any order; each player's `team` decides which side they are on.
 
@@ -190,4 +172,4 @@ We will likely move to **Glicko** (the system chess.com uses). It adds a rating 
 - Recurring games
 - Score confirmation or disputes
 - Glicko ([§7.3](#73-future-glicko))
-- Sports other than tennis, pickleball and badminton
+- Sports other than tennis (e.g. pickleball and badminton)

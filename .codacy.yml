@@ -1,0 +1,22 @@
+---
+engines:
+  detekt:
+    enabled: true
+    exclude_paths:
+      - "**/build/**"
+      - "**/generated/**"
+  eslint:
+    enabled: true
+    exclude_paths:
+      - "**/node_modules/**"
+      - "**/dist/**"
+      - "**/*.min.js"
+  trivy:
+    enabled: true
+
+exclude_paths:
+  - "**/node_modules/**"
+  - "**/build/**"
+  - "**/dist/**"
+  - "**/.gradle/**"
+  - "**/coverage/**"

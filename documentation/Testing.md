@@ -18,6 +18,9 @@
 | ----------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ---------------------------------- |
 | **POST /user/login**          | ...                                                  | [`tests/mock/userLogin.test.ts`](#)                | Google Authentication API, User DB |
 | **Matchmaking**               | ...                                                  | [`tests/mock/matchmaking.job.test.ts`](#)          | Task Scheduler                     |
+| **PATCH /games/time**         | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
+| **PATCH /games/location**     | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
+| **POST /games/score**         | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
 | ...                           | ...                                                  | ...                                                | ...                                |
 | ...                           | ...                                                  | ...                                                | ...                                |
 
