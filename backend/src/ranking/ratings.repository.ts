@@ -42,22 +42,28 @@ export async function saveRatingChanges(
   gameId: string,
   changes: RatingChange[],
 ): Promise<void> {
-  for (const { userId, ratingBefore, ratingAfter } of changes) {
-    try {
+  // The user being saved, so the error can say which one failed
+  let userId: string | undefined;
+  try {
+    for (const change of changes) {
+      userId = change.userId;
       await tx.user.update({
         where: { id: userId },
-        data: { rating: ratingAfter },
+        data: { rating: change.ratingAfter },
       });
       await tx.gameUser.update({
         where: { gameId_userId: { gameId, userId } },
-        data: { ratingBefore, ratingAfter },
+        data: {
+          ratingBefore: change.ratingBefore,
+          ratingAfter: change.ratingAfter,
+        },
       });
-    } catch (e) {
-      // Rethrow so the final-score transaction still rolls back
-      throw new Error(
-        `Failed to save rating change for user ${userId} in game ${gameId}`,
-        { cause: e },
-      );
     }
+  } catch (e) {
+    // Rethrow so the final-score transaction still rolls back
+    throw new Error(
+      `Failed to save rating change for user ${userId} in game ${gameId}`,
+      { cause: e },
+    );
   }
 }
