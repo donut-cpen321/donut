@@ -31,7 +31,7 @@ interface ApiService {
     @DELETE("friends/{userId}")
     suspend fun removeFriend(
         @Header("Authorization") authorization: String,
-        @Path("userId") userId: String
+        @Path("userId") userId: String,
     ): Response<ResponseBody>
 
     @GET("friends/requests")
@@ -40,7 +40,7 @@ interface ApiService {
     @POST("friends/requests/accept")
     suspend fun acceptFriendRequest(
         @Header("Authorization") authorization: String,
-        @Body request: AcceptFriendRequestDto
+        @Body request: AcceptFriendRequestDto,
     ): Response<ResponseBody>
 
     // TODO: Implement getMatchHistory (prob games/smth)

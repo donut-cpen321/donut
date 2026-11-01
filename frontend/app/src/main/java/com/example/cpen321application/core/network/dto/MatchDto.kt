@@ -9,5 +9,5 @@ data class MatchDto(
     val result: String, // "WIN", "LOSS", "DRAW"
     val score: String,
     val date: String,
-    val eloChange: Int? = null
+    val eloChange: Int? = null,
 )

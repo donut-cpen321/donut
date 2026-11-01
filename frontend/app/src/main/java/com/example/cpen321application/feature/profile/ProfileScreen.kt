@@ -56,11 +56,20 @@ import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
 import com.example.cpen321application.core.network.dto.MatchDto
 
+data class ProfileActions(
+    val onSignOut: () -> Unit = {},
+    val onSelectTab: (ProfileTab) -> Unit = {},
+    val onRemoveFriend: (String) -> Unit = {},
+    val onAcceptRequest: (String) -> Unit = {},
+    val onRefresh: () -> Unit = {},
+    val onClearMessages: () -> Unit = {},
+)
+
 @Composable
 fun ProfileRoute(
     authViewModel: AuthViewModel,
     onSignOut: () -> Unit,
-    viewModel: ProfileViewModel = viewModel()
+    viewModel: ProfileViewModel = viewModel(),
 ) {
     val session = authViewModel.session
     val uiState by viewModel.uiState.collectAsState()
@@ -69,83 +78,83 @@ fun ProfileRoute(
         viewModel.initSession(session)
     }
 
-    ProfileScreen(
-        uiState = uiState,
+    val actions = ProfileActions(
         onSignOut = onSignOut,
         onSelectTab = { viewModel.selectTab(it) },
         onRemoveFriend = { userId -> viewModel.removeFriend(session, userId) },
         onAcceptRequest = { userId -> viewModel.acceptFriendRequest(session, userId) },
         onRefresh = { viewModel.loadAll(session) },
-        onClearMessages = { viewModel.clearMessages() }
+        onClearMessages = { viewModel.clearMessages() },
+    )
+
+    ProfileScreen(
+        uiState = uiState,
+        actions = actions,
     )
 }
 
 @Composable
 fun ProfileScreen(
     uiState: ProfileUiState,
-    onSignOut: () -> Unit,
-    onSelectTab: (ProfileTab) -> Unit = {},
-    onRemoveFriend: (String) -> Unit = {},
-    onAcceptRequest: (String) -> Unit = {},
-    onRefresh: () -> Unit = {},
-    onClearMessages: () -> Unit = {}
+    actions: ProfileActions = ProfileActions(),
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp)
+            .padding(top = 16.dp),
     ) {
-        // Message Banner
-        if (uiState.errorMessage != null || uiState.successMessage != null) {
+        if ((uiState.errorMessage != null) || (uiState.successMessage != null)) {
             MessageBanner(
                 errorMessage = uiState.errorMessage,
                 successMessage = uiState.successMessage,
-                onDismiss = onClearMessages
+                onDismiss = actions.onClearMessages,
             )
         }
 
-        // Top Section: Profile Header
         ProfileHeader(
             username = uiState.username,
             elo = uiState.elo,
             friendCount = uiState.friendCount,
-            onSignOut = onSignOut
+            onSignOut = actions.onSignOut,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Navigation Tabs
         ProfileTabs(
             selectedTab = uiState.selectedTab,
             pendingRequestsCount = uiState.friendRequests.size,
-            onSelectTab = onSelectTab
+            onSelectTab = actions.onSelectTab,
         )
 
         HorizontalDivider()
 
-        // Tab Content
-        Box(
+        ProfileTabBody(
+            uiState = uiState,
+            actions = actions,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-        ) {
-            when (uiState.selectedTab) {
-                ProfileTab.MATCH_HISTORY -> MatchHistoryTabContent(
-                    matchHistory = uiState.matchHistory,
-                    isLoading = uiState.isLoadingMatches,
-                    onRefresh = onRefresh
-                )
-                ProfileTab.FRIENDS -> FriendsTabContent(
-                    friends = uiState.friends,
-                    friendRequests = uiState.friendRequests,
-                    isLoadingFriends = uiState.isLoadingFriends,
-                    isLoadingRequests = uiState.isLoadingRequests,
-                    isActionInProgress = uiState.isActionInProgress,
-                    onRemoveFriend = onRemoveFriend,
-                    onAcceptRequest = onAcceptRequest,
-                    onRefresh = onRefresh
-                )
-            }
+                .weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun ProfileTabBody(
+    uiState: ProfileUiState,
+    actions: ProfileActions,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        when (uiState.selectedTab) {
+            ProfileTab.MATCH_HISTORY -> MatchHistoryTabContent(
+                matchHistory = uiState.matchHistory,
+                isLoading = uiState.isLoadingMatches,
+                onRefresh = actions.onRefresh,
+            )
+            ProfileTab.FRIENDS -> FriendsTabContent(
+                uiState = uiState,
+                actions = actions,
+            )
         }
     }
 }
@@ -154,37 +163,45 @@ fun ProfileScreen(
 private fun MessageBanner(
     errorMessage: String?,
     successMessage: String?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val isError = errorMessage != null
     val message = errorMessage ?: successMessage ?: return
-    val backgroundColor = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
-    val textColor = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+    val backgroundColor = if (isError) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+    val textColor = if (isError) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = message,
                 color = textColor,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Dismiss",
-                    tint = textColor
+                    tint = textColor,
                 )
             }
         }
@@ -196,28 +213,27 @@ private fun ProfileHeader(
     username: String,
     elo: Int,
     friendCount: Int,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Avatar circle
         Box(
             modifier = Modifier
                 .size(72.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             val initial = username.firstOrNull()?.uppercase() ?: "?"
             Text(
                 text = initial,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
 
@@ -226,42 +242,40 @@ private fun ProfileHeader(
         Text(
             text = username.ifEmpty { "User" },
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Stats Row (Elo & Friend Count)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             StatCard(
-                label = "Elo",
-                value = "$elo",
-                modifier = Modifier.weight(1f)
+                label = "1v1 Elo",
+                value = "$elo (TBD)",
+                modifier = Modifier.weight(1f),
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             StatCard(
                 label = "Friends",
-                value = "$friendCount",
-                modifier = Modifier.weight(1f)
+                value = friendCount.toString(),
+                modifier = Modifier.weight(1f),
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Sign Out Button
         OutlinedButton(
             onClick = onSignOut,
-            modifier = Modifier.fillMaxWidth(0.6f)
+            modifier = Modifier.fillMaxWidth(0.6f),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("Sign Out")
@@ -273,28 +287,28 @@ private fun ProfileHeader(
 private fun StatCard(
     label: String,
     value: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
     }
@@ -304,7 +318,7 @@ private fun StatCard(
 private fun ProfileTabs(
     selectedTab: ProfileTab,
     pendingRequestsCount: Int,
-    onSelectTab: (ProfileTab) -> Unit
+    onSelectTab: (ProfileTab) -> Unit,
 ) {
     TabRow(selectedTabIndex = selectedTab.ordinal) {
         Tab(
@@ -314,9 +328,9 @@ private fun ProfileTabs(
             icon = {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = "Match History"
+                    contentDescription = "Match History",
                 )
-            }
+            },
         )
 
         Tab(
@@ -328,20 +342,20 @@ private fun ProfileTabs(
                     BadgedBox(
                         badge = {
                             Badge { Text("$pendingRequestsCount") }
-                        }
+                        },
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
-                            contentDescription = "Friends"
+                            contentDescription = "Friends",
                         )
                     }
                 } else {
                     Icon(
                         imageVector = Icons.Default.Person,
-                        contentDescription = "Friends"
+                        contentDescription = "Friends",
                     )
                 }
-            }
+            },
         )
     }
 }
@@ -350,59 +364,64 @@ private fun ProfileTabs(
 private fun MatchHistoryTabContent(
     matchHistory: List<MatchDto>,
     isLoading: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
 ) {
     if (isLoading) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             CircularProgressIndicator()
         }
     } else if (matchHistory.isEmpty()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.List,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.outline
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No Match History Yet",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Play matches to see your past games here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(onClick = onRefresh) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Refresh")
-            }
-        }
+        MatchHistoryEmptyView(onRefresh = onRefresh)
     } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(matchHistory, key = { it.id }) { match ->
                 MatchHistoryCard(match = match)
             }
+        }
+    }
+}
+
+@Composable
+private fun MatchHistoryEmptyView(onRefresh: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.List,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.outline,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "No Match History Yet",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Play 1v1 matches to see your past games here.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(onClick = onRefresh) {
+            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Refresh")
         }
     }
 }
@@ -415,26 +434,26 @@ private fun MatchHistoryCard(match: MatchDto) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column {
                 Text(
                     text = "vs ${match.opponentUsername}",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = match.date,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -442,20 +461,20 @@ private fun MatchHistoryCard(match: MatchDto) {
                 Text(
                     text = match.score,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(resultContainer)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                 ) {
                     Text(
                         text = match.result.uppercase(),
                         color = resultColor,
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
@@ -465,19 +484,13 @@ private fun MatchHistoryCard(match: MatchDto) {
 
 @Composable
 private fun FriendsTabContent(
-    friends: List<FriendDto>,
-    friendRequests: List<FriendRequestDto>,
-    isLoadingFriends: Boolean,
-    isLoadingRequests: Boolean,
-    isActionInProgress: Boolean,
-    onRemoveFriend: (String) -> Unit,
-    onAcceptRequest: (String) -> Unit,
-    onRefresh: () -> Unit
+    uiState: ProfileUiState,
+    actions: ProfileActions,
 ) {
-    if (isLoadingFriends || isLoadingRequests) {
+    if (uiState.isLoadingFriends || uiState.isLoadingRequests) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             CircularProgressIndicator()
         }
@@ -486,36 +499,34 @@ private fun FriendsTabContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Header actions: Refresh button
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    IconButton(onClick = onRefresh) {
+                    IconButton(onClick = actions.onRefresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh Friends")
                     }
                 }
             }
 
-            // Friend Requests Section
-            if (friendRequests.isNotEmpty()) {
+            if (uiState.friendRequests.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Friend Requests (${friendRequests.size})",
+                        text = "Friend Requests (${uiState.friendRequests.size})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
 
-                items(friendRequests, key = { it.userId }) { request ->
+                items(uiState.friendRequests, key = { it.userId }) { request ->
                     FriendRequestItem(
                         request = request,
-                        isActionInProgress = isActionInProgress,
-                        onAccept = { onAcceptRequest(request.userId) }
+                        isActionInProgress = uiState.isActionInProgress,
+                        onAccept = { actions.onAcceptRequest(request.userId) },
                     )
                 }
 
@@ -525,36 +536,35 @@ private fun FriendsTabContent(
                 }
             }
 
-            // Friends Section
             item {
                 Text(
-                    text = "Friends (${friends.size})",
+                    text = "Friends (${uiState.friends.size})",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
-            if (friends.isEmpty()) {
+            if (uiState.friends.isEmpty()) {
                 item {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
                             text = "No friends added yet.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             } else {
-                items(friends, key = { it.userId }) { friend ->
+                items(uiState.friends, key = { it.userId }) { friend ->
                     FriendItem(
                         friend = friend,
-                        isActionInProgress = isActionInProgress,
-                        onRemove = { onRemoveFriend(friend.userId) }
+                        isActionInProgress = uiState.isActionInProgress,
+                        onRemove = { actions.onRemoveFriend(friend.userId) },
                     )
                 }
             }
@@ -566,34 +576,34 @@ private fun FriendsTabContent(
 private fun FriendRequestItem(
     request: FriendRequestDto,
     isActionInProgress: Boolean,
-    onAccept: () -> Unit
+    onAccept: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = request.username.firstOrNull()?.uppercase() ?: "?",
                         color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -601,24 +611,24 @@ private fun FriendRequestItem(
                     Text(
                         text = request.username,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
                     )
                     Text(
                         text = "Wants to be your friend",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
             Button(
                 onClick = onAccept,
-                enabled = !isActionInProgress
+                enabled = !isActionInProgress,
             ) {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Accept",
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Accept")
@@ -631,34 +641,34 @@ private fun FriendRequestItem(
 private fun FriendItem(
     friend: FriendDto,
     isActionInProgress: Boolean,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.secondary),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = friend.username.firstOrNull()?.uppercase() ?: "?",
                         color = MaterialTheme.colorScheme.onSecondary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -666,13 +676,13 @@ private fun FriendItem(
                     Text(
                         text = friend.username,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
                     )
-                    if (friend.elo != null) {
+                    friend.elo?.let { eloValue ->
                         Text(
-                            text = "Elo: ${friend.elo}",
+                            text = "Elo: $eloValue",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -681,12 +691,12 @@ private fun FriendItem(
             OutlinedButton(
                 onClick = onRemove,
                 enabled = !isActionInProgress,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Remove Friend",
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Remove")

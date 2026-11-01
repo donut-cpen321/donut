@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ProfileViewModel(
-    private val repository: FriendsRepository = FriendsRepositoryImpl()
+    private val repository: FriendsRepository = FriendsRepositoryImpl(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -43,14 +43,14 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         friends = friendsList,
-                        isLoadingFriends = false
+                        isLoadingFriends = false,
                     )
                 }
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
                         isLoadingFriends = false,
-                        errorMessage = error.localizedMessage ?: "Failed to load friends"
+                        errorMessage = error.localizedMessage ?: "Failed to load friends",
                     )
                 }
             }
@@ -65,14 +65,14 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         friendRequests = requestsList,
-                        isLoadingRequests = false
+                        isLoadingRequests = false,
                     )
                 }
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
                         isLoadingRequests = false,
-                        errorMessage = error.localizedMessage ?: "Failed to load friend requests"
+                        errorMessage = error.localizedMessage ?: "Failed to load friend requests",
                     )
                 }
             }
@@ -87,14 +87,14 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         matchHistory = matches,
-                        isLoadingMatches = false
+                        isLoadingMatches = false,
                     )
                 }
             }.onFailure {
                 _uiState.update {
                     it.copy(
                         isLoadingMatches = false,
-                        matchHistory = emptyList()
+                        matchHistory = emptyList(),
                     )
                 }
             }
@@ -109,7 +109,7 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         isActionInProgress = false,
-                        successMessage = "Friend removed"
+                        successMessage = "Friend removed",
                     )
                 }
                 fetchFriends(session)
@@ -117,7 +117,7 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         isActionInProgress = false,
-                        errorMessage = error.localizedMessage ?: "Failed to remove friend"
+                        errorMessage = error.localizedMessage ?: "Failed to remove friend",
                     )
                 }
             }
@@ -132,7 +132,7 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         isActionInProgress = false,
-                        successMessage = "Friend request accepted"
+                        successMessage = "Friend request accepted",
                     )
                 }
                 fetchFriends(session)
@@ -141,7 +141,7 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         isActionInProgress = false,
-                        errorMessage = error.localizedMessage ?: "Failed to accept friend request"
+                        errorMessage = error.localizedMessage ?: "Failed to accept friend request",
                     )
                 }
             }

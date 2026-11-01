@@ -6,5 +6,5 @@ data class FriendRequestDto(
     @SerializedName("userId", alternate = ["id", "_id", "senderId", "fromUserId"])
     val userId: String,
     val username: String,
-    val createdAt: String? = null
+    val createdAt: String? = null,
 )

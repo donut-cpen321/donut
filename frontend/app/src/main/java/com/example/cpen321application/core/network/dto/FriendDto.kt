@@ -7,5 +7,5 @@ data class FriendDto(
     val userId: String,
     val username: String,
     val elo: Int? = null,
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
 )

@@ -6,7 +6,7 @@ import com.example.cpen321application.core.network.dto.MatchDto
 
 enum class ProfileTab {
     MATCH_HISTORY,
-    FRIENDS
+    FRIENDS,
 }
 
 data class ProfileUiState(
@@ -21,7 +21,7 @@ data class ProfileUiState(
     val isLoadingMatches: Boolean = false,
     val isActionInProgress: Boolean = false,
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
 ) {
     val friendCount: Int get() = friends.size
     val isLoadingAny: Boolean get() = isLoadingFriends || isLoadingRequests || isLoadingMatches
