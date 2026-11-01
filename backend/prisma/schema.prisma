@@ -164,6 +164,10 @@ model GameUser {
   team       Int
   acceptedAt DateTime? @db.Timestamptz(3) // MATCHED games only; null until the player accepts
 
+  // Match summary, set by Ranking when the final score is reported; null until the game is completed
+  ratingBefore Float?
+  ratingAfter  Float?
+
   // One-to-many relation between Game and GameUser
   game Game @relation(fields: [gameId], references: [id])
 

@@ -1,6 +1,6 @@
 // Pure Elo math and calculations
 import { Format } from '../generated/prisma/client'
-import { EloParams, GameInfo, PlayerInfo, RatingChange } from './scoring.types'
+import { EloParams, GameInfo, PlayerInfo, RatingChange } from './ranking.types'
 
 // Elo parameters tuned for tennis, where a round is a set
 const ELO_PARAMS: EloParams = { maxExpectedMargin: 6, marginGrowthRate: 0.0025, marginWeight: 1.5, kFactor: 50 };
@@ -49,8 +49,8 @@ function calculateExpectedMargin(
  * win/loss result with how much the margin of victory beat expectations.
  * Side B's change is the negative of this.
  *
- * @param playerARating - Rating of player (or team average) A, who must be team 0
- * @param playerBRating - Rating of player (or team average) B, who must be team 1
+ * @param playerARating - Rating of player (or team average) A, who must be team 1
+ * @param playerBRating - Rating of player (or team average) B, who must be team 2
  * @param game - Format and round scores
  * @returns The amount to add to A's rating (negative if A lost rating)
  */
@@ -112,10 +112,10 @@ function calculateRatingUpdate(
  * In doubles, each team is rated by its players' average rating and each
  * player receives half of the team's rating change.
  *
- * @param players - Players in any order. Singles: one player on each of team 0 and team 1.
+ * @param players - Players in any order. Singles: one player on each of team 1 and team 2.
  *                  Doubles: two players on each team.
  * @param game - Format and round scores of the game
- * @returns One RatingChange per player: team 0 players first, then team 1
+ * @returns One RatingChange per player: team 1 players first, then team 2
  * @throws If the player count or team split doesn't match the format, a userId
  *         appears more than once, a rating isn't finite, or the scores are
  *         empty, contain an invalid or tied round, or have no winner
@@ -145,8 +145,8 @@ export function calculateELOChange(
                 throw new Error(`Singles game needs exactly 2 players, got ${players.length}`);
             }
 
-            const [playerA] = players.filter(p => p.team === 0);
-            const [playerB] = players.filter(p => p.team === 1);
+            const [playerA] = players.filter(p => p.team === 1);
+            const [playerB] = players.filter(p => p.team === 2);
 
             if (!playerA || !playerB) {
                 throw new Error('Singles game needs one player on each team');
@@ -172,8 +172,8 @@ export function calculateELOChange(
                 throw new Error(`Doubles game needs exactly 4 players, got ${players.length}`);
             }
 
-            const [playerA, playerB] = players.filter(p => p.team === 0);
-            const [playerC, playerD] = players.filter(p => p.team === 1);
+            const [playerA, playerB] = players.filter(p => p.team === 1);
+            const [playerC, playerD] = players.filter(p => p.team === 2);
 
             if (!playerA || !playerB || !playerC || !playerD) {
                 throw new Error('Doubles game needs two players on each team');

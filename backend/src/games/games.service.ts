@@ -1,4 +1,5 @@
 import { GameStatus } from "../generated/prisma/enums";
+import { IncompleteTeamsError } from "../ranking/ranking.service";
 import {
   completeGame,
   createGame,
@@ -19,6 +20,7 @@ export const gameEditErrors = {
   NotFound: "Game not found",
   NotInGame: "User not in game",
   Closed: "Game is already completed or cancelled",
+  IncompleteTeams: "Game does not have full teams",
 } as const;
 
 export type GameEditError =
@@ -162,11 +164,11 @@ export async function changeGameLocation(
 }
 
 /**
- * Reports the final score of a game: saves its rounds and marks it as completed
+ * Reports the final score of a game: saves its rounds, marks it as completed and updates every player's rating
  * @param gameId the game ID of the game the score is for
  * @param userId the user reporting the score, who must be in the game
  * @param rounds the [team 1 score, team 2 score] of each round, in order
- * @returns the completed game and its rounds, or the reason the score cannot be reported
+ * @returns the completed game, its rounds and each player's rating change, or the reason the score cannot be reported
  */
 export async function reportScore(
   gameId: string,
@@ -178,7 +180,15 @@ export async function reportScore(
     return { success: false, error } as const;
   }
 
-  const completed = await completeGame(gameId, rounds);
+  let completed;
+  try {
+    completed = await completeGame(gameId, rounds);
+  } catch (e) {
+    if (e instanceof IncompleteTeamsError) {
+      return { success: false, error: gameEditErrors.IncompleteTeams } as const;
+    }
+    throw e;
+  }
   if (completed === null) {
     // Another report completed the game after the check above
     return { success: false, error: gameEditErrors.Closed } as const;

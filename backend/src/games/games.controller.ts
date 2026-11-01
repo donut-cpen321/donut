@@ -30,6 +30,7 @@ const gameEditErrorStatus: Record<GameEditError, number> = {
   [gameEditErrors.NotFound]: 404,
   [gameEditErrors.NotInGame]: 403,
   [gameEditErrors.Closed]: 409,
+  [gameEditErrors.IncompleteTeams]: 409,
 };
 
 gamesRouter.use((req: Request, res: Response, next: NextFunction) => {
@@ -296,7 +297,11 @@ gamesRouter.post("/score", async (req: Request, res: Response) => {
         .json({ error: result.error });
       return;
     }
-    res.status(200).json({ game: result.game, rounds: result.rounds });
+    res.status(200).json({
+      game: result.game,
+      rounds: result.rounds,
+      ratingChanges: result.ratingChanges,
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });
