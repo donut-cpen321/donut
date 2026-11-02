@@ -1,4 +1,4 @@
-import { NextFunction, Router, type Request, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/requireAuth";
 import {
@@ -33,9 +33,7 @@ const gameEditErrorStatus: Record<GameEditError, number> = {
   [gameEditErrors.IncompleteTeams]: 409,
 };
 
-gamesRouter.use((req: Request, res: Response, next: NextFunction) => {
-  requireAuth(req, res, next);
-});
+gamesRouter.use(requireAuth);
 
 gamesRouter.post("/", async (req: Request, res: Response) => {
   const parsedBody = createGameSchema.safeParse(req.body);
