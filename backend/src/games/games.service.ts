@@ -1,12 +1,16 @@
-import { GameStatus } from "../generated/prisma/enums";
+import { getForecast } from "../external/weather";
+import { Format, GameSource, GameStatus } from "../generated/prisma/enums";
 import { IncompleteTeamsError } from "../ranking/ranking.service";
 import {
+  addPlayerToTeam,
   completeGame,
   createGame,
-  createGameUser,
   deleteGame,
   deleteGameUser,
+  fetchFeedGames,
   fetchGame,
+  fetchGameDetails,
+  fetchUserGames,
   isUserInGame,
   updateGame,
 } from "./games.repository";
@@ -26,6 +30,32 @@ export const gameEditErrors = {
 export type GameEditError =
   (typeof gameEditErrors)[keyof typeof gameEditErrors];
 
+export const joinGameErrors = {
+  NotFound: "Game not found",
+  NotJoinable: "Game is not open to join",
+  TeamFull: "Team is full",
+} as const;
+
+export type JoinGameError =
+  (typeof joinGameErrors)[keyof typeof joinGameErrors];
+
+export const leaveGameErrors = {
+  NotFound: "Game not found",
+  Closed: "Game is already completed or cancelled",
+  TooLate: "Game starts in less than 30 minutes",
+} as const;
+
+export type LeaveGameError =
+  (typeof leaveGameErrors)[keyof typeof leaveGameErrors];
+
+const teamSize: Record<Format, number> = {
+  [Format.SINGLES]: 1,
+  [Format.DOUBLES]: 2,
+};
+
+// Players can't leave a game that starts in less than 30 minutes
+const LEAVE_DEADLINE_MS = 30 * 60 * 1000;
+
 /**
  * Creates a game using the given game information and adds the given user to the game on team 1
  * @param game the game to be created
@@ -33,23 +63,44 @@ export type GameEditError =
  * @returns the created game
  */
 export async function newGame(game: CreateGameInput, userId: string) {
-  const newGame = await createGame({
-    ...game,
-    status: GameStatus.OPEN,
-  });
-
-  await joinGame(newGame.id, userId, 1);
-
-  return newGame;
+  return await createGame({ ...game, status: GameStatus.OPEN }, userId);
 }
 
 /**
  * Gets a game with the given game ID
  * @param gameId the game ID of the requested game
- * @returns a game or null if the game is not found
+ * @returns the game with its court, players and rounds, or null if the game is not found
  */
 export async function getGame(gameId: GameIdInput) {
-  return await fetchGame(gameId);
+  return await fetchGameDetails(gameId);
+}
+
+/**
+ * Gets the scheduled games that players can join, with the weather forecast at their court and start time
+ * @returns the feed's games, soonest first. A game's forecast is null if it cannot be loaded
+ */
+export async function getFeed() {
+  const games = await fetchFeedGames(new Date());
+
+  return await Promise.all(
+    games.map(async (game) => ({
+      ...game,
+      forecast: await getForecast(
+        game.court.latitude,
+        game.court.longitude,
+        game.startsAt,
+      ),
+    })),
+  );
+}
+
+/**
+ * Gets a user's upcoming and current games
+ * @param userId the user whose games are requested
+ * @returns the user's booked games, and open games that have not started, soonest first
+ */
+export async function getUserGames(userId: string) {
+  return await fetchUserGames(userId, new Date());
 }
 
 /**
@@ -67,25 +118,71 @@ export async function cancelGame(gameId: GameIdInput, userId: string) {
 }
 
 /**
- * Adds a given user to a given game
- * @param gameUser the given game ID and the given user ID
- * @returns the new game user
+ * Adds a given user to a team of an open scheduled game that has not started
+ * @param gameId the game ID of the game to join
+ * @param userId the user joining the game
+ * @param team the team to join, 1 or 2
+ * @returns success, or the reason the user cannot join the game
  */
-export async function joinGame(
-  gameId: string,
-  userId: string,
-  team: number,
-  accepted = true,
-) {
-  return await createGameUser(gameId, userId, team, accepted);
+export async function joinGame(gameId: string, userId: string, team: number) {
+  const game = await fetchGame(gameId);
+  if (game === null) {
+    return { success: false, error: joinGameErrors.NotFound } as const;
+  }
+
+  const now = new Date();
+  // Matched games get their players from matchmaking, not the feed
+  if (
+    game.gameSource !== GameSource.SCHEDULED ||
+    game.status !== GameStatus.OPEN ||
+    game.startsAt <= now
+  ) {
+    return { success: false, error: joinGameErrors.NotJoinable } as const;
+  }
+
+  // The repository checks the game again once it holds the lock, in case it changed since
+  const result = await addPlayerToTeam(
+    gameId,
+    userId,
+    team,
+    teamSize[game.format],
+    now,
+  );
+  if (result === "notJoinable") {
+    return { success: false, error: joinGameErrors.NotJoinable } as const;
+  }
+  if (result === "teamFull") {
+    return { success: false, error: joinGameErrors.TeamFull } as const;
+  }
+
+  return { success: true } as const;
 }
 
 /**
- * Removes a given user from a given game
- * @param gameUser the user ID of the user to remove, and the game ID of the game to remove the user from
+ * Removes a given user from a given game, unless the game is closed or starts in less than 30 minutes
+ * @param gameId the game ID of the game to leave
+ * @param userId the user leaving the game
+ * @returns success, or the reason the user cannot leave the game
  */
 export async function leaveGame(gameId: string, userId: string) {
+  const game = await fetchGame(gameId);
+  if (game === null) {
+    return { success: false, error: leaveGameErrors.NotFound } as const;
+  }
+
+  if (
+    game.status === GameStatus.COMPLETED ||
+    game.status === GameStatus.CANCELLED
+  ) {
+    return { success: false, error: leaveGameErrors.Closed } as const;
+  }
+
+  if (game.startsAt.getTime() - Date.now() < LEAVE_DEADLINE_MS) {
+    return { success: false, error: leaveGameErrors.TooLate } as const;
+  }
+
   await deleteGameUser(gameId, userId);
+  return { success: true } as const;
 }
 
 /**
