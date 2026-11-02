@@ -32,7 +32,7 @@ class MatchmakingRepositoryImpl(
 
     override suspend fun joinQueue(format: MatchFormat, location: MatchLocation): Result<Unit> {
         val request = JoinQueueRequestDto(format.name, location.latitude, location.longitude)
-        val result = call { authorization -> api.joinQueue(authorization, request) }
+        val result = callWithToken { authorization -> api.joinQueue(authorization, request) }
         // Already waiting, e.g. joined before the app restarted
         if (result.httpCode() == HttpURLConnection.HTTP_CONFLICT) {
             return Result.success(Unit)
@@ -41,22 +41,19 @@ class MatchmakingRepositoryImpl(
     }
 
     override suspend fun leaveQueue(): Result<Unit> {
-        return call { authorization -> api.leaveQueue(authorization) }
+        return callWithToken { authorization -> api.leaveQueue(authorization) }
     }
 
     override suspend fun queuedFormat(): Result<MatchFormat?> {
-        val result = call { authorization -> api.getQueueEntry(authorization) }
+        val result = callWithToken { authorization -> api.getQueueEntry(authorization) }
         if (result.httpCode() == HttpURLConnection.HTTP_NOT_FOUND) {
             return Result.success(null)
         }
         return result.map { MatchFormat.valueOf(it.request.format) }
     }
 
-    /**
-     * Calls a route with the signed-in user's token
-     * @return the route's result, or a failure if the backend rejected it, is unreachable, or nobody is signed in
-     */
-    private suspend fun <T> call(route: suspend (authorization: String) -> T): Result<T> {
+    // Fails if nobody is signed in, the backend rejected the call, or it is unreachable
+    private suspend fun <T> callWithToken(route: suspend (authorization: String) -> T): Result<T> {
         return try {
             val body = session.authorized(route)
             if (body == null) {

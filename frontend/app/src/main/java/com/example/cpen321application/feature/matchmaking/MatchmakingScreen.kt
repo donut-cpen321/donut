@@ -108,10 +108,7 @@ fun MatchmakingRoute(
     // While waiting, ask the backend every 10 seconds whether matchmaking found a game.
     // Restarts when isSearching changes and stops when the screen closes.
     LaunchedEffect(uiState.isSearching) {
-        if (!uiState.isSearching) {
-            return@LaunchedEffect
-        }
-        while (true) {
+        while (uiState.isSearching) {
             delay(QUEUE_CHECK_INTERVAL_MS)
             viewModel.checkQueue()
         }
@@ -364,24 +361,22 @@ private fun FindMatchBar(uiState: MatchmakingUiState, onFindMatch: () -> Unit, o
             ) {
                 Text(text = "Leave queue", style = MaterialTheme.typography.titleMedium)
             }
-            return@Column
-        }
-        Button(
-            onClick = onFindMatch,
-            enabled = uiState.canFindMatch,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-        ) {
-            Text(text = "Find a match", style = MaterialTheme.typography.titleMedium)
+        } else {
+            Button(
+                onClick = onFindMatch,
+                enabled = uiState.canFindMatch,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text(text = "Find a match", style = MaterialTheme.typography.titleMedium)
+            }
         }
     }
 }
 
-/**
- * @param location null when the search was picked up after an app restart, the place name is not saved
- */
 private fun searchingText(location: MatchLocation?): String {
+    // No location when the search was picked up after an app restart, the place name is not saved
     if (location == null) {
         return "Finding a match…"
     }
@@ -391,9 +386,6 @@ private fun searchingText(location: MatchLocation?): String {
     return "Finding a match near ${location.label}…"
 }
 
-/**
- * The title on a green panel with a faint full court behind it, the one bold element on the screen
- */
 @Composable
 private fun CourtHeader() {
     Box(
