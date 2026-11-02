@@ -23,7 +23,8 @@ describe('Mocked: POST /user/refresh', () => {
     const response = await request(createApp()).post('/user/refresh');
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'A refresh token is required' });
+    expect(response.body.error).toBe('Invalid request body');
+    expect(response.body.details.formErrors.length).toBeGreaterThan(0);
     expect(mockedRotateRefreshToken).not.toHaveBeenCalled();
   });
 
@@ -34,7 +35,8 @@ describe('Mocked: POST /user/refresh', () => {
     const response = await request(createApp()).post('/user/refresh').send({ refreshToken: '' });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'A refresh token is required' });
+    expect(response.body.error).toBe('Invalid request body');
+    expect(response.body.details.fieldErrors.refreshToken).toBeDefined();
     expect(mockedRotateRefreshToken).not.toHaveBeenCalled();
   });
 
@@ -45,7 +47,8 @@ describe('Mocked: POST /user/refresh', () => {
     const response = await request(createApp()).post('/user/refresh').send({ refreshToken: 123 });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'A refresh token is required' });
+    expect(response.body.error).toBe('Invalid request body');
+    expect(response.body.details.fieldErrors.refreshToken).toBeDefined();
     expect(mockedRotateRefreshToken).not.toHaveBeenCalled();
   });
 

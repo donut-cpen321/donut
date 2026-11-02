@@ -1,38 +1,47 @@
-import { type Request, type Response } from 'express';
 import { issueTokens } from '../auth/auth.service';
 import { validateToken } from './helpers/validateToken';
 import { getUserByGoogleSub, createUser, getUserById } from './users.repository';
 
+export const loginErrors = {
+  InvalidToken: 'Invalid Google ID token',
+  InvalidProfile: 'Google profile must include name and email',
+  UserCreationFailed: 'Something went wrong, please try again later. (Database update failed)',
+} as const;
+
+export type LoginError = (typeof loginErrors)[keyof typeof loginErrors];
+
+export type LoginResult =
+  | { success: false; error: LoginError }
+  | {
+      success: true;
+      isNewUser: boolean;
+      username: string;
+      accessToken: string;
+      refreshToken: string;
+    };
+
 /**
  * Logs the user into the backend and pulls the user's information from the database
  * or creates a new user if it does not exist
- * @param req contains the user's google login token
- * @param res 
+ * @param idToken the user's Google login token
+ * @returns the login result or a reason the login could not be completed
  */
-export async function login(req: Request, res: Response): Promise<void> {
-  if (!req.body) {
-    res.status(400).json({ error: 'Request body is required' });
-    return;
-  }
-
-  const idToken: unknown = req.body.idToken;
-  if (typeof idToken !== 'string' || !idToken) {
-    res.status(400).json({ error: 'A Google ID token is required' });
-    return;
-  }
-
+export async function login(idToken: string): Promise<LoginResult> {
   const payload = await validateToken(idToken);
  
   if (!payload || !payload.sub) {
-    res.status(401).json({ error: 'Invalid Google ID token' });
-    return;
+    return { success: false, error: loginErrors.InvalidToken };
   } 
 
   const existingUser = await getUserByGoogleSub(payload.sub);
   if (existingUser) {
     const tokens = await issueTokens(existingUser.id);
-    res.status(200).json({ message: 'Login successful', username: existingUser.username, ...tokens });
-    return;
+    return {
+      success: true,
+      isNewUser: false,
+      username: existingUser.username,
+      ...tokens,
+    };
   }
 
    /*
@@ -47,8 +56,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   const email = payload.email?.trim() ?? '';
   const name = payload.name?.trim() ?? '';
   if (!email || !name) {
-    res.status(400).json({ error: 'Google profile must include name and email' });
-    return;
+    return { success: false, error: loginErrors.InvalidProfile };
   }
 
   // ai thinks that email may not be a unique indentifier, but google literally guarantees that all emails are unique...
@@ -61,13 +69,16 @@ export async function login(req: Request, res: Response): Promise<void> {
   });
 
   if (!newUser) {
-    res.status(500).json({error: 'Something went wrong, please try again later. (Database update failed)'});
-    return;
+    return { success: false, error: loginErrors.UserCreationFailed };
   }
 
   const tokens = await issueTokens(newUser.id);
-  res.status(201).json({ message: 'New user created', username: newUser.username, ...tokens });
-  return;
+  return {
+    success: true,
+    isNewUser: true,
+    username: newUser.username,
+    ...tokens,
+  };
 }
 
 /**

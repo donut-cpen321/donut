@@ -22,7 +22,8 @@ describe('Mocked: POST /user/logout', () => {
     const response = await request(createApp()).post('/user/logout');
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'A refresh token is required' });
+    expect(response.body.error).toBe('Invalid request body');
+    expect(response.body.details.formErrors.length).toBeGreaterThan(0);
     expect(mockedDeleteRefreshTokenByHash).not.toHaveBeenCalled();
   });
 
