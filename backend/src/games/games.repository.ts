@@ -64,9 +64,10 @@ const joinableGameWhere = (now: Date) =>
  * A failed query rejects, which rolls back the transaction and keeps the Prisma error for the caller.
  * @param tx the transaction to hold the lock in
  * @param gameId the game ID of the game to lock
+ * @returns the locked row, or no rows if the game does not exist
  */
 async function lockGame(tx: Prisma.TransactionClient, gameId: string) {
-  await tx.$queryRaw`SELECT id FROM games WHERE id = ${gameId}::uuid FOR UPDATE`;
+  return await tx.$queryRaw<{ id: string }[]>`SELECT id FROM games WHERE id = ${gameId}::uuid FOR UPDATE`;
 }
 
 /**

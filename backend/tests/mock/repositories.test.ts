@@ -80,6 +80,15 @@ const lockQuery = () => {
   return strings.join("?");
 };
 
+// When a mock was first called, relative to every other mock; fails the test if it was never called
+const firstCallOrder = (mock: jest.Mock) => {
+  const [order] = mock.mock.invocationCallOrder;
+  if (order === undefined) {
+    throw new Error("Expected the mock to have been called");
+  }
+  return order;
+};
+
 describe("Mocked: fetchCourts", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -259,12 +268,8 @@ describe("Mocked: addPlayerToTeam", () => {
 
     expect(lockQuery()).toMatch(/SELECT id FROM games WHERE id = \?::uuid FOR UPDATE/);
     expect(db.$queryRaw.mock.calls[0]).toContain(gameId);
-    expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
-      db.game.count.mock.invocationCallOrder[0] as number,
-    );
-    expect(db.game.count.mock.invocationCallOrder[0]).toBeLessThan(
-      db.gameUser.count.mock.invocationCallOrder[0] as number,
-    );
+    expect(firstCallOrder(db.$queryRaw)).toBeLessThan(firstCallOrder(db.game.count));
+    expect(firstCallOrder(db.game.count)).toBeLessThan(firstCallOrder(db.gameUser.count));
   });
 
   test("Checks that the locked game is still an open scheduled game that has not started", async () => {
