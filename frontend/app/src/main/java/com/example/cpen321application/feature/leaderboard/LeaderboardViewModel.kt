@@ -20,9 +20,10 @@ class LeaderboardViewModel(
     /**
      * Loads the top players and the signed-in user's own entry
      * @param session the signed-in user's session, nothing is loaded if null
+     * or a load is already in progress
      */
     fun load(session: AuthSession?) {
-        if (session == null) return
+        if (session == null || _uiState.value.isLoading) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             repository.getLeaderboard(session)
