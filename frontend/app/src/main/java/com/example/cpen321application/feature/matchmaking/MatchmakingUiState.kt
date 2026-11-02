@@ -25,10 +25,15 @@ data class MatchmakingUiState(
     val selectedOption: LocationOption? = null,
     val location: MatchLocation? = null,
     val format: MatchFormat = MatchFormat.EITHER,
-    val isSearching: Boolean = false
+    // Waiting in the backend's queue
+    val isSearching: Boolean = false,
+    // A join or leave request is on its way to the backend
+    val isUpdatingQueue: Boolean = false,
+    // Matchmaking took the player out of the queue with a game; shows the dialog
+    val matchFound: Boolean = false
 ) {
     val canFindMatch: Boolean
-        get() = location != null && !isLoading && !isSearching
+        get() = location != null && !isLoading && !isSearching && !isUpdatingQueue
 }
 
 data class OptionText(val title: String, val subtitle: String)

@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.cpen321application.core.auth.AuthSession
 import com.example.cpen321application.core.auth.User
 import com.example.cpen321application.feature.leaderboard.LeaderboardRoute
 import com.example.cpen321application.feature.login.LoginRoute
@@ -24,6 +25,7 @@ sealed class Screen(val route: String) {
 fun AppNavGraph(
     navController: NavHostController,
     serverClientId: String,
+    session: AuthSession,
     startRoute: String,
     onLoginSuccess: (User) -> Unit,
     onSignOut: () -> Unit,
@@ -44,7 +46,10 @@ fun AppNavGraph(
             ProfileRoute(onSignOut = onSignOut)
         }
         composable(Screen.Matchmaking.route) {
-            MatchmakingRoute()
+            MatchmakingRoute(
+                session = session,
+                onGoToGames = { navController.navigateToTab(Screen.ScheduledGame.route) }
+            )
         }
         composable(Screen.Leaderboard.route) {
             LeaderboardRoute()

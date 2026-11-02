@@ -57,6 +57,7 @@ fun MainScreen(
         AppNavGraph(
             navController = navController,
             serverClientId = serverClientId,
+            session = authViewModel.session,
             startRoute = startRoute,
             onLoginSuccess = { newUser -> authViewModel.signIn(newUser) },
             onSignOut = { authViewModel.logout() },
