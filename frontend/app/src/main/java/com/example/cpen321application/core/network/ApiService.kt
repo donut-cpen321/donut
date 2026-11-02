@@ -1,6 +1,7 @@
 package com.example.cpen321application.core.network
 
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
+import com.example.cpen321application.core.network.dto.LeaderboardResponseDto
 import com.example.cpen321application.core.network.dto.LoginRequestDto
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
 import com.example.cpen321application.core.network.dto.TokensResponseDto
@@ -14,6 +15,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ApiService {
     @POST("user/login")
@@ -46,4 +48,10 @@ interface ApiService {
     // TODO: Implement getMatchHistory (prob games/smth)
     @GET("matches/history")
     suspend fun getMatchHistory(@Header("Authorization") authorization: String): JsonElement
+
+    @GET("leaderboard")
+    suspend fun getLeaderboard(
+        @Header("Authorization") authorization: String,
+        @Query("limit") limit: Int? = null,
+    ): LeaderboardResponseDto
 }
