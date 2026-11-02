@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import { usersRouter } from "./users/users.controller";
 import { gamesRouter } from "./games/games.controller";
 import { friendsRouter } from "./friends/friends.controller";
+import { courtsRouter } from "./courts/courts.controller";
 import { matchmakingRouter } from "./matchmaking/matchmaking.controller";
 import { leaderboardRouter } from "./ranking/ranking.controller";
 
@@ -15,6 +16,8 @@ export function createApp(): Express {
   app.use("/games", gamesRouter);
 
   app.use("/friends", friendsRouter);
+
+  app.use("/courts", courtsRouter);
 
   app.use("/matchmaking", matchmakingRouter);
 

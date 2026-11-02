@@ -5,6 +5,7 @@
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
 | 10-19-2026        | 2. Back-end Test      | Added tests   |
+| 11-01-2026        | 2.1.1                 | Added tests for `GET /courts`, `GET /games`, `GET /games/feed`, `GET /games/me`, `POST /games/join` and `POST /games/leave`, the OpenWeather client and the games and courts repositories |
 
 ---
 
@@ -18,6 +19,12 @@
 | ----------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ---------------------------------- |
 | **POST /user/login**          | ...                                                  | [`tests/mock/userLogin.test.ts`](#)                | Google Authentication API, User DB |
 | **Matchmaking**               | ...                                                  | [`tests/mock/matchmaking.job.test.ts`](#)          | Task Scheduler                     |
+| **GET /courts**               | ...                                                  | [`tests/mock/courts.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Court DB                 |
+| **GET /games**                | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
+| **GET /games/feed**           | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#), [`tests/mock/weather.test.ts`](#) | Game DB, OpenWeather API |
+| **GET /games/me**             | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
+| **POST /games/join**          | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
+| **POST /games/leave**         | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
 | **PATCH /games/time**         | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
 | **PATCH /games/location**     | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
 | **POST /games/score**         | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
