@@ -1,38 +1,55 @@
-import { type Request, type Response } from 'express';
 import { issueTokens } from '../auth/auth.service';
 import { validateToken } from './helpers/validateToken';
-import { getUserByGoogleSub, createUser, getUserById } from './users.repository';
+import {
+  createEquipment as createEquipmentRecord,
+  createUser,
+  getUserByGoogleSub,
+  getUserById,
+  listEquipment as listEquipmentRecords,
+  retireEquipment as retireEquipmentRecord,
+  updateEquipment as updateEquipmentRecord,
+} from './users.repository';
+import type { CreateEquipmentInput, UpdateEquipmentInput } from './users.schemas';
+
+export const loginErrors = {
+  InvalidToken: 'Invalid Google ID token',
+  InvalidProfile: 'Google profile must include name and email',
+  UserCreationFailed: 'Something went wrong, please try again later. (Database update failed)',
+} as const;
+
+export type LoginError = (typeof loginErrors)[keyof typeof loginErrors];
+
+export type LoginResult =
+  | { success: false; error: LoginError }
+  | {
+      success: true;
+      isNewUser: boolean;
+      username: string;
+      accessToken: string;
+      refreshToken: string;
+    };
 
 /**
- * Logs the user into the backend and pulls the user's information from the database
- * or creates a new user if it does not exist
- * @param req contains the user's google login token
- * @param res 
+ * Validates a Google ID token, finds or creates the user, and issues tokens.
+ * @param idToken The user's Google ID token
+ * @returns The login result, or a typed error when the token or profile is invalid
  */
-export async function login(req: Request, res: Response): Promise<void> {
-  if (!req.body) {
-    res.status(400).json({ error: 'Request body is required' });
-    return;
-  }
-
-  const idToken: unknown = req.body.idToken;
-  if (typeof idToken !== 'string' || !idToken) {
-    res.status(400).json({ error: 'A Google ID token is required' });
-    return;
-  }
-
+export async function login(idToken: string): Promise<LoginResult> {
   const payload = await validateToken(idToken);
  
   if (!payload || !payload.sub) {
-    res.status(401).json({ error: 'Invalid Google ID token' });
-    return;
+    return { success: false, error: loginErrors.InvalidToken };
   } 
 
   const existingUser = await getUserByGoogleSub(payload.sub);
   if (existingUser) {
     const tokens = await issueTokens(existingUser.id);
-    res.status(200).json({ message: 'Login successful', username: existingUser.username, ...tokens });
-    return;
+    return {
+      success: true,
+      isNewUser: false,
+      username: existingUser.username,
+      ...tokens,
+    };
   }
 
    /*
@@ -47,8 +64,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   const email = payload.email?.trim() ?? '';
   const name = payload.name?.trim() ?? '';
   if (!email || !name) {
-    res.status(400).json({ error: 'Google profile must include name and email' });
-    return;
+    return { success: false, error: loginErrors.InvalidProfile };
   }
 
   // ai thinks that email may not be a unique indentifier, but google literally guarantees that all emails are unique...
@@ -61,20 +77,77 @@ export async function login(req: Request, res: Response): Promise<void> {
   });
 
   if (!newUser) {
-    res.status(500).json({error: 'Something went wrong, please try again later. (Database update failed)'});
-    return;
+    return { success: false, error: loginErrors.UserCreationFailed };
   }
 
   const tokens = await issueTokens(newUser.id);
-  res.status(201).json({ message: 'New user created', username: newUser.username, ...tokens });
-  return;
+  return {
+    success: true,
+    isNewUser: true,
+    username: newUser.username,
+    ...tokens,
+  };
 }
 
 /**
- * Gets the signed-in user's own profile, including their rating
- * @param userId the signed-in user's id
- * @returns the user, or null if they do not exist
+ * Gets a user's profile, including their rating.
+ * @param userId The signed-in user's ID
+ * @returns The profile, or null if the user does not exist
  */
 export async function getProfile(userId: string) {
   return await getUserById(userId);
+}
+
+/**
+ * Lists active equipment belonging to the specified user.
+ * @param userId The equipment owner's user ID
+ * @returns The user's equipment records with their maintenance dates
+ */
+export async function getEquipment(userId: string) {
+  return await listEquipmentRecords(userId);
+}
+
+/**
+ * Adds equipment to the signed-in user's inventory.
+ * @param userId The equipment owner
+ * @param equipment The type, name, default status, and optional next maintenance date
+ * @returns The created equipment record
+ */
+export async function addEquipment(userId: string, equipment: CreateEquipmentInput) {
+  return await createEquipmentRecord(userId, {
+    type: equipment.type,
+    name: equipment.name,
+    isDefault: equipment.isDefault ?? false,
+    nextMaintenanceAt: equipment.nextMaintenanceAt ?? null,
+  });
+}
+
+/**
+ * Updates fields on the user's active equipment record.
+ * @param userId The equipment owner
+ * @param equipmentId The equipment record to update
+ * @param equipment The validated fields to change
+ * @returns The updated equipment, or null if no matching active record exists
+ */
+export async function editEquipment(
+  userId: string,
+  equipmentId: number,
+  equipment: UpdateEquipmentInput,
+) {
+  return await updateEquipmentRecord(userId, equipmentId, {
+    ...(equipment.type === undefined ? {} : { type: equipment.type }),
+    ...(equipment.name === undefined ? {} : { name: equipment.name }),
+    ...(equipment.isDefault === undefined ? {} : { isDefault: equipment.isDefault }),
+    ...(equipment.nextMaintenanceAt === undefined ? {} : { nextMaintenanceAt: equipment.nextMaintenanceAt }),
+  });
+}
+
+/**
+ * Retires one of the user's active equipment records.
+ * @param userId The equipment owner
+ * @param equipmentId The equipment record to retire
+ * @returns Whether an active equipment record was retired
+ */
+export async function removeEquipment(userId: string, equipmentId: number) {
+  return await retireEquipmentRecord(userId, equipmentId);
 }

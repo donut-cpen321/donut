@@ -1,16 +1,5 @@
-import { type Request, type Response } from 'express';
 import { createRefreshToken, deleteRefreshTokenByHash, rotateRefreshToken } from './auth.repository';
 import { generateNewRefreshToken, hashRefreshToken, signAccessToken } from './tokens';
-
-/**
- * Reads the refresh token from the request body
- * @param req body sent by the frontend, so refreshToken can be any JSON value
- * @returns the token, null if it is missing or not a string
- */
-function getRefreshToken(req: Request): string | null {
-  const refreshToken: unknown = req.body?.refreshToken;
-  return typeof refreshToken === 'string' && refreshToken ? refreshToken : null;
-}
 
 /**
  * Issues a new access token and refresh token for a user and stores the refresh token's hash
@@ -28,16 +17,10 @@ export async function issueTokens(userId: string): Promise<{ accessToken: string
 /**
  * Trades a refresh token for a new access token and refresh token.
  * The old refresh token is deleted, so each one only works once.
- * @param req contains the refresh token given at login or by the last refresh
- * @param res
+ * @param refreshToken the token given at login or by the last refresh
+ * @returns the replacement tokens, or null if the supplied token is invalid
  */
-export async function refreshTokens(req: Request, res: Response): Promise<void> {
-  const refreshToken = getRefreshToken(req);
-  if (!refreshToken) {
-    res.status(400).json({ error: 'A refresh token is required' });
-    return;
-  }
-
+export async function refreshTokens(refreshToken: string) {
   const oldRefreshTokenHash = hashRefreshToken(refreshToken);
   const newRefreshToken = generateNewRefreshToken();
   const userId = await rotateRefreshToken(oldRefreshTokenHash, {
@@ -45,28 +28,18 @@ export async function refreshTokens(req: Request, res: Response): Promise<void> 
     expiresAt: newRefreshToken.expiresAt,
   });
   if (!userId) {
-    res.status(401).json({ error: 'Invalid or expired refresh token' });
-    return;
+    return null;
   }
 
   const accessToken = signAccessToken(userId);
-  const newRefreshTokenRaw = newRefreshToken.raw;
-  res.status(200).json({ accessToken, refreshToken: newRefreshTokenRaw });
+  return { accessToken, refreshToken: newRefreshToken.raw };
 }
 
 /**
  * Logs the user out on this device by deleting its refresh token
- * @param req contains the refresh token to delete
- * @param res 204 even if the token was already gone
+ * @param refreshToken the token to delete
  */
-export async function logout(req: Request, res: Response): Promise<void> {
-  const refreshToken = getRefreshToken(req);
-  if (!refreshToken) {
-    res.status(400).json({ error: 'A refresh token is required' });
-    return;
-  }
-
+export async function logout(refreshToken: string): Promise<void> {
   const refreshTokenHash = hashRefreshToken(refreshToken);
   await deleteRefreshTokenByHash(refreshTokenHash);
-  res.status(204).send();
 }
