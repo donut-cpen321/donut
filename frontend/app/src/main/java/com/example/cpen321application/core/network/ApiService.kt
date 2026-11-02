@@ -1,6 +1,7 @@
 package com.example.cpen321application.core.network
 import com.example.cpen321application.core.network.dto.JoinQueueRequestDto
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
+import com.example.cpen321application.core.network.dto.FcmTokenRequestDto
 import com.example.cpen321application.core.network.dto.LoginRequestDto
 import com.example.cpen321application.core.network.dto.QueueEntryResponseDto
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
@@ -14,6 +15,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface ApiService {
@@ -25,6 +27,12 @@ interface ApiService {
 
     @POST("user/logout")
     suspend fun logout(@Body request: RefreshRequestDto): Response<Unit>
+
+    @PUT("user/me/fcm-token")
+    suspend fun saveFcmToken(
+        @Header("Authorization") authorization: String,
+        @Body request: FcmTokenRequestDto
+    )
 
     @GET("matchmaking")
     suspend fun getQueueEntry(@Header("Authorization") authorization: String): QueueEntryResponseDto

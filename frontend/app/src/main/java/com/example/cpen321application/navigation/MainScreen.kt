@@ -16,6 +16,8 @@ import com.example.cpen321application.core.auth.AuthViewModel
 @Composable
 fun MainScreen(
     serverClientId: String,
+    notificationRoute: String?,
+    onNotificationHandled: () -> Unit,
     authViewModel: AuthViewModel = viewModel(),
 ) {
     val navController = rememberNavController()
@@ -44,6 +46,16 @@ fun MainScreen(
             navController.navigate(target) {
                 popUpTo(navController.graph.id) { inclusive = true }
             }
+        }
+    }
+
+    // A tapped push notification opens its screen, only for a signed-in user
+    LaunchedEffect(notificationRoute) {
+        if (notificationRoute != null && isSignedIn) {
+            navController.navigateToTab(notificationRoute)
+        }
+        if (notificationRoute != null) {
+            onNotificationHandled()
         }
     }
 

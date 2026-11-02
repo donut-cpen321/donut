@@ -2,6 +2,7 @@ package com.example.cpen321application.feature.matchmaking
 
 import android.Manifest
 import android.content.Context
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -98,6 +99,7 @@ fun MatchmakingRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val loadLocation = rememberLocationLoader(viewModel)
+    val askNotificationPermission = rememberAskNotificationPermission()
     val scope = rememberCoroutineScope()
 
     // The player may have joined the queue before the app was closed
@@ -129,7 +131,10 @@ fun MatchmakingRoute(
         onUseCurrentLocation = rememberOnUseCurrentLocation(viewModel, loadLocation),
         onEnterAddress = rememberOnEnterAddress(viewModel, loadLocation),
         onFormatSelected = viewModel::onFormatSelected,
-        onFindMatch = { scope.launch { viewModel.onFindMatch() } },
+        onFindMatch = {
+            askNotificationPermission()
+            scope.launch { viewModel.onFindMatch() }
+        },
         onLeaveQueue = { scope.launch { viewModel.onLeaveQueue() } }
     )
 }
@@ -199,6 +204,20 @@ private fun rememberOnUseCurrentLocation(
     return {
         viewModel.onOptionSelected(LocationOption.CURRENT_LOCATION)
         permissionLauncher.launch(LOCATION_PERMISSIONS)
+    }
+}
+
+/**
+ * Asks to show notifications (Android 13+) so the player hears when a match is found.
+ * Joining the queue goes ahead whatever the answer.
+ */
+@Composable
+private fun rememberAskNotificationPermission(): () -> Unit {
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    return {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 }
 

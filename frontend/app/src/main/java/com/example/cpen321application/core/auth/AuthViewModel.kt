@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cpen321application.core.network.RetrofitClient
+import com.example.cpen321application.core.notifications.PushTokenRepository
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,11 +32,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     )
 
+    private val pushTokens = PushTokenRepository(session)
+
+    init {
+        // Re-sent on every start in case Firebase replaced the token since the last one
+        if (_user.value != null) {
+            registerPushToken()
+        }
+    }
+
     /**
      * Starts a session with the user returned by the backend login
      */
     fun signIn(newUser: User) {
         session.signIn(newUser)
+        registerPushToken()
     }
 
     /**
@@ -44,6 +56,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             session.logout()
             signOut(getApplication())
+            // The old token stops working, so this phone gets no more pushes for the signed-out user
+            FirebaseMessaging.getInstance().deleteToken()
+        }
+    }
+
+    private fun registerPushToken() {
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            viewModelScope.launch { pushTokens.register(token) }
         }
     }
 }
