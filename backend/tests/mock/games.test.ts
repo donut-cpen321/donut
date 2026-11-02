@@ -10,7 +10,6 @@ import {
   addPlayerToTeam,
   completeGame,
   createGame,
-  createGameUser,
   deleteGame,
   deleteGameUser,
   fetchFeedGames,
@@ -50,7 +49,6 @@ jest.mock("../../src/games/games.repository", () => ({
   fetchGame: jest.fn(),
   deleteGame: jest.fn(),
   isUserInGame: jest.fn(),
-  createGameUser: jest.fn(),
   deleteGameUser: jest.fn(),
   updateGame: jest.fn(),
   completeGame: jest.fn(),
@@ -73,7 +71,6 @@ const mockedAddPlayerToTeam = jest.mocked(addPlayerToTeam);
 const mockedGetForecast = jest.mocked(getForecast);
 const mockedDeleteGame = jest.mocked(deleteGame);
 const mockedIsUserInGame = jest.mocked(isUserInGame);
-const mockedCreateGameUser = jest.mocked(createGameUser);
 const mockedDeleteGameUser = jest.mocked(deleteGameUser);
 const mockedUpdateGame = jest.mocked(updateGame);
 const mockedCompleteGame = jest.mocked(completeGame);
@@ -171,7 +168,6 @@ describe("Mocked: /games requireAuth", () => {
     expect(mockedFetchGame).not.toHaveBeenCalled();
     expect(mockedDeleteGame).not.toHaveBeenCalled();
     expect(mockedIsUserInGame).not.toHaveBeenCalled();
-    expect(mockedCreateGameUser).not.toHaveBeenCalled();
     expect(mockedDeleteGameUser).not.toHaveBeenCalled();
     expect(mockedUpdateGame).not.toHaveBeenCalled();
     expect(mockedCompleteGame).not.toHaveBeenCalled();
@@ -219,14 +215,6 @@ describe("Mocked: POST /games", () => {
       createdAt: new Date(),
     };
     mockedCreateGame.mockResolvedValue(createdGame);
-    mockedCreateGameUser.mockResolvedValue({
-      gameId: createdGame.id,
-      userId,
-      team: 1,
-      acceptedAt: new Date(),
-      ratingBefore: null,
-      ratingAfter: null,
-    });
 
     const response = await request(createApp())
       .post("/games")
@@ -242,39 +230,14 @@ describe("Mocked: POST /games", () => {
       status: GameStatus.OPEN,
       startsAt: body.startsAt,
     });
-    expect(mockedCreateGame).toHaveBeenCalledWith({
-      ...body,
-      startsAt: new Date(body.startsAt),
-      status: GameStatus.OPEN,
-    });
-    expect(mockedCreateGameUser).toHaveBeenCalledWith(
-      createdGame.id,
+    expect(mockedCreateGame).toHaveBeenCalledWith(
+      {
+        ...body,
+        startsAt: new Date(body.startsAt),
+        status: GameStatus.OPEN,
+      },
       userId,
-      1,
     );
-  });
-
-  test("Returns 500 when adding the creator to the game fails", async () => {
-    const consoleError = jest
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
-    mockedCreateGame.mockResolvedValue({
-      id: "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b",
-      ...validBody(),
-      startsAt: new Date(futureStartsAt()),
-      status: GameStatus.OPEN,
-      createdAt: new Date(),
-    });
-    mockedCreateGameUser.mockRejectedValue(new Error("Database unavailable"));
-
-    const response = await request(createApp())
-      .post("/games")
-      .set("Authorization", authHeader)
-      .send(validBody());
-
-    expect(response.status).toBe(500);
-    expect(response.body).toEqual({ error: "Internal server error" });
-    consoleError.mockRestore();
   });
 
   test.each([
@@ -297,7 +260,6 @@ describe("Mocked: POST /games", () => {
     expect(response.body.error).toBe("Invalid request body");
     expect(response.body.details).toBeDefined();
     expect(mockedCreateGame).not.toHaveBeenCalled();
-    expect(mockedCreateGameUser).not.toHaveBeenCalled();
   });
 
   test.each([
@@ -828,44 +790,18 @@ describe("Mocked: newGame", () => {
       createdAt: new Date(),
     };
     mockedCreateGame.mockResolvedValue(createdGame);
-    mockedCreateGameUser.mockResolvedValue({
-      gameId: createdGame.id,
-      userId,
-      team: 1,
-      acceptedAt: new Date(),
-      ratingBefore: null,
-      ratingAfter: null,
-    });
 
     await expect(newGame(gameInput, userId)).resolves.toBe(createdGame);
-    expect(mockedCreateGame).toHaveBeenCalledWith({
-      ...gameInput,
-      status: GameStatus.OPEN,
-    });
-    expect(mockedCreateGameUser).toHaveBeenCalledWith(
-      createdGame.id,
+    expect(mockedCreateGame).toHaveBeenCalledTimes(1);
+    expect(mockedCreateGame).toHaveBeenCalledWith(
+      { ...gameInput, status: GameStatus.OPEN },
       userId,
-      1,
     );
   });
 
-  test("Does not add the creator when creating the game fails", async () => {
+  test("Propagates errors from creating the game", async () => {
     const error = new Error("Database unavailable");
     mockedCreateGame.mockRejectedValue(error);
-
-    await expect(newGame(input(), userId)).rejects.toBe(error);
-    expect(mockedCreateGameUser).not.toHaveBeenCalled();
-  });
-
-  test("Propagates errors from adding the creator", async () => {
-    const error = new Error("Database unavailable");
-    mockedCreateGame.mockResolvedValue({
-      id: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
-      ...input(),
-      status: GameStatus.OPEN,
-      createdAt: new Date(),
-    });
-    mockedCreateGameUser.mockRejectedValue(error);
 
     await expect(newGame(input(), userId)).rejects.toBe(error);
   });
@@ -895,7 +831,7 @@ describe("Mocked: POST /games/join", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedFetchGame.mockResolvedValue(joinableGame());
-    mockedAddPlayerToTeam.mockResolvedValue(true);
+    mockedAddPlayerToTeam.mockResolvedValue("added");
   });
 
   const validJoinBody = () => ({ gameId: joinGameId, team: 1 });
@@ -916,6 +852,7 @@ describe("Mocked: POST /games/join", () => {
       userId,
       body.team,
       1,
+      expect.any(Date),
     );
   });
 
@@ -935,6 +872,7 @@ describe("Mocked: POST /games/join", () => {
       userId,
       2,
       2,
+      expect.any(Date),
     );
   });
 
@@ -995,7 +933,7 @@ describe("Mocked: POST /games/join", () => {
   });
 
   test("Returns 409 when the team is full", async () => {
-    mockedAddPlayerToTeam.mockResolvedValue(false);
+    mockedAddPlayerToTeam.mockResolvedValue("teamFull");
 
     const response = await request(createApp())
       .post("/games/join")
@@ -1004,6 +942,18 @@ describe("Mocked: POST /games/join", () => {
 
     expect(response.status).toBe(409);
     expect(response.body).toEqual({ error: "Team is full" });
+  });
+
+  test("Returns 409 when the game stops being joinable before the player is added", async () => {
+    mockedAddPlayerToTeam.mockResolvedValue("notJoinable");
+
+    const response = await request(createApp())
+      .post("/games/join")
+      .set("Authorization", authHeader)
+      .send(validJoinBody());
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Game is not open to join" });
   });
 
   test("Returns 409 when the user is already in the game", async () => {
@@ -1224,7 +1174,7 @@ describe("Mocked: joinGame", () => {
 
   test("Adds the user to a singles team with one spot", async () => {
     mockedFetchGame.mockResolvedValue(joinableGame());
-    mockedAddPlayerToTeam.mockResolvedValue(true);
+    mockedAddPlayerToTeam.mockResolvedValue("added");
 
     await expect(joinGame(joinGameId, userId, 2)).resolves.toEqual({
       success: true,
@@ -1235,17 +1185,48 @@ describe("Mocked: joinGame", () => {
       userId,
       2,
       1,
+      expect.any(Date),
     );
   });
 
   test("Returns TeamFull when the repository finds no free spot", async () => {
     mockedFetchGame.mockResolvedValue(joinableGame({ format: Format.DOUBLES }));
-    mockedAddPlayerToTeam.mockResolvedValue(false);
+    mockedAddPlayerToTeam.mockResolvedValue("teamFull");
 
     await expect(joinGame(joinGameId, userId, 1)).resolves.toEqual({
       success: false,
       error: joinGameErrors.TeamFull,
     });
+  });
+
+  test("Returns NotJoinable when the repository finds the game changed after it was checked", async () => {
+    mockedFetchGame.mockResolvedValue(joinableGame());
+    mockedAddPlayerToTeam.mockResolvedValue("notJoinable");
+
+    await expect(joinGame(joinGameId, userId, 1)).resolves.toEqual({
+      success: false,
+      error: joinGameErrors.NotJoinable,
+    });
+  });
+
+  test("Passes the repository the same time it checked the start time against", async () => {
+    const game = joinableGame({ startsAt: new Date(Date.now() + 60 * 1000) });
+    mockedFetchGame.mockResolvedValue(game);
+    mockedAddPlayerToTeam.mockResolvedValue("added");
+    const before = Date.now();
+
+    await joinGame(joinGameId, userId, 1);
+
+    const [, , , , now] = mockedAddPlayerToTeam.mock.calls[0] as [
+      string,
+      string,
+      number,
+      number,
+      Date,
+    ];
+    expect(now.getTime()).toBeGreaterThanOrEqual(before);
+    expect(now.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(now.getTime()).toBeLessThan(game.startsAt.getTime());
   });
 
   test("Returns NotFound without adding the user when the game does not exist", async () => {

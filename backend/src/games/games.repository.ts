@@ -47,7 +47,21 @@ function toGameDetails({ players, ...game }: GameDetailsRow) {
 export type GameDetails = ReturnType<typeof toGameDetails>;
 
 /**
- * Locks a game's row until the end of the transaction, so changes to its players happen one at a time
+ * The games that players can join: a scheduled game is OPEN until every spot is filled, then BOOKED,
+ * and can be joined until it starts
+ * @param now the current time
+ */
+const joinableGameWhere = (now: Date) =>
+  ({
+    gameSource: GameSource.SCHEDULED,
+    status: GameStatus.OPEN,
+    startsAt: { gt: now },
+  }) satisfies Prisma.GameWhereInput;
+
+/**
+ * Locks a game's row until the end of the transaction, so changes to its players happen one at a time.
+ * Matches no row if the game does not exist, so callers must check the game themselves.
+ * A failed query rejects, which rolls back the transaction and keeps the Prisma error for the caller.
  * @param tx the transaction to hold the lock in
  * @param gameId the game ID of the game to lock
  */
@@ -56,12 +70,24 @@ async function lockGame(tx: Prisma.TransactionClient, gameId: string) {
 }
 
 /**
- * Creates a game row using the given game information
- * @param game the paramaters of the game being made
+ * Creates a game and adds its creator to team 1. Both rows are written in one transaction,
+ * so a game is never saved without its creator
+ * @param game the parameters of the game being made
+ * @param creatorId the user creating the game
  * @returns the created game, along with its ID
  */
-export async function createGame(game: Omit<Game, "id" | "createdAt">) {
-  return await prisma.game.create({ data: game });
+export async function createGame(
+  game: Omit<Game, "id" | "createdAt">,
+  creatorId: string,
+) {
+  return await prisma.game.create({
+    data: {
+      ...game,
+      players: {
+        create: { userId: creatorId, team: 1, acceptedAt: new Date() },
+      },
+    },
+  });
 }
 
 /**
@@ -96,12 +122,7 @@ export async function fetchGameDetails(
  */
 export async function fetchFeedGames(now: Date): Promise<GameDetails[]> {
   const games = await prisma.game.findMany({
-    // A scheduled game is OPEN until every spot is filled, then BOOKED
-    where: {
-      gameSource: GameSource.SCHEDULED,
-      status: GameStatus.OPEN,
-      startsAt: { gt: now },
-    },
+    where: joinableGameWhere(now),
     include: gameDetailsInclude,
     orderBy: { startsAt: "asc" },
   });
@@ -208,43 +229,40 @@ export async function isUserInGame(userId: string, gameId: string) {
   return !!gameUserCount;
 }
 
-/*
- * Creates a givne game user in the database
- * @param GameUser the game ID, user ID, and team number of the game user to create
- * @returns the created game user
- */
-export async function createGameUser(
-  gameId: string,
-  userId: string,
-  team: number,
-  accepted = true,
-) {
-  return await prisma.gameUser.create({
-    data: { gameId, userId, team, acceptedAt: accepted ? new Date() : null },
-  });
-}
+export type AddPlayerResult = "added" | "notJoinable" | "teamFull";
 
 /**
- * Adds a user to a team of a game if the team has a free spot, and books the game once every spot is filled
+ * Adds a user to a team of a game if the game can still be joined and the team has a free spot,
+ * and books the game once every spot is filled
  * @param gameId the game ID of the game to join
  * @param userId the user joining the game
  * @param team the team to join
  * @param teamSize the number of players on each team
- * @returns true if the user was added, false if the team is full
+ * @param now the current time
+ * @returns "added", "notJoinable" if the game is gone or no longer open to join, or "teamFull"
  */
 export async function addPlayerToTeam(
   gameId: string,
   userId: string,
   team: number,
   teamSize: number,
-): Promise<boolean> {
+  now: Date,
+): Promise<AddPlayerResult> {
   return await prisma.$transaction(async (tx) => {
     // Without the lock, two players could both take the last spot
     await lockGame(tx, gameId);
 
+    // The game may have been booked, cancelled, completed or moved since the caller checked it
+    const joinable = await tx.game.count({
+      where: { id: gameId, ...joinableGameWhere(now) },
+    });
+    if (joinable === 0) {
+      return "notJoinable";
+    }
+
     const teamCount = await tx.gameUser.count({ where: { gameId, team } });
     if (teamCount >= teamSize) {
-      return false;
+      return "teamFull";
     }
 
     await tx.gameUser.create({
@@ -259,7 +277,7 @@ export async function addPlayerToTeam(
       });
     }
 
-    return true;
+    return "added";
   });
 }
 

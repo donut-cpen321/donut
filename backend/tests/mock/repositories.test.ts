@@ -1,5 +1,4 @@
 import { fetchCourts } from "../../src/courts/courts.repository";
-import { prisma } from "../../src/db";
 import {
   Format,
   GameSource,
@@ -7,17 +6,21 @@ import {
 } from "../../src/generated/prisma/enums";
 import {
   addPlayerToTeam,
+  createGame,
   deleteGameUser,
   fetchFeedGames,
   fetchGameDetails,
   fetchUserGames,
 } from "../../src/games/games.repository";
 
-// A fake Prisma client: transactions run their callback with the same client
-jest.mock("../../src/db", () => {
+// A fake Prisma client: transactions run their callback with the same client.
+// Its mocks are plain properties rather than Prisma's methods, so they are safe to pass to expect()
+function mockPrismaClient() {
   const client = {
     court: { findMany: jest.fn() },
     game: {
+      create: jest.fn(),
+      count: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
@@ -30,10 +33,14 @@ jest.mock("../../src/db", () => {
   client.$transaction.mockImplementation(
     (callback: (tx: typeof client) => unknown) => callback(client),
   );
-  return { prisma: client };
-});
+  return client;
+}
 
-const db = jest.mocked(prisma, { shallow: false });
+jest.mock("../../src/db", () => ({ prisma: mockPrismaClient() }));
+
+const db = jest.requireMock<{ prisma: ReturnType<typeof mockPrismaClient> }>(
+  "../../src/db",
+).prisma;
 const gameId = "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b";
 const userId = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 
@@ -80,7 +87,7 @@ describe("Mocked: fetchCourts", () => {
 
   test("Selects each court's location, ordered by name", async () => {
     const courts = [{ id: 1, name: "Kitsilano Beach Park", latitude: 49.27, longitude: -123.15 }];
-    db.court.findMany.mockResolvedValue(courts as never);
+    db.court.findMany.mockResolvedValue(courts);
 
     await expect(fetchCourts()).resolves.toBe(courts);
     expect(db.court.findMany).toHaveBeenCalledWith({
@@ -96,7 +103,7 @@ describe("Mocked: fetchGameDetails", () => {
   });
 
   test("Returns the game with each player's user flattened into the player", async () => {
-    db.game.findUnique.mockResolvedValue(gameRow() as never);
+    db.game.findUnique.mockResolvedValue(gameRow());
 
     const game = await fetchGameDetails(gameId);
 
@@ -113,7 +120,7 @@ describe("Mocked: fetchGameDetails", () => {
   });
 
   test("Only selects the user fields that are safe to show other players", async () => {
-    db.game.findUnique.mockResolvedValue(gameRow() as never);
+    db.game.findUnique.mockResolvedValue(gameRow());
 
     await fetchGameDetails(gameId);
 
@@ -142,7 +149,7 @@ describe("Mocked: fetchFeedGames", () => {
 
   test("Fetches open scheduled games that start after now, soonest first", async () => {
     const now = new Date("2026-11-01T12:00:00Z");
-    db.game.findMany.mockResolvedValue([gameRow()] as never);
+    db.game.findMany.mockResolvedValue([gameRow()]);
 
     await expect(fetchFeedGames(now)).resolves.toEqual([
       { ...gameRow(), players: flattenedPlayers },
@@ -167,7 +174,7 @@ describe("Mocked: fetchUserGames", () => {
 
   test("Fetches the user's booked games and open games that start after now", async () => {
     const now = new Date("2026-11-01T12:00:00Z");
-    db.game.findMany.mockResolvedValue([gameRow()] as never);
+    db.game.findMany.mockResolvedValue([gameRow()]);
 
     await expect(fetchUserGames(userId, now)).resolves.toEqual([
       { ...gameRow(), players: flattenedPlayers },
@@ -187,28 +194,121 @@ describe("Mocked: fetchUserGames", () => {
   });
 });
 
-describe("Mocked: addPlayerToTeam", () => {
+describe("Mocked: createGame", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test("Locks the game before counting the team", async () => {
+  test("Creates the game and its creator on team 1 in one nested write", async () => {
+    const game = {
+      format: Format.DOUBLES,
+      startsAt: new Date("2026-11-03T18:00:00Z"),
+      courtId: 1,
+      gameSource: GameSource.SCHEDULED,
+      status: GameStatus.OPEN,
+    };
+    const created = { id: gameId, ...game, createdAt: new Date() };
+    db.game.create.mockResolvedValue(created);
+
+    await expect(createGame(game, userId)).resolves.toBe(created);
+    expect(db.game.create).toHaveBeenCalledTimes(1);
+    expect(db.game.create).toHaveBeenCalledWith({
+      data: {
+        ...game,
+        players: {
+          create: { userId, team: 1, acceptedAt: expect.any(Date) },
+        },
+      },
+    });
+    expect(db.gameUser.create).not.toHaveBeenCalled();
+  });
+
+  test("Propagates errors without creating anything else", async () => {
+    const error = new Error("Database unavailable");
+    db.game.create.mockRejectedValueOnce(error);
+
+    await expect(
+      createGame(
+        {
+          format: Format.SINGLES,
+          startsAt: new Date("2026-11-03T18:00:00Z"),
+          courtId: 1,
+          gameSource: GameSource.SCHEDULED,
+          status: GameStatus.OPEN,
+        },
+        userId,
+      ),
+    ).rejects.toBe(error);
+    expect(db.gameUser.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("Mocked: addPlayerToTeam", () => {
+  const now = new Date("2026-11-01T12:00:00Z");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // The game is still open to join once locked
+    db.game.count.mockResolvedValue(1);
+  });
+
+  test("Locks the game before checking it and counting the team", async () => {
     db.gameUser.count.mockResolvedValueOnce(0).mockResolvedValueOnce(2);
 
-    await addPlayerToTeam(gameId, userId, 2, 2);
+    await addPlayerToTeam(gameId, userId, 2, 2, now);
 
     expect(lockQuery()).toMatch(/SELECT id FROM games WHERE id = \?::uuid FOR UPDATE/);
     expect(db.$queryRaw.mock.calls[0]).toContain(gameId);
     expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      db.game.count.mock.invocationCallOrder[0] as number,
+    );
+    expect(db.game.count.mock.invocationCallOrder[0]).toBeLessThan(
       db.gameUser.count.mock.invocationCallOrder[0] as number,
     );
+  });
+
+  test("Checks that the locked game is still an open scheduled game that has not started", async () => {
+    db.gameUser.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+    await addPlayerToTeam(gameId, userId, 1, 2, now);
+
+    expect(db.game.count).toHaveBeenCalledWith({
+      where: {
+        id: gameId,
+        gameSource: GameSource.SCHEDULED,
+        status: GameStatus.OPEN,
+        startsAt: { gt: now },
+      },
+    });
+  });
+
+  test("Returns notJoinable without adding the player when the game changed before the lock", async () => {
+    // Booked, cancelled, completed or moved by another request after the caller checked it
+    db.game.count.mockResolvedValue(0);
+
+    await expect(addPlayerToTeam(gameId, userId, 1, 2, now)).resolves.toBe(
+      "notJoinable",
+    );
+    expect(db.gameUser.count).not.toHaveBeenCalled();
+    expect(db.gameUser.create).not.toHaveBeenCalled();
+    expect(db.game.update).not.toHaveBeenCalled();
+  });
+
+  test("Propagates a failed lock without changing the game", async () => {
+    const error = new Error("Lock timeout");
+    db.$queryRaw.mockRejectedValueOnce(error);
+
+    await expect(addPlayerToTeam(gameId, userId, 1, 2, now)).rejects.toBe(error);
+    expect(db.game.count).not.toHaveBeenCalled();
+    expect(db.gameUser.create).not.toHaveBeenCalled();
+    expect(db.game.update).not.toHaveBeenCalled();
   });
 
   test("Adds the player without booking a game that still has free spots", async () => {
     // Team 2 has 1 of 2 players, then the game has 3 of 4
     db.gameUser.count.mockResolvedValueOnce(1).mockResolvedValueOnce(3);
 
-    await expect(addPlayerToTeam(gameId, userId, 2, 2)).resolves.toBe(true);
+    await expect(addPlayerToTeam(gameId, userId, 2, 2, now)).resolves.toBe("added");
     expect(db.gameUser.count).toHaveBeenNthCalledWith(1, { where: { gameId, team: 2 } });
     expect(db.gameUser.create).toHaveBeenCalledWith({
       data: { gameId, userId, team: 2, acceptedAt: expect.any(Date) },
@@ -220,17 +320,17 @@ describe("Mocked: addPlayerToTeam", () => {
     // Team 2 is empty, then the game has 2 of 2 singles players
     db.gameUser.count.mockResolvedValueOnce(0).mockResolvedValueOnce(2);
 
-    await expect(addPlayerToTeam(gameId, userId, 2, 1)).resolves.toBe(true);
+    await expect(addPlayerToTeam(gameId, userId, 2, 1, now)).resolves.toBe("added");
     expect(db.game.update).toHaveBeenCalledWith({
       where: { id: gameId },
       data: { status: GameStatus.BOOKED },
     });
   });
 
-  test("Returns false without adding the player when the team is full", async () => {
+  test("Returns teamFull without adding the player when the team is full", async () => {
     db.gameUser.count.mockResolvedValueOnce(2);
 
-    await expect(addPlayerToTeam(gameId, userId, 1, 2)).resolves.toBe(false);
+    await expect(addPlayerToTeam(gameId, userId, 1, 2, now)).resolves.toBe("teamFull");
     expect(db.gameUser.create).not.toHaveBeenCalled();
     expect(db.game.update).not.toHaveBeenCalled();
   });
@@ -260,7 +360,7 @@ describe("Mocked: deleteGameUser", () => {
 
   test("Does not reopen the game when the player was not in it", async () => {
     const error = new Error("Record to delete does not exist");
-    db.gameUser.delete.mockRejectedValueOnce(error as never);
+    db.gameUser.delete.mockRejectedValueOnce(error);
 
     await expect(deleteGameUser(gameId, userId)).rejects.toBe(error);
     expect(db.game.updateMany).not.toHaveBeenCalled();

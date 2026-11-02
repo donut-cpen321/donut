@@ -5,7 +5,6 @@ import {
   addPlayerToTeam,
   completeGame,
   createGame,
-  createGameUser,
   deleteGame,
   deleteGameUser,
   fetchFeedGames,
@@ -64,14 +63,7 @@ const LEAVE_DEADLINE_MS = 30 * 60 * 1000;
  * @returns the created game
  */
 export async function newGame(game: CreateGameInput, userId: string) {
-  const newGame = await createGame({
-    ...game,
-    status: GameStatus.OPEN,
-  });
-
-  await createGameUser(newGame.id, userId, 1);
-
-  return newGame;
+  return await createGame({ ...game, status: GameStatus.OPEN }, userId);
 }
 
 /**
@@ -138,22 +130,28 @@ export async function joinGame(gameId: string, userId: string, team: number) {
     return { success: false, error: joinGameErrors.NotFound } as const;
   }
 
+  const now = new Date();
   // Matched games get their players from matchmaking, not the feed
   if (
     game.gameSource !== GameSource.SCHEDULED ||
     game.status !== GameStatus.OPEN ||
-    game.startsAt <= new Date()
+    game.startsAt <= now
   ) {
     return { success: false, error: joinGameErrors.NotJoinable } as const;
   }
 
-  const added = await addPlayerToTeam(
+  // The repository checks the game again once it holds the lock, in case it changed since
+  const result = await addPlayerToTeam(
     gameId,
     userId,
     team,
     teamSize[game.format],
+    now,
   );
-  if (!added) {
+  if (result === "notJoinable") {
+    return { success: false, error: joinGameErrors.NotJoinable } as const;
+  }
+  if (result === "teamFull") {
     return { success: false, error: joinGameErrors.TeamFull } as const;
   }
 
