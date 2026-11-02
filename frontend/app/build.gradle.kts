@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
 }
 
 // Machine-specific config (SDK path, backend URL, OAuth client ID, Places key) lives in
@@ -95,6 +96,8 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.location)
     implementation(libs.places)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     implementation(libs.maps.compose)
     testImplementation(libs.junit)
     testImplementation(libs.org.json)

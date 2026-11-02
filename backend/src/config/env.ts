@@ -15,7 +15,19 @@ if (databaseUrl === undefined || databaseUrl === '') {
   throw new Error('Missing DATABASE_URL');
 }
 
+// Optional: without it the server runs but sends no push notifications
+const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
+const firebase =
+  FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY
+    ? {
+        projectId: FIREBASE_PROJECT_ID,
+        clientEmail: FIREBASE_CLIENT_EMAIL,
+        privateKey: FIREBASE_PRIVATE_KEY.replaceAll('\\n', '\n'),
+      }
+    : undefined;
+
 export const env = {
   port,
   databaseUrl,
+  firebase,
 } as const;

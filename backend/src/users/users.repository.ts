@@ -57,6 +57,40 @@ export async function getUserById(userId: string): Promise<ProfileUser | null> {
 }
 
 /**
+ * Saves a device's FCM token for a user.
+ * @param userId the signed-in user
+ * @param fcmToken the device's FCM token
+ */
+export async function saveFcmToken(userId: string, fcmToken: string): Promise<void> {
+  await prisma.$transaction([
+    // Remove the token from any other users who have it
+    prisma.user.updateMany({ where: { fcmToken, id: { not: userId } }, data: { fcmToken: null } }),
+    // Set the token for the signed-in user
+    prisma.user.updateMany({ where: { id: userId }, data: { fcmToken } }),
+  ]);
+}
+
+/**
+ * @param userIds the users to look up
+ * @returns the FCM tokens of the users who have one
+ */
+export async function getFcmTokens(userIds: string[]): Promise<string[]> {
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds }, fcmToken: { not: null } },
+    select: { fcmToken: true },
+  });
+  return users.flatMap((user) => user.fcmToken ?? []);
+}
+
+/**
+ * Removes FCM tokens that no longer work from whoever has them.
+ * @param fcmTokens the dead tokens
+ */
+export async function clearFcmTokens(fcmTokens: string[]): Promise<void> {
+  await prisma.user.updateMany({ where: { fcmToken: { in: fcmTokens } }, data: { fcmToken: null } });
+}
+
+/**
  * Lists a user's equipment that has not been retired.
  * @param userId The owner of the equipment
  * @returns Active equipment, including its optional next maintenance date
