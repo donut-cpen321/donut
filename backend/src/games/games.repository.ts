@@ -1,6 +1,7 @@
 import { prisma } from "../db";
 import { Game } from "../generated/prisma/client";
 import { GameStatus } from "../generated/prisma/enums";
+import { applyGameResult } from "../ranking/ranking.service";
 
 /**
  * Creates a game row using the given game information
@@ -42,11 +43,12 @@ export async function updateGame(
 }
 
 /**
- * Saves the final rounds of a game and marks it as completed in one transaction,
- * replacing any rounds saved during the game
+ * Saves the final rounds of a game, marks it as completed and updates every player's rating
+ * in one transaction, replacing any rounds saved during the game
  * @param gameId the game ID of the game to complete
  * @param rounds the [team 1 score, team 2 score] of each round, in order
- * @returns the completed game and its rounds, or null if the game was already completed or cancelled
+ * @returns the completed game, its rounds and each player's rating change, or null if the game was already completed or cancelled
+ * @throws IncompleteTeamsError if either team is missing players; nothing is saved
  */
 export async function completeGame(gameId: string, rounds: [number, number][]) {
   return await prisma.$transaction(async (tx) => {
@@ -73,8 +75,9 @@ export async function completeGame(gameId: string, rounds: [number, number][]) {
       })),
     });
     const game = await tx.game.findUniqueOrThrow({ where: { id: gameId } });
+    const ratingChanges = await applyGameResult(tx, gameId, game.format, rounds);
 
-    return { game, rounds: savedRounds };
+    return { game, rounds: savedRounds, ratingChanges };
   });
 }
 

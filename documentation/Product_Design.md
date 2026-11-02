@@ -4,7 +4,7 @@
 
 Donut is an instant matchmaking and ranking app for people who play competitive tennis but can't commit to a weekly league.
 
-The first version supports **tennis only**, in **singles (1v1)** and **doubles (2v2)**. Other sports may be added later. The database keeps a `sport` field (only `TENNIS` for now), so adding a sport means adding its scoring rules ([§6](#6-scoring)) and rating parameters ([§7.2](#72-formula)).
+The first version supports **tennis only**, in **singles (1v1)** and **doubles (2v2)**. Other sports may be added later, which means adding a sport to the database and its scoring rules ([§6](#6-scoring)) and rating parameters ([§7.2](#72-formula)).
 
 ## 2. Navigation
 
@@ -116,7 +116,7 @@ In tennis, a round is a **set** and its score counts **games** (e.g. 6–4).
 
 ### 7.2. Formula
 
-For side A (team 0) with rating `R_A` against side B (team 1) with rating `R_B`:
+For side A (team 1) with rating `R_A` against side B (team 2) with rating `R_B`:
 
 ```
 ΔR    = R_A - R_B

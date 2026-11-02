@@ -1,11 +1,11 @@
 // interface for elo calculation
 import { Format } from '../generated/prisma/client';
 
-export type RoundScore = [number, number];   // [team 0 score, team 1 score]
+export type RoundScore = [number, number];   // [team 1 score, team 2 score]
 
 export interface PlayerInfo {
     userId: string;
-    team: 0 | 1;
+    team: 1 | 2;
     rating: number;
 }
 

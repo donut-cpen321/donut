@@ -28,6 +28,7 @@ import {
   reportScore,
 } from "../../src/games/games.service";
 import { signAccessToken } from "../../src/auth/tokens";
+import { IncompleteTeamsError } from "../../src/ranking/ranking.service";
 
 // Every /games route is behind requireAuth, so requests need a valid token
 process.env.JWT_SECRET = "test-jwt-secret";
@@ -171,6 +172,8 @@ describe("Mocked: POST /games", () => {
       userId,
       team: 1,
       acceptedAt: new Date(),
+      ratingBefore: null,
+      ratingAfter: null,
     });
 
     const response = await request(createApp())
@@ -590,6 +593,8 @@ describe("Mocked: newGame", () => {
       userId,
       team: 1,
       acceptedAt: new Date(),
+      ratingBefore: null,
+      ratingAfter: null,
     });
 
     await expect(newGame(gameInput, userId)).resolves.toBe(createdGame);
@@ -648,6 +653,8 @@ describe("Mocked: POST /games/join", () => {
       ...body,
       userId,
       acceptedAt: new Date(),
+      ratingBefore: null,
+      ratingAfter: null,
     });
 
     const response = await request(createApp())
@@ -672,6 +679,8 @@ describe("Mocked: POST /games/join", () => {
       ...body,
       userId,
       acceptedAt: null,
+      ratingBefore: null,
+      ratingAfter: null,
     });
 
     const response = await request(createApp())
@@ -861,6 +870,8 @@ describe("Mocked: joinGame", () => {
       userId,
       team: 1,
       acceptedAt: new Date(),
+      ratingBefore: null,
+      ratingAfter: null,
     };
     mockedCreateGameUser.mockResolvedValue(gameUser);
 
@@ -874,7 +885,14 @@ describe("Mocked: joinGame", () => {
   });
 
   test("Passes accepted = false through to the repository", async () => {
-    const gameUser = { gameId: joinGameId, userId, team: 2, acceptedAt: null };
+    const gameUser = {
+      gameId: joinGameId,
+      userId,
+      team: 2,
+      acceptedAt: null,
+      ratingBefore: null,
+      ratingAfter: null,
+    };
     mockedCreateGameUser.mockResolvedValue(gameUser);
 
     await expect(joinGame(joinGameId, userId, 2, false)).resolves.toBe(
@@ -1214,7 +1232,12 @@ describe("Mocked: POST /games/score", () => {
   ];
   const validScoreBody = () => ({ gameId: editGameId, rounds });
 
-  test("Saves the rounds and returns the completed game", async () => {
+  const ratingChanges = [
+    { userId, ratingBefore: 1500, ratingAfter: 1512.5 },
+    { userId: "other-user", ratingBefore: 1500, ratingAfter: 1487.5 },
+  ];
+
+  test("Saves the rounds and returns the completed game with rating changes", async () => {
     const savedRounds = rounds.map(([team1Score, team2Score], index) => ({
       gameId: editGameId,
       number: index + 1,
@@ -1224,6 +1247,7 @@ describe("Mocked: POST /games/score", () => {
     mockedCompleteGame.mockResolvedValue({
       game: existingGame({ status: GameStatus.COMPLETED }),
       rounds: savedRounds,
+      ratingChanges,
     });
 
     const response = await request(createApp())
@@ -1237,6 +1261,7 @@ describe("Mocked: POST /games/score", () => {
       status: GameStatus.COMPLETED,
     });
     expect(response.body.rounds).toEqual(savedRounds);
+    expect(response.body.ratingChanges).toEqual(ratingChanges);
     expect(mockedIsUserInGame).toHaveBeenCalledWith(userId, editGameId);
     expect(mockedCompleteGame).toHaveBeenCalledTimes(1);
     expect(mockedCompleteGame).toHaveBeenCalledWith(editGameId, rounds);
@@ -1246,6 +1271,7 @@ describe("Mocked: POST /games/score", () => {
     mockedCompleteGame.mockResolvedValue({
       game: existingGame({ status: GameStatus.COMPLETED }),
       rounds: [{ gameId: editGameId, number: 1, team1Score: 0, team2Score: 6 }],
+      ratingChanges,
     });
 
     const response = await request(createApp())
@@ -1255,6 +1281,20 @@ describe("Mocked: POST /games/score", () => {
 
     expect(response.status).toBe(200);
     expect(mockedCompleteGame).toHaveBeenCalledWith(editGameId, [[0, 6]]);
+  });
+
+  test("Returns 409 when the teams are not full", async () => {
+    mockedCompleteGame.mockRejectedValue(
+      new IncompleteTeamsError(Format.SINGLES, 1, 0),
+    );
+
+    const response = await request(createApp())
+      .post("/games/score")
+      .set("Authorization", authHeader)
+      .send(validScoreBody());
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Game does not have full teams" });
   });
 
   test("Returns 409 when another report completes the game first", async () => {
@@ -1454,6 +1494,10 @@ describe("Mocked: reportScore", () => {
         { gameId: editGameId, number: 1, team1Score: 6, team2Score: 4 },
         { gameId: editGameId, number: 2, team1Score: 6, team2Score: 3 },
       ],
+      ratingChanges: [
+        { userId, ratingBefore: 1500, ratingAfter: 1520 },
+        { userId: "other-user", ratingBefore: 1500, ratingAfter: 1480 },
+      ],
     };
     mockedCompleteGame.mockResolvedValue(completed);
 
@@ -1474,6 +1518,25 @@ describe("Mocked: reportScore", () => {
       error: gameEditErrors.Closed,
     });
     expect(mockedCompleteGame).not.toHaveBeenCalled();
+  });
+
+  test("Returns IncompleteTeams when the teams are not full", async () => {
+    mockedCompleteGame.mockRejectedValue(
+      new IncompleteTeamsError(Format.DOUBLES, 2, 1),
+    );
+
+    await expect(reportScore(editGameId, userId, rounds)).resolves.toEqual({
+      success: false,
+      error: gameEditErrors.IncompleteTeams,
+    });
+  });
+
+  test("Rethrows other errors from saving the score", async () => {
+    mockedCompleteGame.mockRejectedValue(new Error("database down"));
+
+    await expect(reportScore(editGameId, userId, rounds)).rejects.toThrow(
+      "database down",
+    );
   });
 
   test("Returns Closed when the game is completed between the check and the save", async () => {
