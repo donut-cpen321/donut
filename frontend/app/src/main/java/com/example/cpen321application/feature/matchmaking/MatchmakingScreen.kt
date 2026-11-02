@@ -69,16 +69,36 @@ private val HOW_IT_WORKS = listOf(
     "Play an hour later on a nearby court."
 )
 
+private val LOCATION_PERMISSIONS = arrayOf(
+    Manifest.permission.ACCESS_FINE_LOCATION,
+    Manifest.permission.ACCESS_COARSE_LOCATION
+)
+
+private typealias LocationLoader = (LocationOption, String, suspend () -> MatchLocation?) -> Unit
+
 @Composable
 fun MatchmakingRoute(
     viewModel: MatchmakingViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val loadLocation = rememberLocationLoader(viewModel)
 
-    // Both options load the same way: show loading, fetch, then report the location or the error
-    fun loadLocation(option: LocationOption, failedMessage: String, fetch: suspend () -> MatchLocation?) {
+    MatchmakingScreen(
+        uiState = uiState,
+        onUseCurrentLocation = rememberCurrentLocationRequest(viewModel, loadLocation),
+        onEnterAddress = rememberAddressSearch(viewModel, loadLocation),
+        onFormatSelected = viewModel::onFormatSelected,
+        onFindMatch = viewModel::onFindMatch
+    )
+}
+
+/**
+ * Both options load the same way: show loading, fetch, then report the location or the error
+ */
+@Composable
+private fun rememberLocationLoader(viewModel: MatchmakingViewModel): LocationLoader {
+    val scope = rememberCoroutineScope()
+    return { option, failedMessage, fetch ->
         scope.launch {
             viewModel.onLocationLoading()
             val location = fetch()
@@ -93,7 +113,18 @@ fun MatchmakingRoute(
             }
         }
     }
+}
 
+/**
+ * Asks for the location permission, then reads the device's location
+ * @return what to run when the user picks "Use my current location"
+ */
+@Composable
+private fun rememberCurrentLocationRequest(
+    viewModel: MatchmakingViewModel,
+    loadLocation: LocationLoader
+): () -> Unit {
+    val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
@@ -107,6 +138,22 @@ fun MatchmakingRoute(
         }
     }
 
+    return {
+        viewModel.onOptionSelected(LocationOption.CURRENT_LOCATION)
+        permissionLauncher.launch(LOCATION_PERMISSIONS)
+    }
+}
+
+/**
+ * Opens the Places address search, then looks up the coordinates of the picked place
+ * @return what to run when the user picks "Enter an address"
+ */
+@Composable
+private fun rememberAddressSearch(
+    viewModel: MatchmakingViewModel,
+    loadLocation: LocationLoader
+): () -> Unit {
+    val context = LocalContext.current
     val addressLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -126,29 +173,18 @@ fun MatchmakingRoute(
         }
     }
 
-    MatchmakingScreen(
-        uiState = uiState,
-        onUseCurrentLocation = {
-            viewModel.onOptionSelected(LocationOption.CURRENT_LOCATION)
-            permissionLauncher.launch(
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-            )
-        },
-        onEnterAddress = {
-            viewModel.onOptionSelected(LocationOption.ADDRESS)
-            if (BuildConfig.PLACES_API_KEY.isBlank()) {
-                viewModel.onLocationFailed("PLACES_API_KEY is missing. Check local.properties")
-                return@MatchmakingScreen
-            }
+    return {
+        viewModel.onOptionSelected(LocationOption.ADDRESS)
+        if (BuildConfig.PLACES_API_KEY.isBlank()) {
+            viewModel.onLocationFailed("PLACES_API_KEY is missing. Check local.properties")
+        } else {
             if (!Places.isInitialized()) {
                 Places.initializeWithNewPlacesApiEnabled(context.applicationContext, BuildConfig.PLACES_API_KEY)
             }
             // Only show courts in Canada
             addressLauncher.launch(PlaceAutocomplete.createIntent(context) { setCountries(listOf("CA")) })
-        },
-        onFormatSelected = viewModel::onFormatSelected,
-        onFindMatch = viewModel::onFindMatch
-    )
+        }
+    }
 }
 
 @Composable
@@ -167,71 +203,98 @@ fun MatchmakingScreen(
             verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
             CourtHeader()
-
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(text = "How it works", style = MaterialTheme.typography.titleMedium)
-                HOW_IT_WORKS.forEachIndexed { index, step -> HowItWorksStep(number = index + 1, text = step) }
-            }
-
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .selectableGroup(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(text = "Where do you want to play?", style = MaterialTheme.typography.titleMedium)
-                LocationOptionCard(
-                    icon = Icons.Filled.LocationOn,
-                    text = uiState.textFor(LocationOption.CURRENT_LOCATION),
-                    selected = uiState.selectedOption == LocationOption.CURRENT_LOCATION,
-                    onClick = onUseCurrentLocation
-                )
-                LocationOptionCard(
-                    icon = Icons.Filled.Edit,
-                    text = uiState.textFor(LocationOption.ADDRESS),
-                    selected = uiState.selectedOption == LocationOption.ADDRESS,
-                    onClick = onEnterAddress
-                )
-                uiState.errorMessage?.let { ErrorMessage(it) }
-            }
-
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(text = "Singles or doubles?", style = MaterialTheme.typography.titleMedium)
-                FormatPicker(selected = uiState.format, onSelected = onFormatSelected)
-            }
+            HowItWorksSection()
+            LocationSection(
+                uiState = uiState,
+                onUseCurrentLocation = onUseCurrentLocation,
+                onEnterAddress = onEnterAddress
+            )
+            FormatSection(selected = uiState.format, onSelected = onFormatSelected)
         }
+        FindMatchBar(uiState = uiState, onFindMatch = onFindMatch)
+    }
+}
 
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+@Composable
+private fun HowItWorksSection() {
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(text = "How it works", style = MaterialTheme.typography.titleMedium)
+        HOW_IT_WORKS.forEachIndexed { index, step -> HowItWorksStep(number = index + 1, text = step) }
+    }
+}
+
+@Composable
+private fun LocationSection(
+    uiState: MatchmakingUiState,
+    onUseCurrentLocation: () -> Unit,
+    onEnterAddress: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 20.dp)
+            .selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(text = "Where do you want to play?", style = MaterialTheme.typography.titleMedium)
+        LocationOptionCard(
+            icon = Icons.Filled.LocationOn,
+            text = uiState.textFor(LocationOption.CURRENT_LOCATION),
+            selected = uiState.selectedOption == LocationOption.CURRENT_LOCATION,
+            onClick = onUseCurrentLocation
+        )
+        LocationOptionCard(
+            icon = Icons.Filled.Edit,
+            text = uiState.textFor(LocationOption.ADDRESS),
+            selected = uiState.selectedOption == LocationOption.ADDRESS,
+            onClick = onEnterAddress
+        )
+        uiState.errorMessage?.let { ErrorMessage(it) }
+    }
+}
+
+@Composable
+private fun FormatSection(selected: MatchFormat, onSelected: (MatchFormat) -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(text = "Singles or doubles?", style = MaterialTheme.typography.titleMedium)
+        FormatPicker(selected = selected, onSelected = onSelected)
+    }
+}
+
+/**
+ * The search status and the Find a match button, pinned below the scrolling content
+ */
+@Composable
+private fun FindMatchBar(uiState: MatchmakingUiState, onFindMatch: () -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        if (uiState.isSearching) {
+            uiState.location?.let {
+                val near = if (it.label == CURRENT_LOCATION_LABEL) "you" else it.label
+                Text(
+                    text = "Finding a match near $near…",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+            }
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        Button(
+            onClick = onFindMatch,
+            enabled = uiState.canFindMatch,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
         ) {
-            if (uiState.isSearching) {
-                uiState.location?.let {
-                    val near = if (it.label == CURRENT_LOCATION_LABEL) "you" else it.label
-                    Text(
-                        text = "Finding a match near $near…",
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-            Button(
-                onClick = onFindMatch,
-                enabled = uiState.canFindMatch,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                Text(text = "Find a match", style = MaterialTheme.typography.titleMedium)
-            }
+            Text(text = "Find a match", style = MaterialTheme.typography.titleMedium)
         }
     }
 }
