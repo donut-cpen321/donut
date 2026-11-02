@@ -24,6 +24,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
+import kotlinx.coroutines.delay
+import com.example.cpen321application.core.auth.AuthSession
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -74,21 +80,72 @@ private val LOCATION_PERMISSIONS = arrayOf(
     Manifest.permission.ACCESS_COARSE_LOCATION
 )
 
+private const val QUEUE_CHECK_INTERVAL_MS = 10_000L
+
 private typealias LocationLoader = (LocationOption, String, suspend () -> MatchLocation?) -> Unit
 
+/**
+ * @param session the signed-in user, for the queue calls
+ * @param onGoToGames opens the Games tab after a match is found
+ */
 @Composable
 fun MatchmakingRoute(
-    viewModel: MatchmakingViewModel = viewModel()
+    session: AuthSession,
+    onGoToGames: () -> Unit,
+    viewModel: MatchmakingViewModel = viewModel { MatchmakingViewModel(MatchmakingRepositoryImpl(session)) }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val loadLocation = rememberLocationLoader(viewModel)
+    val scope = rememberCoroutineScope()
+
+    // The player may have joined the queue before the app was closed
+    LaunchedEffect(Unit) {
+        viewModel.restoreQueue()
+    }
+
+    // While waiting, ask the backend every 10 seconds whether matchmaking found a game.
+    // Restarts when isSearching changes and stops when the screen closes.
+    LaunchedEffect(uiState.isSearching) {
+        if (!uiState.isSearching) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(QUEUE_CHECK_INTERVAL_MS)
+            viewModel.checkQueue()
+        }
+    }
+
+    if (uiState.matchFound) {
+        MatchFoundDialog(
+            onGoToGames = {
+                viewModel.onMatchFoundSeen()
+                onGoToGames()
+            },
+            onDismiss = viewModel::onMatchFoundSeen
+        )
+    }
 
     MatchmakingScreen(
         uiState = uiState,
         onUseCurrentLocation = rememberCurrentLocationRequest(viewModel, loadLocation),
         onEnterAddress = rememberAddressSearch(viewModel, loadLocation),
         onFormatSelected = viewModel::onFormatSelected,
-        onFindMatch = viewModel::onFindMatch
+        onFindMatch = { scope.launch { viewModel.onFindMatch() } },
+        onLeaveQueue = { scope.launch { viewModel.onLeaveQueue() } }
+    )
+}
+
+@Composable
+private fun MatchFoundDialog(onGoToGames: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Match found") },
+        text = { Text("Your game starts in an hour on a court near you. See who you're playing in Games.") },
+        confirmButton = {
+            TextButton(onClick = onGoToGames) {
+                Text("Go to Games")
+            }
+        }
     )
 }
 
@@ -193,7 +250,8 @@ fun MatchmakingScreen(
     onUseCurrentLocation: () -> Unit,
     onEnterAddress: () -> Unit,
     onFormatSelected: (MatchFormat) -> Unit,
-    onFindMatch: () -> Unit
+    onFindMatch: () -> Unit,
+    onLeaveQueue: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -209,9 +267,14 @@ fun MatchmakingScreen(
                 onUseCurrentLocation = onUseCurrentLocation,
                 onEnterAddress = onEnterAddress
             )
-            FormatSection(selected = uiState.format, onSelected = onFormatSelected)
+            FormatSection(
+                selected = uiState.format,
+                // Changing the search means leaving the queue first
+                enabled = !uiState.isSearching,
+                onSelected = onFormatSelected
+            )
         }
-        FindMatchBar(uiState = uiState, onFindMatch = onFindMatch)
+        FindMatchBar(uiState = uiState, onFindMatch = onFindMatch, onLeaveQueue = onLeaveQueue)
     }
 }
 
@@ -243,12 +306,14 @@ private fun LocationSection(
             icon = Icons.Filled.LocationOn,
             text = uiState.textFor(LocationOption.CURRENT_LOCATION),
             selected = uiState.selectedOption == LocationOption.CURRENT_LOCATION,
+            enabled = !uiState.isSearching,
             onClick = onUseCurrentLocation
         )
         LocationOptionCard(
             icon = Icons.Filled.Edit,
             text = uiState.textFor(LocationOption.ADDRESS),
             selected = uiState.selectedOption == LocationOption.ADDRESS,
+            enabled = !uiState.isSearching,
             onClick = onEnterAddress
         )
         uiState.errorMessage?.let { ErrorMessage(it) }
@@ -256,13 +321,13 @@ private fun LocationSection(
 }
 
 @Composable
-private fun FormatSection(selected: MatchFormat, onSelected: (MatchFormat) -> Unit) {
+private fun FormatSection(selected: MatchFormat, enabled: Boolean, onSelected: (MatchFormat) -> Unit) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(text = "Singles or doubles?", style = MaterialTheme.typography.titleMedium)
-        FormatPicker(selected = selected, onSelected = onSelected)
+        FormatPicker(selected = selected, enabled = enabled, onSelected = onSelected)
     }
 }
 
@@ -270,22 +335,29 @@ private fun FormatSection(selected: MatchFormat, onSelected: (MatchFormat) -> Un
  * The search status and the Find a match button, pinned below the scrolling content
  */
 @Composable
-private fun FindMatchBar(uiState: MatchmakingUiState, onFindMatch: () -> Unit) {
+private fun FindMatchBar(uiState: MatchmakingUiState, onFindMatch: () -> Unit, onLeaveQueue: () -> Unit) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (uiState.isSearching) {
-            uiState.location?.let {
-                val near = if (it.label == CURRENT_LOCATION_LABEL) "you" else it.label
-                Text(
-                    text = "Finding a match near $near…",
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center
-                )
-            }
+            Text(
+                text = searchingText(uiState.location),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            OutlinedButton(
+                onClick = onLeaveQueue,
+                enabled = !uiState.isUpdatingQueue,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text(text = "Leave queue", style = MaterialTheme.typography.titleMedium)
+            }
+            return@Column
         }
         Button(
             onClick = onFindMatch,
@@ -297,6 +369,19 @@ private fun FindMatchBar(uiState: MatchmakingUiState, onFindMatch: () -> Unit) {
             Text(text = "Find a match", style = MaterialTheme.typography.titleMedium)
         }
     }
+}
+
+/**
+ * @param location null when the search was picked up after an app restart, the place name is not saved
+ */
+private fun searchingText(location: MatchLocation?): String {
+    if (location == null) {
+        return "Finding a match…"
+    }
+    if (location.label == CURRENT_LOCATION_LABEL) {
+        return "Finding a match near you…"
+    }
+    return "Finding a match near ${location.label}…"
 }
 
 /**
@@ -392,6 +477,7 @@ private fun LocationOptionCard(
     icon: ImageVector,
     text: OptionText,
     selected: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -400,7 +486,7 @@ private fun LocationOptionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+            .selectable(selected = selected, enabled = enabled, onClick = onClick, role = Role.RadioButton),
         shape = shape,
         color = if (selected) colors.primaryContainer else colors.surfaceContainerLowest,
         border = BorderStroke(
@@ -432,19 +518,20 @@ private fun LocationOptionCard(
                 )
             }
             // Clicks go to the whole card
-            RadioButton(selected = selected, onClick = null)
+            RadioButton(selected = selected, onClick = null, enabled = enabled)
         }
     }
 }
 
 @Composable
-private fun FormatPicker(selected: MatchFormat, onSelected: (MatchFormat) -> Unit) {
+private fun FormatPicker(selected: MatchFormat, enabled: Boolean, onSelected: (MatchFormat) -> Unit) {
     val formats = MatchFormat.entries
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         formats.forEachIndexed { index, format ->
             SegmentedButton(
                 selected = format == selected,
                 onClick = { onSelected(format) },
+                enabled = enabled,
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = formats.size),
                 modifier = Modifier.height(48.dp)
             ) {
