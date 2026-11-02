@@ -115,6 +115,8 @@ model UserAvailability {
 model MatchmakingRequest {
   userId    String           @id @db.Uuid
   format    FormatPreference
+  latitude  Float
+  longitude Float
   createdAt DateTime         @default(now()) @db.Timestamptz(3)
 
   // One-to-one relation between User and MatchmakingRequest
