@@ -2,8 +2,23 @@ import { type NextFunction, type Request, type Response, Router} from 'express';
 import { z } from 'zod';
 import { logout, refreshTokens } from '../auth/auth.service';
 import { requireAuth } from '../auth/requireAuth';
-import { getProfile, login, loginErrors, type LoginError } from './users.service';
-import { loginSchema, refreshTokenSchema } from './users.schemas';
+import {
+    addEquipment,
+    editEquipment,
+    getEquipment,
+    getProfile,
+    login,
+    loginErrors,
+    removeEquipment,
+    type LoginError,
+} from './users.service';
+import {
+    createEquipmentSchema,
+    equipmentIdSchema,
+    loginSchema,
+    refreshTokenSchema,
+    updateEquipmentSchema,
+} from './users.schemas';
 
 export const usersRouter = Router();
 
@@ -78,6 +93,114 @@ usersRouter.post('/logout', async (req: Request, res: Response) => {
 
     try {
         await logout(parsedBody.data.refreshToken);
+        res.sendStatus(204);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+usersRouter.use('/equipment', (req: Request, res: Response, next: NextFunction) => {
+    requireAuth(req, res, next);
+});
+
+usersRouter.get('/equipment', async (req: Request, res: Response) => {
+    if (!req.userId) {
+        res.sendStatus(401);
+        return;
+    }
+
+    try {
+        const equipment = await getEquipment(req.userId);
+        res.status(200).json({ equipment });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+usersRouter.post('/equipment', async (req: Request, res: Response) => {
+    const parsedBody = createEquipmentSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+        res.status(400).json({
+            error: 'Invalid request body',
+            details: z.flattenError(parsedBody.error),
+        });
+        return;
+    }
+
+    if (!req.userId) {
+        res.sendStatus(401);
+        return;
+    }
+
+    try {
+        const equipment = await addEquipment(req.userId, parsedBody.data);
+        res.status(201).json({ equipment });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+usersRouter.patch('/equipment/:equipmentId', async (req: Request, res: Response) => {
+    const parsedId = equipmentIdSchema.safeParse(req.params.equipmentId);
+    if (!parsedId.success) {
+        res.status(400).json({
+            error: 'Invalid equipment ID',
+            details: z.flattenError(parsedId.error),
+        });
+        return;
+    }
+
+    const parsedBody = updateEquipmentSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+        res.status(400).json({
+            error: 'Invalid request body',
+            details: z.flattenError(parsedBody.error),
+        });
+        return;
+    }
+
+    if (!req.userId) {
+        res.sendStatus(401);
+        return;
+    }
+
+    try {
+        const equipment = await editEquipment(req.userId, parsedId.data, parsedBody.data);
+        if (equipment === null) {
+            res.status(404).json({ error: 'Equipment not found' });
+            return;
+        }
+        res.status(200).json({ equipment });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+usersRouter.delete('/equipment/:equipmentId', async (req: Request, res: Response) => {
+    const parsedId = equipmentIdSchema.safeParse(req.params.equipmentId);
+    if (!parsedId.success) {
+        res.status(400).json({
+            error: 'Invalid equipment ID',
+            details: z.flattenError(parsedId.error),
+        });
+        return;
+    }
+
+    if (!req.userId) {
+        res.sendStatus(401);
+        return;
+    }
+
+    try {
+        const removed = await removeEquipment(req.userId, parsedId.data);
+        if (!removed) {
+            res.status(404).json({ error: 'Equipment not found' });
+            return;
+        }
         res.sendStatus(204);
     } catch (e) {
         console.error(e);

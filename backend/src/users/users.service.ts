@@ -1,6 +1,15 @@
 import { issueTokens } from '../auth/auth.service';
 import { validateToken } from './helpers/validateToken';
-import { getUserByGoogleSub, createUser, getUserById } from './users.repository';
+import {
+  createEquipment as createEquipmentRecord,
+  createUser,
+  getUserByGoogleSub,
+  getUserById,
+  listEquipment as listEquipmentRecords,
+  retireEquipment as retireEquipmentRecord,
+  updateEquipment as updateEquipmentRecord,
+} from './users.repository';
+import type { CreateEquipmentInput, UpdateEquipmentInput } from './users.schemas';
 
 export const loginErrors = {
   InvalidToken: 'Invalid Google ID token',
@@ -88,4 +97,32 @@ export async function login(idToken: string): Promise<LoginResult> {
  */
 export async function getProfile(userId: string) {
   return await getUserById(userId);
+}
+
+export async function getEquipment(userId: string) {
+  return await listEquipmentRecords(userId);
+}
+
+export async function addEquipment(userId: string, equipment: CreateEquipmentInput) {
+  return await createEquipmentRecord(userId, {
+    type: equipment.type,
+    name: equipment.name,
+    isDefault: equipment.isDefault ?? false,
+  });
+}
+
+export async function editEquipment(
+  userId: string,
+  equipmentId: number,
+  equipment: UpdateEquipmentInput,
+) {
+  return await updateEquipmentRecord(userId, equipmentId, {
+    ...(equipment.type === undefined ? {} : { type: equipment.type }),
+    ...(equipment.name === undefined ? {} : { name: equipment.name }),
+    ...(equipment.isDefault === undefined ? {} : { isDefault: equipment.isDefault }),
+  });
+}
+
+export async function removeEquipment(userId: string, equipmentId: number) {
+  return await retireEquipmentRecord(userId, equipmentId);
 }

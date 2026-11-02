@@ -55,3 +55,51 @@ export async function getUserById(userId: string): Promise<ProfileUser | null> {
     select: profileUserSelect,
   });
 }
+
+export async function listEquipment(userId: string) {
+  return await prisma.equipment.findMany({
+    where: { userId, retiredAt: null },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+  });
+}
+
+export async function createEquipment(
+  userId: string,
+  data: Pick<Prisma.EquipmentCreateInput, 'type' | 'name' | 'isDefault'>,
+) {
+  return await prisma.equipment.create({
+    data: {
+      ...data,
+      isDefault: data.isDefault ?? false,
+      user: { connect: { id: userId } },
+    },
+  });
+}
+
+export async function updateEquipment(
+  userId: string,
+  equipmentId: number,
+  data: Prisma.EquipmentUpdateManyMutationInput,
+) {
+  const { count } = await prisma.equipment.updateMany({
+    where: { id: equipmentId, userId, retiredAt: null },
+    data,
+  });
+
+  if (count === 0) {
+    return null;
+  }
+
+  return await prisma.equipment.findFirst({
+    where: { id: equipmentId, userId, retiredAt: null },
+  });
+}
+
+export async function retireEquipment(userId: string, equipmentId: number) {
+  const { count } = await prisma.equipment.updateMany({
+    where: { id: equipmentId, userId, retiredAt: null },
+    data: { retiredAt: new Date(), isDefault: false },
+  });
+
+  return count > 0;
+}
