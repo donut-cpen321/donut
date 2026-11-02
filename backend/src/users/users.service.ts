@@ -1,7 +1,7 @@
 import { type Request, type Response } from 'express';
 import { issueTokens } from '../auth/auth.service';
 import { validateToken } from './helpers/validateToken';
-import { getUserByGoogleSub, createUser } from './users.repository';
+import { getUserByGoogleSub, createUser, getUserById } from './users.repository';
 
 /**
  * Logs the user into the backend and pulls the user's information from the database
@@ -68,4 +68,13 @@ export async function login(req: Request, res: Response): Promise<void> {
   const tokens = await issueTokens(newUser.id);
   res.status(201).json({ message: 'New user created', username: newUser.username, ...tokens });
   return;
+}
+
+/**
+ * Gets the signed-in user's own profile, including their rating
+ * @param userId the signed-in user's id
+ * @returns the user, or null if they do not exist
+ */
+export async function getProfile(userId: string) {
+  return await getUserById(userId);
 }
