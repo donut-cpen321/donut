@@ -108,16 +108,13 @@ fun CourtMap(
                 true
             }
         ) {
-            CourtPin(name)
+            NameTagAbovePin(name)
         }
     }
 }
 
-/**
- * The court's name on a tag, above a pin whose tip sits on the court
- */
 @Composable
-private fun CourtPin(name: String) {
+private fun NameTagAbovePin(name: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             shape = RoundedCornerShape(8.dp),
