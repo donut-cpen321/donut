@@ -49,10 +49,6 @@ suspend fun fetchPlaceLocation(
     return MatchLocation(label, latLng.latitude, latLng.longitude)
 }
 
-/**
- * Waits for a Play services task
- * @return its result, or null if it failed
- */
 private suspend fun <T> Task<T>.awaitOrNull(): T? =
     suspendCancellableCoroutine { continuation ->
         addOnSuccessListener { continuation.resume(it) }

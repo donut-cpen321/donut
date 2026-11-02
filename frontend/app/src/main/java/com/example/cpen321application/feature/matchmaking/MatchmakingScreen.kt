@@ -1,7 +1,9 @@
 package com.example.cpen321application.feature.matchmaking
 
 import android.Manifest
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -127,8 +129,8 @@ fun MatchmakingRoute(
 
     MatchmakingScreen(
         uiState = uiState,
-        onUseCurrentLocation = rememberCurrentLocationRequest(viewModel, loadLocation),
-        onEnterAddress = rememberAddressSearch(viewModel, loadLocation),
+        onUseCurrentLocation = rememberOnUseCurrentLocation(viewModel, loadLocation),
+        onEnterAddress = rememberOnEnterAddress(viewModel, loadLocation),
         onFormatSelected = viewModel::onFormatSelected,
         onFindMatch = { scope.launch { viewModel.onFindMatch() } },
         onLeaveQueue = { scope.launch { viewModel.onLeaveQueue() } }
@@ -149,49 +151,51 @@ private fun MatchFoundDialog(onGoToGames: () -> Unit, onDismiss: () -> Unit) {
     )
 }
 
-/**
- * Both options load the same way: show loading, fetch, then report the location or the error
- */
 @Composable
 private fun rememberLocationLoader(viewModel: MatchmakingViewModel): LocationLoader {
     val scope = rememberCoroutineScope()
     return { option, failedMessage, fetch ->
-        scope.launch {
-            viewModel.onLocationLoading()
-            val location = fetch()
-            // The user switched to the other option while we were waiting
-            if (viewModel.uiState.value.selectedOption != option) {
-                return@launch
-            }
-            if (location == null) {
-                viewModel.onLocationFailed(failedMessage)
-            } else {
-                viewModel.onLocationFound(location)
-            }
-        }
+        scope.launch { fetchAndReportLocation(viewModel, option, failedMessage, fetch) }
     }
 }
 
-/**
- * Asks for the location permission, then reads the device's location
- * @return what to run when the user picks "Use my current location"
- */
+// Both location options load the same way: show loading, fetch, then report the location or the error
+private suspend fun fetchAndReportLocation(
+    viewModel: MatchmakingViewModel,
+    option: LocationOption,
+    failedMessage: String,
+    fetch: suspend () -> MatchLocation?
+) {
+    viewModel.onLocationLoading()
+    val location = fetch()
+    // The user switched to the other option while we were waiting
+    if (viewModel.uiState.value.selectedOption != option) {
+        return
+    }
+    if (location == null) {
+        viewModel.onLocationFailed(failedMessage)
+    } else {
+        viewModel.onLocationFound(location)
+    }
+}
+
 @Composable
-private fun rememberCurrentLocationRequest(
+private fun rememberOnUseCurrentLocation(
     viewModel: MatchmakingViewModel,
     loadLocation: LocationLoader
 ): () -> Unit {
     val context = LocalContext.current
+    // Asks for the location permission, then reads the device's location
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         // Either one is enough: the user may only allow an approximate location
-        if (results.values.none { it }) {
+        if (results.values.any { it }) {
+            loadLocation(LocationOption.CURRENT_LOCATION, LOCATION_UNAVAILABLE_MESSAGE) {
+                fetchCurrentLocation(context)
+            }
+        } else {
             viewModel.onPermissionDenied()
-            return@rememberLauncherForActivityResult
-        }
-        loadLocation(LocationOption.CURRENT_LOCATION, LOCATION_UNAVAILABLE_MESSAGE) {
-            fetchCurrentLocation(context)
         }
     }
 
@@ -201,33 +205,17 @@ private fun rememberCurrentLocationRequest(
     }
 }
 
-/**
- * Opens the Places address search, then looks up the coordinates of the picked place
- * @return what to run when the user picks "Enter an address"
- */
 @Composable
-private fun rememberAddressSearch(
+private fun rememberOnEnterAddress(
     viewModel: MatchmakingViewModel,
     loadLocation: LocationLoader
 ): () -> Unit {
     val context = LocalContext.current
+    // Opens the Places address search, then looks up the coordinates of the picked place
     val addressLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val data = result.data ?: return@rememberLauncherForActivityResult
-        if (result.resultCode == PlaceAutocompleteActivity.RESULT_ERROR) {
-            val status = PlaceAutocomplete.getResultStatusFromIntent(data)
-            viewModel.onLocationFailed("Address search failed: ${status?.statusMessage}")
-            return@rememberLauncherForActivityResult
-        }
-        val prediction = PlaceAutocomplete.getPredictionFromIntent(data)
-        if (result.resultCode != PlaceAutocompleteActivity.RESULT_OK || prediction == null) {
-            return@rememberLauncherForActivityResult
-        }
-        val sessionToken = PlaceAutocomplete.getSessionTokenFromIntent(data)
-        loadLocation(LocationOption.ADDRESS, PLACE_UNAVAILABLE_MESSAGE) {
-            fetchPlaceLocation(context, prediction, sessionToken)
-        }
+        handleAddressSearchResult(result, context, viewModel, loadLocation)
     }
 
     return {
@@ -241,6 +229,28 @@ private fun rememberAddressSearch(
             // Only show courts in Canada
             addressLauncher.launch(PlaceAutocomplete.createIntent(context) { setCountries(listOf("CA")) })
         }
+    }
+}
+
+private fun handleAddressSearchResult(
+    result: ActivityResult,
+    context: Context,
+    viewModel: MatchmakingViewModel,
+    loadLocation: LocationLoader
+) {
+    val data = result.data ?: return
+    if (result.resultCode == PlaceAutocompleteActivity.RESULT_ERROR) {
+        val status = PlaceAutocomplete.getResultStatusFromIntent(data)
+        viewModel.onLocationFailed("Address search failed: ${status?.statusMessage}")
+        return
+    }
+    val prediction = PlaceAutocomplete.getPredictionFromIntent(data)
+    if (result.resultCode != PlaceAutocompleteActivity.RESULT_OK || prediction == null) {
+        return
+    }
+    val sessionToken = PlaceAutocomplete.getSessionTokenFromIntent(data)
+    loadLocation(LocationOption.ADDRESS, PLACE_UNAVAILABLE_MESSAGE) {
+        fetchPlaceLocation(context, prediction, sessionToken)
     }
 }
 
@@ -331,9 +341,6 @@ private fun FormatSection(selected: MatchFormat, enabled: Boolean, onSelected: (
     }
 }
 
-/**
- * The search status and the Find a match button, pinned below the scrolling content
- */
 @Composable
 private fun FindMatchBar(uiState: MatchmakingUiState, onFindMatch: () -> Unit, onLeaveQueue: () -> Unit) {
     Column(
@@ -419,11 +426,8 @@ private fun CourtHeader() {
     }
 }
 
-/**
- * A whole court seen from above, net in the middle, stretched to fill the panel.
- * Lines sit at the real court's proportions along each axis.
- */
 private fun DrawScope.drawCourtLines() {
+    // A whole court seen from above, net in the middle, stretched to fill the panel
     val paint = Chalk.copy(alpha = 0.18f)
     val stroke = 1.5.dp.toPx()
     val inset = 10.dp.toPx()
