@@ -24,6 +24,7 @@ sealed class Screen(val route: String) {
 
 data class NavGraphArgs(
     val serverClientId: String,
+    val session: AuthSession,
     val startRoute: String,
     val authViewModel: AuthViewModel,
     val onLoginSuccess: (User) -> Unit,
@@ -33,13 +34,8 @@ data class NavGraphArgs(
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
-    serverClientId: String,
-    session: AuthSession,
-    startRoute: String,
-    onLoginSuccess: (User) -> Unit,
-    onSignOut: () -> Unit,
-    modifier: Modifier = Modifier
     args: NavGraphArgs,
+    modifier: Modifier = Modifier,
 ) {
     NavHost(
         navController = navController,
@@ -60,7 +56,7 @@ fun AppNavGraph(
         }
         composable(Screen.Matchmaking.route) {
             MatchmakingRoute(
-                session = session,
+                session = args.session,
                 onGoToGames = { navController.navigateToTab(Screen.ScheduledGame.route) }
             )
         }
