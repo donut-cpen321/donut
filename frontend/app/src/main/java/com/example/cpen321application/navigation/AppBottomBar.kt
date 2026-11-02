@@ -32,16 +32,23 @@ fun AppBottomBar(navController: NavHostController) {
                 selected = isSelected,
                 onClick = {
                     if (currentRoute != item.route) {
-                        navController.navigate(item.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigateToTab(item.route)
                     }
                 }
             )
         }
+    }
+}
+
+/**
+ * Opens a bottom bar tab the way tapping it does: one copy of each tab, each keeping its state
+ */
+fun NavHostController.navigateToTab(route: String) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
     }
 }

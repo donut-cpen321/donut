@@ -1,7 +1,8 @@
 package com.example.cpen321application.core.network
-
+import com.example.cpen321application.core.network.dto.JoinQueueRequestDto
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
 import com.example.cpen321application.core.network.dto.LoginRequestDto
+import com.example.cpen321application.core.network.dto.QueueEntryResponseDto
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
 import com.example.cpen321application.core.network.dto.TokensResponseDto
 import com.example.cpen321application.core.network.dto.UserResponseDto
@@ -24,6 +25,19 @@ interface ApiService {
 
     @POST("user/logout")
     suspend fun logout(@Body request: RefreshRequestDto): Response<Unit>
+
+    @GET("matchmaking")
+    suspend fun getQueueEntry(@Header("Authorization") authorization: String): QueueEntryResponseDto
+
+    @POST("matchmaking")
+    suspend fun joinQueue(
+        @Header("Authorization") authorization: String,
+        @Body request: JoinQueueRequestDto
+    ): QueueEntryResponseDto
+
+    @DELETE("matchmaking")
+    suspend fun leaveQueue(@Header("Authorization") authorization: String)
+
 
     @GET("friends")
     suspend fun getFriends(@Header("Authorization") authorization: String): JsonElement

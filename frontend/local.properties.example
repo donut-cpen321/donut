@@ -8,3 +8,6 @@ API_BASE_URL=http://10.0.2.2:3000
 GOOGLE_CLIENT_ID=
 
 # Other API keys, secrets, and configurations
+
+# Places API (New) key, for the address search on the Matchmaking tab.
+PLACES_API_KEY=

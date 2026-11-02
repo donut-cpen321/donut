@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Machine-specific config (SDK path, backend URL, OAuth client ID) lives in
+// Machine-specific config (SDK path, backend URL, OAuth client ID, Places key) lives in
 // local.properties, which is gitignored. See local.properties.example.
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
@@ -41,6 +41,11 @@ android {
             "String",
             "GOOGLE_CLIENT_ID",
             "\"${localProperty("GOOGLE_CLIENT_ID")}\""
+        )
+        buildConfigField(
+            "String",
+            "PLACES_API_KEY",
+            "\"${localProperty("PLACES_API_KEY")}\""
         )
     }
 
@@ -86,6 +91,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.play.services.location)
+    implementation(libs.places)
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
     testImplementation(libs.mockwebserver)

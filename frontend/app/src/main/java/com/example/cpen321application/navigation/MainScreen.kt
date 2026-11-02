@@ -56,6 +56,7 @@ fun MainScreen(
     ) { innerPadding ->
         val navGraphArgs = NavGraphArgs(
             serverClientId = serverClientId,
+            session = authViewModel.session,
             startRoute = startRoute,
             authViewModel = authViewModel,
             onLoginSuccess = { newUser -> authViewModel.signIn(newUser) },
