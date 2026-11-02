@@ -61,7 +61,7 @@ fun AppNavGraph(
             )
         }
         composable(Screen.Leaderboard.route) {
-            LeaderboardRoute()
+            LeaderboardRoute(authViewModel = args.authViewModel)
         }
         composable(Screen.ScheduledGame.route) {
             ScheduledGameRoute()
