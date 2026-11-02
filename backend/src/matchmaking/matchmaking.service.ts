@@ -1,9 +1,23 @@
 // Finds matches and proposes games (via games.service); cancels unaccepted matches at the deadline.
 import { GameSource, GameStatus, type Format, type FormatPreference } from '../generated/prisma/enums';
-import { claimMatch, getCandidates, getMatchedPlayers, getRandomCourtId } from './matchmaking.repository';
+import {
+  claimMatch,
+  createRequest,
+  deleteRequest,
+  findRequest,
+  getCandidates,
+  getCourts,
+  getMatchedPlayers,
+} from './matchmaking.repository';
+import type { JoinQueueInput } from './matchmaking.schemas';
 
 // Matched games start one hour after the match is found
 const MATCH_START_DELAY_MS = 60 * 60 * 1000;
+
+// Every player in a match, and the court picked from their preferred courts, are at most this far apart
+export const MAX_DISTANCE_KM = 10;
+
+const EARTH_RADIUS_KM = 6371;
 
 interface FormatRule {
   format: Format;
@@ -11,7 +25,12 @@ interface FormatRule {
   maxRatingSpread: number;
 }
 
-export interface Candidate {
+export interface Location {
+  latitude: number;
+  longitude: number;
+}
+
+export interface Candidate extends Location {
   userId: string;
   format: FormatPreference;
   rating: number;
@@ -23,10 +42,14 @@ export interface Match {
   userIds: string[];
 }
 
-export interface CourtLocation {
+export interface CourtLocation extends Location {
   id: number;
-  latitude: number;
-  longitude: number;
+}
+
+// A player's place in the queue, as the app sees it
+export interface QueueEntry extends Location {
+  format: FormatPreference;
+  createdAt: Date;
 }
 
 export interface MatchedPlayer {
@@ -70,20 +93,21 @@ export function findMatches(candidates: Candidate[]): Match[] {
       // If user has already been matched
       if (matchedUserIds.has(player.userId)) continue;
 
-      // Find the closest-rated players still waiting
+      // Find the closest-rated players still waiting near this player
       const partners = queue
         .filter((c) => c !== player && !matchedUserIds.has(c.userId))
+        .filter((c) => distanceKm(c, player) <= MAX_DISTANCE_KM)
         .sort((a, b) => Math.abs(a.rating - player.rating) - Math.abs(b.rating - player.rating))
         .slice(0, formatRule.size - 1);
 
-      // Not enough players are waiting to form a match
-      if (partners.length < formatRule.size - 1) break;
+      // Not enough players are waiting near this player, others may still match
+      if (partners.length < formatRule.size - 1) continue;
 
       const group = [player, ...partners];
       const ratings = group.map((c) => c.rating);
 
-      // If the rating spread is within the allowed range
-      if (Math.max(...ratings) - Math.min(...ratings) <= formatRule.maxRatingSpread) {
+      // If the rating spread is within the allowed range and nobody is too far from anyone else
+      if (Math.max(...ratings) - Math.min(...ratings) <= formatRule.maxRatingSpread && isWithinDistance(group)) {
         // Add the match to the list of matches
         matches.push({ format: formatRule.format, userIds: group.map((c) => c.userId) });
         // Add the user IDs to the set of matched user IDs
@@ -96,20 +120,74 @@ export function findMatches(candidates: Candidate[]): Match[] {
 }
 
 /**
- * Picks the court that appears in the most players' preferred courts.
+ * Straight-line distance between two points on Earth (haversine formula).
+ *
+ * @param a - The first point.
+ * @param b - The second point.
+ * @returns The distance in kilometres.
+ */
+export function distanceKm(a: Location, b: Location): number {
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = toRadians(b.latitude - a.latitude);
+  const dLng = toRadians(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(a.latitude)) * Math.cos(toRadians(b.latitude)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Checks that every pair of players is at most MAX_DISTANCE_KM apart.
+ */
+function isWithinDistance(group: Location[]): boolean {
+  return group.every((a) => group.every((b) => distanceKm(a, b) <= MAX_DISTANCE_KM));
+}
+
+// ponytail: plain average of coordinates, fine within a city; not across the 180th meridian
+function midpoint(locations: Location[]): Location {
+  const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  return {
+    latitude: average(locations.map((l) => l.latitude)),
+    longitude: average(locations.map((l) => l.longitude)),
+  };
+}
+
+/**
+ * Picks the court that appears in the most players' preferred courts, among the courts
+ * at most MAX_DISTANCE_KM from every player. A tie goes to the court nearest the players.
  *
  * @param players - The matched players with their preferred courts.
- * @returns The id of the chosen court, or undefined if no player has a preferred court.
+ * @param locations - Where each player wants to play.
+ * @returns The id of the chosen court, or undefined if no player has a preferred court close enough.
  */
-export function chooseCourt(players: MatchedPlayer[]): number | undefined {
-  const votes = new Map<number, number>();
-  const preferredCourts = players.flatMap((player) => player.preferredCourts);
+export function chooseCourt(players: MatchedPlayer[], locations: Location[]): number | undefined {
+  const center = midpoint(locations);
+  const isCloseToEveryone = (court: CourtLocation) =>
+    locations.every((location) => distanceKm(location, court) <= MAX_DISTANCE_KM);
+
+  const votes = new Map<number, { court: CourtLocation; count: number }>();
+  const preferredCourts = players.flatMap((player) => player.preferredCourts).filter(isCloseToEveryone);
   for (const court of preferredCourts) {
-    votes.set(court.id, (votes.get(court.id) ?? 0) + 1);
+    votes.set(court.id, { court, count: (votes.get(court.id)?.count ?? 0) + 1 });
   }
 
-  const [mostPreferred] = [...votes].sort(([, a], [, b]) => b - a);
-  return mostPreferred?.[0];
+  const [mostPreferred] = [...votes.values()].sort(
+    (a, b) => b.count - a.count || distanceKm(center, a.court) - distanceKm(center, b.court),
+  );
+  return mostPreferred?.court.id;
+}
+
+/**
+ * Picks the court nearest the middle of the players, for matches without a close preferred court.
+ *
+ * @param courts - Every court.
+ * @param locations - Where each player wants to play.
+ * @returns The id of the nearest court, or undefined if there are no courts.
+ */
+export function nearestCourt(courts: CourtLocation[], locations: Location[]): number | undefined {
+  const center = midpoint(locations);
+  const [nearest] = [...courts].sort((a, b) => distanceKm(center, a) - distanceKm(center, b));
+  return nearest?.id;
 }
 
 /**
@@ -145,11 +223,22 @@ export async function runMatchmaking(): Promise<Match[]> {
   const matches = findMatches(candidates);
   if (matches.length === 0) return [];
 
+  const locationsById = new Map(candidates.map((c) => [c.userId, c]));
+  // Loaded once per run, only if a match needs it
+  let courts: CourtLocation[] | undefined;
+
   // Claim each match on its own
   const claimedMatches: Match[] = [];
   for (const match of matches) {
     const players = await getMatchedPlayers(match.userIds);
-    const courtId = chooseCourt(players) ?? (await getRandomCourtId());
+    const locations = match.userIds.flatMap((id) => locationsById.get(id) ?? []);
+    let courtId = chooseCourt(players, locations);
+    if (courtId === undefined) {
+      courts ??= await getCourts();
+      courtId = nearestCourt(courts, locations);
+    }
+    // No courts in the database at all
+    if (courtId === undefined) continue;
     const startTime = new Date(Date.now() + MATCH_START_DELAY_MS);
     const teams = assignTeams(match, players);
     const playersData = teams.map(({ userId, team }) => ({ team, user: { connect: { id: userId } } }));
@@ -169,4 +258,33 @@ export async function runMatchmaking(): Promise<Match[]> {
   }
 
   return claimedMatches;
+}
+
+/**
+ * Puts a player in the queue to be matched by the next matchmaking run.
+ *
+ * @param userId - The player joining.
+ * @param input - The format and where they want to play.
+ * @returns The new queue entry.
+ * @throws Prisma P2002 if the player is already in the queue; they have to leave first.
+ */
+export async function joinQueue(userId: string, input: JoinQueueInput): Promise<QueueEntry> {
+  return await createRequest(userId, input);
+}
+
+/**
+ * Takes a player out of the queue. Leaving when not in it is not an error.
+ *
+ * @param userId - The player leaving.
+ */
+export async function leaveQueue(userId: string): Promise<void> {
+  await deleteRequest(userId);
+}
+
+/**
+ * @param userId - The player to look up.
+ * @returns Their queue entry, or null once they left or were matched.
+ */
+export async function getQueueEntry(userId: string): Promise<QueueEntry | null> {
+  return await findRequest(userId);
 }

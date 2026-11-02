@@ -1,8 +1,8 @@
 // Queries for overlapping availabilities, nearby courts, close ratings.
-import { randomInt } from 'node:crypto';
 import { prisma } from '../db';
 import type { Prisma } from '../generated/prisma/client';
-import type { Candidate, MatchedPlayer } from './matchmaking.service';
+import type { Candidate, CourtLocation, MatchedPlayer, QueueEntry } from './matchmaking.service';
+import type { JoinQueueInput } from './matchmaking.schemas';
 
 /**
  * Get all players searching for a game right now and include their rating.
@@ -13,15 +13,19 @@ export async function getCandidates(): Promise<Candidate[]> {
     select: {
       userId: true,
       format: true,
+      latitude: true,
+      longitude: true,
       createdAt: true,
       user: { select: { rating: true } },
     },
   });
 
   // Map the requests to the Candidate interface.
-  const candidates: Candidate[] = requests.map(({ userId, format, createdAt, user }) => ({
+  const candidates: Candidate[] = requests.map(({ userId, format, latitude, longitude, createdAt, user }) => ({
     userId,
     format,
+    latitude,
+    longitude,
     createdAt,
     rating: user.rating,
   }));
@@ -46,13 +50,11 @@ export async function getMatchedPlayers(userIds: string[]): Promise<MatchedPlaye
 }
 
 /**
- * Get a random court, for matches where no player has a preferred court.
- * @returns The id of the court.
+ * Get every court with its location, for matches where no player has a preferred court nearby.
+ * @returns List of courts.
  */
-export async function getRandomCourtId(): Promise<number> {
-  const count = await prisma.court.count();
-  const court = await prisma.court.findFirstOrThrow({ select: { id: true }, skip: randomInt(count) });
-  return court.id;
+export async function getCourts(): Promise<CourtLocation[]> {
+  return await prisma.court.findMany({ select: { id: true, latitude: true, longitude: true } });
 }
 
 class MatchUnavailableError extends Error {}
@@ -81,4 +83,34 @@ export async function claimMatch(userIds: string[], game: Prisma.GameCreateInput
     if (err instanceof MatchUnavailableError) return false;
     throw err;
   }
+}
+
+// What the app sees of a queue entry
+const QUEUE_ENTRY_FIELDS = { format: true, latitude: true, longitude: true, createdAt: true } as const;
+
+/**
+ * Puts a player in the queue.
+ * @param userId - The player joining.
+ * @param input - The format and where they want to play.
+ * @returns The new queue entry.
+ * @throws Prisma P2002 if the player is already in the queue.
+ */
+export async function createRequest(userId: string, input: JoinQueueInput): Promise<QueueEntry> {
+  return await prisma.matchmakingRequest.create({ data: { userId, ...input }, select: QUEUE_ENTRY_FIELDS });
+}
+
+/**
+ * Takes a player out of the queue. Does nothing if they are not in it.
+ * @param userId - The player leaving.
+ */
+export async function deleteRequest(userId: string): Promise<void> {
+  await prisma.matchmakingRequest.deleteMany({ where: { userId } });
+}
+
+/**
+ * @param userId - The player to look up.
+ * @returns Their queue entry, or null if they are not waiting.
+ */
+export async function findRequest(userId: string): Promise<QueueEntry | null> {
+  return await prisma.matchmakingRequest.findUnique({ where: { userId }, select: QUEUE_ENTRY_FIELDS });
 }
