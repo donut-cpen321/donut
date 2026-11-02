@@ -210,6 +210,7 @@ model Equipment {
   name      String
   isDefault Boolean       @default(false)
   createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  nextMaintenanceAt DateTime? @db.Timestamptz(3)
   retiredAt DateTime?     @db.Timestamptz(3)
 
   user  User            @relation(fields: [userId], references: [id])

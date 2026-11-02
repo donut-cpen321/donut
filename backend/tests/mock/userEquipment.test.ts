@@ -37,14 +37,24 @@ describe('Mocked: /user/equipment', () => {
   });
 
   test('Lists the signed-in user equipment', async () => {
-    mockedListEquipment.mockResolvedValue([]);
+    mockedListEquipment.mockResolvedValue([{
+      id: 1,
+      userId,
+      type: 'RACKET',
+      name: 'Training racket',
+      isDefault: false,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      nextMaintenanceAt: new Date('2026-10-01T00:00:00.000Z'),
+      retiredAt: null,
+    }]);
 
     const response = await request(createApp())
       .get('/user/equipment')
       .set('Authorization', authorizationHeader());
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ equipment: [] });
+    expect(response.body.equipment).toHaveLength(1);
+    expect(response.body.equipment[0].nextMaintenanceAt).toBe('2026-10-01T00:00:00.000Z');
     expect(mockedListEquipment).toHaveBeenCalledWith(userId);
   });
 
@@ -63,6 +73,7 @@ describe('Mocked: /user/equipment', () => {
       name: 'Training racket',
       isDefault: false,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      nextMaintenanceAt: new Date('2026-10-01T00:00:00.000Z'),
       retiredAt: null,
     };
     mockedCreateEquipment.mockResolvedValue(equipment);
@@ -70,7 +81,11 @@ describe('Mocked: /user/equipment', () => {
     const response = await request(createApp())
       .post('/user/equipment')
       .set('Authorization', authorizationHeader())
-      .send({ type: 'RACKET', name: 'Training racket' });
+      .send({
+        type: 'RACKET',
+        name: 'Training racket',
+        nextMaintenanceAt: '2026-10-01T00:00:00.000Z',
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.equipment.name).toBe('Training racket');
@@ -78,6 +93,7 @@ describe('Mocked: /user/equipment', () => {
       type: 'RACKET',
       name: 'Training racket',
       isDefault: false,
+      nextMaintenanceAt: new Date('2026-10-01T00:00:00.000Z'),
     });
   });
 
@@ -100,19 +116,25 @@ describe('Mocked: /user/equipment', () => {
       name: 'Competition racket',
       isDefault: true,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      nextMaintenanceAt: null,
       retiredAt: null,
     });
 
     const response = await request(createApp())
       .patch('/user/equipment/1')
       .set('Authorization', authorizationHeader())
-      .send({ name: 'Competition racket', isDefault: true });
+      .send({
+        name: 'Competition racket',
+        isDefault: true,
+        nextMaintenanceAt: '2026-12-01T00:00:00.000Z',
+      });
 
     expect(response.status).toBe(200);
     expect(response.body.equipment.name).toBe('Competition racket');
     expect(mockedUpdateEquipment).toHaveBeenCalledWith(userId, 1, {
       name: 'Competition racket',
       isDefault: true,
+      nextMaintenanceAt: new Date('2026-12-01T00:00:00.000Z'),
     });
   });
 

@@ -108,6 +108,7 @@ export async function addEquipment(userId: string, equipment: CreateEquipmentInp
     type: equipment.type,
     name: equipment.name,
     isDefault: equipment.isDefault ?? false,
+    nextMaintenanceAt: equipment.nextMaintenanceAt ?? null,
   });
 }
 
@@ -120,6 +121,7 @@ export async function editEquipment(
     ...(equipment.type === undefined ? {} : { type: equipment.type }),
     ...(equipment.name === undefined ? {} : { name: equipment.name }),
     ...(equipment.isDefault === undefined ? {} : { isDefault: equipment.isDefault }),
+    ...(equipment.nextMaintenanceAt === undefined ? {} : { nextMaintenanceAt: equipment.nextMaintenanceAt }),
   });
 }
 

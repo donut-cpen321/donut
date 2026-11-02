@@ -65,12 +65,13 @@ export async function listEquipment(userId: string) {
 
 export async function createEquipment(
   userId: string,
-  data: Pick<Prisma.EquipmentCreateInput, 'type' | 'name' | 'isDefault'>,
+  data: Pick<Prisma.EquipmentCreateInput, 'type' | 'name' | 'isDefault' | 'nextMaintenanceAt'>,
 ) {
   return await prisma.equipment.create({
     data: {
       ...data,
       isDefault: data.isDefault ?? false,
+      nextMaintenanceAt: data.nextMaintenanceAt ?? null,
       user: { connect: { id: userId } },
     },
   });
