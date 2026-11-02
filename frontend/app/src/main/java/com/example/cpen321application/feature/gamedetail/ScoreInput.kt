@@ -18,9 +18,9 @@ fun scoreError(rounds: List<RoundInput>): String? {
 
     var team1Wins = 0
     rounds.forEachIndexed { index, round ->
-        val team1 = round.team1.trim().toIntOrNull()
-        val team2 = round.team2.trim().toIntOrNull()
-        if (team1 == null || team2 == null || team1 < 0 || team2 < 0) {
+        val team1 = parseNonNegativeScore(round.team1)
+        val team2 = parseNonNegativeScore(round.team2)
+        if (team1 == null || team2 == null) {
             return "Set ${index + 1}: enter a whole number for each team."
         }
         if (team1 == team2) {
@@ -38,6 +38,8 @@ fun scoreError(rounds: List<RoundInput>): String? {
 
     return null
 }
+
+private fun parseNonNegativeScore(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it >= 0 }
 
 /**
  * @return the (team 1, team 2) score of each set. Only call it once scoreError returned null

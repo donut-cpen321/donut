@@ -11,14 +11,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -28,12 +26,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.core.data.model.Court
 import com.example.cpen321application.core.data.model.Format
+import com.example.cpen321application.core.ui.components.BackHeader
 import com.example.cpen321application.core.ui.components.CourtPickerDialog
 import com.example.cpen321application.core.ui.components.DateTimePickerDialog
 import com.example.cpen321application.core.ui.formatStartsAt
@@ -73,100 +71,14 @@ fun CreateGameScreen(
     var showCourtPicker by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text(
-                text = "Schedule a game",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(text = "Format", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Format.entries.forEach { format ->
-                    FilterChip(
-                        selected = uiState.format == format,
-                        onClick = { onFormatSelected(format) },
-                        label = { Text(format.label) }
-                    )
-                }
-            }
-
-            Text(text = "Start time", style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(
-                onClick = { showTimePicker = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.DateRange, contentDescription = null)
-                Text(
-                    text = uiState.startsAt?.let { formatStartsAt(it) } ?: "Pick a date and time",
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp)
-                )
-            }
-
-            Text(text = "Court", style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(
-                onClick = { showCourtPicker = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Place, contentDescription = null)
-                Text(
-                    text = uiState.court?.name ?: "Pick a court",
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp)
-                )
-            }
-
-            if (uiState.errorMessage != null) {
-                Text(
-                    text = uiState.errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Button(
-                onClick = onSubmit,
-                enabled = uiState.canSubmit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                if (uiState.isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Schedule game")
-                }
-            }
-
-            Text(
-                text = "You'll be on team 1. The game shows on the feed until every spot is filled.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        BackHeader(title = "Schedule a game", onBack = onBack)
+        CreateGameForm(
+            uiState = uiState,
+            onFormatSelected = onFormatSelected,
+            onPickTime = { showTimePicker = true },
+            onPickCourt = { showCourtPicker = true },
+            onSubmit = onSubmit
+        )
     }
 
     if (showTimePicker) {
@@ -193,5 +105,100 @@ fun CreateGameScreen(
                 onCourtSelected(court)
             }
         )
+    }
+}
+
+@Composable
+private fun CreateGameForm(
+    uiState: CreateGameUiState,
+    onFormatSelected: (Format) -> Unit,
+    onPickTime: () -> Unit,
+    onPickCourt: () -> Unit,
+    onSubmit: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(text = "Format", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Format.entries.forEach { format ->
+                FilterChip(
+                    selected = uiState.format == format,
+                    onClick = { onFormatSelected(format) },
+                    label = { Text(format.label) }
+                )
+            }
+        }
+
+        Text(text = "Start time", style = MaterialTheme.typography.titleMedium)
+        PickerButton(
+            icon = Icons.Default.DateRange,
+            text = uiState.startsAt?.let { formatStartsAt(it) } ?: "Pick a date and time",
+            onClick = onPickTime
+        )
+
+        Text(text = "Court", style = MaterialTheme.typography.titleMedium)
+        PickerButton(
+            icon = Icons.Default.Place,
+            text = uiState.court?.name ?: "Pick a court",
+            onClick = onPickCourt
+        )
+
+        if (uiState.errorMessage != null) {
+            Text(
+                text = uiState.errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        SubmitButton(enabled = uiState.canSubmit, isSubmitting = uiState.isSubmitting, onClick = onSubmit)
+
+        Text(
+            text = "You'll be on team 1. The game shows on the feed until every spot is filled.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun PickerButton(icon: ImageVector, text: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(icon, contentDescription = null)
+        Text(
+            text = text,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun SubmitButton(enabled: Boolean, isSubmitting: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+    ) {
+        if (isSubmitting) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp
+            )
+        } else {
+            Text("Schedule game")
+        }
     }
 }
