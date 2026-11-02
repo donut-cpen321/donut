@@ -44,6 +44,13 @@ enum FriendshipStatus {
   ACCEPTED
 }
 
+enum EquipmentType {
+  RACKET
+  BALLS
+  SHOES
+  OTHER
+}
+
 model Friendship {
   requesterId String           @db.Uuid
   addresseeId String           @db.Uuid
@@ -77,6 +84,7 @@ model User {
 
   friendshipsSent     Friendship[] @relation("FriendshipsSent")
   friendshipsReceived Friendship[] @relation("FriendshipsReceived")
+  equipment           Equipment[]
 
   @@index([rating(sort: Desc), username]) // leaderboard order
   @@map("users")
@@ -153,6 +161,7 @@ model Game {
 
   players GameUser[]
   rounds  GameRound[]
+  equipment GameEquipment[]
 
   @@index([courtId])
   @@map("games")
@@ -192,4 +201,32 @@ model GameRound {
 
   @@id([gameId, number])
   @@map("game_rounds")
+}
+
+model Equipment {
+  id        Int           @id @default(autoincrement())
+  userId    String        @db.Uuid
+  type      EquipmentType
+  name      String
+  isDefault Boolean       @default(false)
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  retiredAt DateTime?     @db.Timestamptz(3)
+
+  user  User            @relation(fields: [userId], references: [id])
+  games GameEquipment[]
+
+  @@index([userId])
+  @@map("equipment")
+}
+
+model GameEquipment {
+  gameId      String @db.Uuid
+  equipmentId Int
+
+  game      Game      @relation(fields: [gameId], references: [id])
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+
+  @@id([gameId, equipmentId])
+  @@index([equipmentId])
+  @@map("game_equipment")
 }
