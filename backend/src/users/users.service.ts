@@ -30,10 +30,9 @@ export type LoginResult =
     };
 
 /**
- * Logs the user into the backend and pulls the user's information from the database
- * or creates a new user if it does not exist
- * @param idToken the user's Google login token
- * @returns the login result or a reason the login could not be completed
+ * Validates a Google ID token, finds or creates the user, and issues tokens.
+ * @param idToken The user's Google ID token
+ * @returns The login result, or a typed error when the token or profile is invalid
  */
 export async function login(idToken: string): Promise<LoginResult> {
   const payload = await validateToken(idToken);
@@ -91,18 +90,29 @@ export async function login(idToken: string): Promise<LoginResult> {
 }
 
 /**
- * Gets the signed-in user's own profile, including their rating
- * @param userId the signed-in user's id
- * @returns the user, or null if they do not exist
+ * Gets a user's profile, including their rating.
+ * @param userId The signed-in user's ID
+ * @returns The profile, or null if the user does not exist
  */
 export async function getProfile(userId: string) {
   return await getUserById(userId);
 }
 
+/**
+ * Lists active equipment belonging to the specified user.
+ * @param userId The equipment owner's user ID
+ * @returns The user's equipment records with their maintenance dates
+ */
 export async function getEquipment(userId: string) {
   return await listEquipmentRecords(userId);
 }
 
+/**
+ * Adds equipment to the signed-in user's inventory.
+ * @param userId The equipment owner
+ * @param equipment The type, name, default status, and optional next maintenance date
+ * @returns The created equipment record
+ */
 export async function addEquipment(userId: string, equipment: CreateEquipmentInput) {
   return await createEquipmentRecord(userId, {
     type: equipment.type,
@@ -112,6 +122,13 @@ export async function addEquipment(userId: string, equipment: CreateEquipmentInp
   });
 }
 
+/**
+ * Updates fields on the user's active equipment record.
+ * @param userId The equipment owner
+ * @param equipmentId The equipment record to update
+ * @param equipment The validated fields to change
+ * @returns The updated equipment, or null if no matching active record exists
+ */
 export async function editEquipment(
   userId: string,
   equipmentId: number,
@@ -125,6 +142,12 @@ export async function editEquipment(
   });
 }
 
+/**
+ * Retires one of the user's active equipment records.
+ * @param userId The equipment owner
+ * @param equipmentId The equipment record to retire
+ * @returns Whether an active equipment record was retired
+ */
 export async function removeEquipment(userId: string, equipmentId: number) {
   return await retireEquipmentRecord(userId, equipmentId);
 }
