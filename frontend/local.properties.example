@@ -9,5 +9,5 @@ GOOGLE_CLIENT_ID=
 
 # Other API keys, secrets, and configurations
 
-# Places API (New) key, for the address search on the Matchmaking tab.
+# Places API (New) key: address search on the Matchmaking tab + court map with Maps SDK
 PLACES_API_KEY=
