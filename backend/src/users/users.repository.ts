@@ -9,7 +9,14 @@ const loginUserSelect = {
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
+// The signed-in user's own profile
+const profileUserSelect = {
+  ...loginUserSelect,
+  rating: true,
+} satisfies Prisma.UserSelect;
+
 type LoginUser = Prisma.UserGetPayload<{ select: typeof loginUserSelect }>;
+type ProfileUser = Prisma.UserGetPayload<{ select: typeof profileUserSelect }>;
 type NewUserData = Pick<Prisma.UserCreateInput, 'googleSub' | 'username' | 'name' | 'email'>;
 
 
@@ -34,5 +41,17 @@ export async function createUser(userData: NewUserData): Promise<LoginUser> {
   return await prisma.user.create({
       data: userData,
       select: loginUserSelect,
+  });
+}
+
+/**
+ * Gets a user's own profile, including their rating
+ * @param userId the user's id
+ * @returns the user, or null if they do not exist
+ */
+export async function getUserById(userId: string): Promise<ProfileUser | null> {
+  return await prisma.user.findUnique({
+    where: { id: userId },
+    select: profileUserSelect,
   });
 }

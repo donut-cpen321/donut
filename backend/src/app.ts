@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import { usersRouter } from "./users/users.controller";
 import { gamesRouter } from "./games/games.controller";
 import { friendsRouter } from "./friends/friends.controller";
+import { leaderboardRouter } from "./ranking/ranking.controller";
 
 export function createApp(): Express {
   const app = express();
@@ -13,6 +14,8 @@ export function createApp(): Express {
   app.use("/games", gamesRouter);
 
   app.use("/friends", friendsRouter);
+
+  app.use("/leaderboard", leaderboardRouter);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
