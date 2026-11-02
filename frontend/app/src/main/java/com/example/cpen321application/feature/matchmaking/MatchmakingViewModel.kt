@@ -17,11 +17,18 @@ class MatchmakingViewModel : ViewModel() {
     val uiState: StateFlow<MatchmakingUiState> = _uiState.asStateFlow()
 
     /**
-     * Switches between current location and address, dropping the location from the other option
+     * Switches between current location and address, dropping the location and any
+     * lookup still running for the other option
      */
     fun onOptionSelected(option: LocationOption) {
         _uiState.update {
-            it.copy(selectedOption = option, location = null, errorMessage = null, isSearching = false)
+            it.copy(
+                selectedOption = option,
+                location = null,
+                errorMessage = null,
+                isLoading = false,
+                isSearching = false
+            )
         }
     }
 
@@ -49,13 +56,13 @@ class MatchmakingViewModel : ViewModel() {
     }
 
     /**
-     * Starts searching near the picked location. Does nothing without one.
+     * Starts searching near the picked location. Does nothing without one, while it is
+     * still loading, or while a search is already running.
      */
     fun onFindMatch() {
-        if (_uiState.value.location == null) {
+        if (!_uiState.value.canFindMatch) {
             return
         }
-        // ponytail: only flips the UI to "searching"; joining the queue comes with the matchmaking endpoints
         _uiState.update { it.copy(isSearching = true) }
     }
 }

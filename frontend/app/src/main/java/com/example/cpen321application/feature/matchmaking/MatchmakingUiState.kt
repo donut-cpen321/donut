@@ -28,7 +28,7 @@ data class MatchmakingUiState(
     val isSearching: Boolean = false
 ) {
     val canFindMatch: Boolean
-        get() = location != null && !isLoading
+        get() = location != null && !isLoading && !isSearching
 }
 
 data class OptionText(val title: String, val subtitle: String)

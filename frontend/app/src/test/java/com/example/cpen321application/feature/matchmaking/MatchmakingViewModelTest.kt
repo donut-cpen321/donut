@@ -38,6 +38,19 @@ class MatchmakingViewModelTest {
         assertFalse(state.isSearching)
     }
 
+    // Input: the current location is loading, then the user switches to Address
+    // Expected output: not loading, since the screen ignores the abandoned lookup when it finishes
+    @Test
+    fun pickingAnOptionStopsThePreviousLoading() {
+        val viewModel = MatchmakingViewModel()
+        viewModel.onOptionSelected(LocationOption.CURRENT_LOCATION)
+        viewModel.onLocationLoading()
+
+        viewModel.onOptionSelected(LocationOption.ADDRESS)
+
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
     // Input: the user denies the location permission
     // Expected output: an error pointing them to the address option, no location
     @Test
@@ -118,6 +131,33 @@ class MatchmakingViewModelTest {
         viewModel.onFindMatch()
 
         assertTrue(viewModel.uiState.value.isSearching)
+    }
+
+    // Input: Find a match tapped while a search is already running
+    // Expected output: Find a match is disabled, so the search cannot be submitted again
+    @Test
+    fun searchingDisablesFindMatch() {
+        val viewModel = MatchmakingViewModel()
+        viewModel.onLocationFound(ubc)
+
+        viewModel.onFindMatch()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isSearching)
+        assertFalse(state.canFindMatch)
+    }
+
+    // Input: a location was found, a new lookup is loading, then Find a match is tapped
+    // Expected output: no search starts while the location is loading
+    @Test
+    fun findMatchWhileLoadingDoesNothing() {
+        val viewModel = MatchmakingViewModel()
+        viewModel.onLocationFound(ubc)
+        viewModel.onLocationLoading()
+
+        viewModel.onFindMatch()
+
+        assertFalse(viewModel.uiState.value.isSearching)
     }
 
     // Input: nothing picked yet

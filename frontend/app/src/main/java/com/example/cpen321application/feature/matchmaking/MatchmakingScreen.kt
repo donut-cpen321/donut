@@ -143,7 +143,7 @@ fun MatchmakingRoute(
             if (!Places.isInitialized()) {
                 Places.initializeWithNewPlacesApiEnabled(context.applicationContext, BuildConfig.PLACES_API_KEY)
             }
-            // ponytail: Canada only, since every court we have is in Vancouver
+            // Only show courts in Canada
             addressLauncher.launch(PlaceAutocomplete.createIntent(context) { setCountries(listOf("CA")) })
         },
         onFormatSelected = viewModel::onFormatSelected,
