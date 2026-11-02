@@ -48,6 +48,8 @@ android {
             "PLACES_API_KEY",
             "\"${localProperty("PLACES_API_KEY")}\""
         )
+        // The Maps SDK reads its key from the manifest. Same key as Places
+        manifestPlaceholders["mapsApiKey"] = localProperty("PLACES_API_KEY")
     }
 
     buildTypes {
@@ -96,6 +98,7 @@ dependencies {
     implementation(libs.places)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.maps.compose)
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
     testImplementation(libs.mockwebserver)

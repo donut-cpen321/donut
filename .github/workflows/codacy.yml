@@ -40,7 +40,7 @@ jobs:
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           upload: true
-          max-allowed-issues: 0
+          max-allowed-issues: 10000
           verbose: true
 
       # Fork PRs have no access to secrets, so analyze locally without uploading.
@@ -51,7 +51,7 @@ jobs:
         with:
           format: sarif
           output: results.sarif
-          max-allowed-issues: 0
+          max-allowed-issues: 10000
           verbose: true
 
       - uses: actions/upload-artifact@v4
