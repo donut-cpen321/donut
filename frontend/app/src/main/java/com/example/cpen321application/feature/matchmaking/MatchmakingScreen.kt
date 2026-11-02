@@ -2,7 +2,6 @@ package com.example.cpen321application.feature.matchmaking
 
 import android.Manifest
 import android.content.Context
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +28,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import kotlinx.coroutines.delay
 import com.example.cpen321application.core.auth.AuthSession
+import com.example.cpen321application.core.notifications.rememberAskNotificationPermission
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedButton
@@ -204,20 +204,6 @@ private fun rememberOnUseCurrentLocation(
     return {
         viewModel.onOptionSelected(LocationOption.CURRENT_LOCATION)
         permissionLauncher.launch(LOCATION_PERMISSIONS)
-    }
-}
-
-/**
- * Asks to show notifications (Android 13+) so the player hears when a match is found.
- * Joining the queue goes ahead whatever the answer.
- */
-@Composable
-private fun rememberAskNotificationPermission(): () -> Unit {
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    return {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
     }
 }
 
