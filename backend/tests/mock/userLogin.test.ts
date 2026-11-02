@@ -49,7 +49,17 @@ describe('Mocked: POST /user/login', () => {
       .send({ idToken: '' });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'A Google ID token is required' });
+    expect(response.body.error).toBe('Invalid request body');
+    expect(response.body.details.fieldErrors.idToken).toBeDefined();
+    expect(mockedValidateToken).not.toHaveBeenCalled();
+  });
+
+  test('Missing request body', async () => {
+    const response = await request(createApp()).post('/user/login');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Invalid request body');
+    expect(response.body.details.formErrors.length).toBeGreaterThan(0);
     expect(mockedValidateToken).not.toHaveBeenCalled();
   });
 
@@ -60,7 +70,8 @@ describe('Mocked: POST /user/login', () => {
       .send({ idToken: 123 });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'A Google ID token is required' });
+    expect(response.body.error).toBe('Invalid request body');
+    expect(response.body.details.fieldErrors.idToken).toBeDefined();
     expect(mockedValidateToken).not.toHaveBeenCalled();
   });
 
