@@ -5,6 +5,9 @@
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
 | Oct 23, 2026 | 2, 3.1, 3.3, 3.4, 3.5, 4.1, 4.2, 4.7 | Narrowed the first version to tennis only. Pickleball and badminton were dropped, so players no longer pick a sport. |
+| Oct 28, 2026 | 4.1 | Added the Games interfaces that change a game's start time and court, and replaced the planned final-score interface with the implemented `POST /games/score`. |
+| Nov 1, 2026 | 4.1, 4.2 | `POST /games/score` now updates ratings through the implemented `applyGameResult` and returns each player's rating change. Removed the leftover `sport` parameters from the Games, Matchmaking and Ranking interfaces. |
+| Nov 1, 2026 | 4.1, 4.2 | Added the implemented `GET /leaderboard` and `GET /user/me`, and an index for the leaderboard order. |
 
 ---
 
@@ -328,15 +331,17 @@ Not included. The formal use cases describe each screen in enough detail for thi
             - **Purpose**: Replaces the player's preferred courts (profile setup and later edits).
         4. `PUT /user/me/fcm-token` with `{ fcmToken: string }` → `204` - E
             - **Purpose**: Registers the device that receives the player's notifications.
-        5. `Court[][] getPreferredCourts(userIds: string[])` - In
+        5. `GET /user/me` → `{ user: User }` - E
+            - **Purpose**: Returns the signed-in player's profile, including their rating (full decimal; the app rounds it for display). `404` if the account no longer exists.
+        6. `Court[][] getPreferredCourts(userIds: string[])` - In
             - **Purpose**: Used by Matchmaking to choose the court of a matched game.
-        6. `string[] getFcmTokens(userIds: string[])` - In
+        7. `string[] getFcmTokens(userIds: string[])` - In
             - **Purpose**: Used by Matchmaking and Games to send notifications.
 2. **Games**
     - **Purpose**: Owns games, their players, rounds and lifecycle: create, feed, join, leave, delete, accept, check-in, live score and final score. It also runs the deadline jobs (acceptance and check-in) and the live connection for score updates.
     - **Rationale**: A game is the unit of record: its players, status and rounds change together, so they stay in one component. Alternative considered: a separate live-score component. Rejected because the score is part of the game and would need the same data and the same checks.
     - **Interfaces**:
-        1. `POST /games` with `{ sport, format, startsAt, courtId }` → `201 { game: Game }` - E
+        1. `POST /games` with `{ format, startsAt, courtId, gameSource }` → `201 { game: Game }` - E
             - **Purpose**: Creates a scheduled game owned by the caller.
         2. `GET /games/feed` → `FeedGame[]` (game, players' ratings, forecast) - E
             - **Purpose**: Returns the upcoming scheduled games for the feed.
@@ -346,23 +351,27 @@ Not included. The formal use cases describe each screen in enough detail for thi
             - **Purpose**: Deletes a game
         5. `POST /games/join` with `{ gameId }` → `Game`, `POST /games/leave` with `{ gameId }` → `204` - E
             - **Purpose**: Join or leave a scheduled game
-        6. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
+        6. `PATCH /games/time` with `{ gameId, startsAt }` → `{ game: Game }` - E
+            - **Purpose**: Moves a game to a new start time, which must be in the future. The caller must be in the game, and the game must not be completed or cancelled (`403` and `409` otherwise).
+        7. `PATCH /games/location` with `{ gameId, courtId }` → `{ game: Game }` - E
+            - **Purpose**: Moves a game to a different court, with the same rules as `PATCH /games/time`. Returns `404` if the court does not exist.
+        8. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
             - **Purpose**: Accept or decline a matched game.
-        7. `POST /games/:id/check-in` → `Game` - E
+        9. `POST /games/:id/check-in` → `Game` - E
             - **Purpose**: Confirms the player is at the court; starts the game when every player has confirmed.
-        8. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
+        10. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
             - **Purpose**: The owner saves one round's live score.
-        9. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
+        11. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
             - **Purpose**: Pushes each saved round to every player connected to the game.
-        10. `POST /games/:id/final-score` with `{ rounds: RoundScore[] }` → `{ game: Game, ratingChanges: RatingChange[] }` - E
-            - **Purpose**: The owner ends the game; triggers the rating update.
-        11. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
+        12. `POST /games/score` with `{ gameId, rounds: [team1Score, team2Score][] }` → `{ game: Game, rounds: GameRound[], ratingChanges: RatingChange[] }` - E
+            - **Purpose**: Ends the game with its final score. The rounds replace any saved during the game, and the game is marked as completed in the same transaction, so the score can only be reported once (`409` after that). Rejected with `400` if there are no rounds, a round score is not a non-negative whole number, a round is tied, or both teams won the same number of rounds. The caller must be in the game, and both teams must be full (`409` otherwise). `applyGameResult` updates every player's rating in the same transaction, so the score and ratings are saved together or not at all, and the response includes each player's rating before and after.
+        13. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
             - **Purpose**: Used by Matchmaking to create a proposed game.
 3. **Matchmaking**
     - **Purpose**: Owns the matchmaking queue and the matching algorithm, run by a background job every 30 seconds.
     - **Rationale**: Matching creates games without any player asking at that moment, so it runs on a timer, outside the request path. Alternative considered: matching inside Games when a request arrives. Rejected because it would put a slow, scheduled job in the request-serving component and make join requests race each other.
     - **Interfaces**:
-        1. `POST /matchmaking/requests` with `{ sport, format }` → `201 MatchmakingRequest` - E
+        1. `POST /matchmaking/requests` with `{ format }` → `201 MatchmakingRequest` - E
             - **Purpose**: Puts the caller in the queue.
         2. `GET /matchmaking/requests/me` → `MatchmakingRequest` - E
             - **Purpose**: Returns the caller's request, to show the "Searching" status.
@@ -370,22 +379,22 @@ Not included. The formal use cases describe each screen in enough detail for thi
             - **Purpose**: Takes the caller out of the queue.
         4. `Match[] runMatchmaking()` - In
             - **Purpose**: Called by the matchmaking job: reads the queue, finds matches, creates games and notifies players. It also removes requests older than 2 hours.
-4. **Scoring**
+4. **Ranking**
     - **Purpose**: Owns ratings, the ELO calculation (with margin of victory and doubles team averages) and the leaderboards.
     - **Rationale**: This is our own computation. It is a pure function that is easy to unit test, and it is the only code allowed to change ratings. Alternative considered: ratings as columns that Games updates directly. Rejected because Matchmaking and the feed also read ratings, and only one component should write them.
     - **Interfaces**:
-        1. `RatingChange[] applyGameResult(gameId: string, players: PlayerInfo[], game: GameInfo)` - In
-            - **Purpose**: Called by Games inside the final-score transaction: calculates and stores the new ratings.
+        1. `RatingChange[] applyGameResult(tx: TransactionClient, gameId: string, format: Format, rounds: RoundScore[])` - In
+            - **Purpose**: Called by Games inside the final-score transaction: reads the players' ratings (locking their rows so two games finishing at once can't overwrite each other), calculates the changes, saves each player's new rating and records the rating before and after in the match summary. Throws if either team is not full, which rolls back the whole transaction.
         2. `RatingChange[] calculateELOChange(players: PlayerInfo[], game: GameInfo)` - In
-            - **Purpose**: The pure ELO calculation used by `applyGameResult`.
-        3. `Map<string, number> getRatings(userIds: string[], sport: Sport)` - In
+            - **Purpose**: The pure ELO calculation used by `applyGameResult`. Teams are numbered 1 and 2, as everywhere else in the backend.
+        3. `Map<string, number> getRatings(userIds: string[])` - In
             - **Purpose**: Used by Games to show players' ratings in the feed and in a proposed game.
-        4. `GET /leaderboard/:sport` → `LeaderboardEntry[]` - E
-            - **Purpose**: Returns the players ranked by rating for one sport.
+        4. `GET /leaderboard` with an optional `limit` query parameter (1–100, default 50) → `{ leaderboard: LeaderboardEntry[], me: LeaderboardEntry }` - E
+            - **Purpose**: Returns the top players and the caller's own entry, each with `rank`, `id`, `username`, `name` and `rating`. Ratings are stored and sent with their decimals and the app shows them rounded to whole numbers. Players are ranked by the full decimal rating, so two players who show the same rounded rating are still ordered, and exact ties (such as new players at 1500) are ordered by username.
 
 ### **4.2. Databases**
 1. **PostgreSQL (`donut`)**
-    - **Purpose**: Stores users, ratings, courts, preferred courts, the matchmaking queue, games, game players and rounds (`backend/prisma/schema.prisma`).
+    - **Purpose**: Stores users, ratings, courts, preferred courts, the matchmaking queue, games, game players (with each player's rating before and after a completed game) and rounds (`backend/prisma/schema.prisma`).
     - **Rationale**: The data is relational: a match joins the queue with ratings and courts, and a game joins players and rounds. One relational database keeps those joins in single queries and lets a match or a final score be saved in one transaction. Alternative considered: MongoDB. Rejected because nothing here is document-shaped, and we would lose transactions across collections.
 
 ### **4.3. External Modules**

@@ -1,5 +1,7 @@
 import { prisma } from "../db";
 import { Game } from "../generated/prisma/client";
+import { GameStatus } from "../generated/prisma/enums";
+import { applyGameResult } from "../ranking/ranking.service";
 
 /**
  * Creates a game row using the given game information
@@ -7,7 +9,7 @@ import { Game } from "../generated/prisma/client";
  * @returns the created game, along with its ID
  */
 export async function createGame(game: Omit<Game, "id" | "createdAt">) {
-  return (await prisma.game.create({ data: game })) as Game;
+  return await prisma.game.create({ data: game });
 }
 
 /**
@@ -16,7 +18,7 @@ export async function createGame(game: Omit<Game, "id" | "createdAt">) {
  * @returns The respective game as a Game or null if the game was not found
  */
 export async function fetchGame(gameId: string): Promise<Game | null> {
-  return (await prisma.game.findUnique({ where: { id: gameId } })) as Game;
+  return await prisma.game.findUnique({ where: { id: gameId } });
 }
 
 /**
@@ -25,6 +27,58 @@ export async function fetchGame(gameId: string): Promise<Game | null> {
  */
 export async function deleteGame(gameId: string): Promise<void> {
   await prisma.game.delete({ where: { id: gameId } });
+}
+
+/**
+ * Updates the given fields of a game with the given game ID
+ * @param gameId the game ID of the game to update
+ * @param data the fields to change
+ * @returns the updated game
+ */
+export async function updateGame(
+  gameId: string,
+  data: Partial<Pick<Game, "startsAt" | "courtId">>,
+) {
+  return await prisma.game.update({ where: { id: gameId }, data });
+}
+
+/**
+ * Saves the final rounds of a game, marks it as completed and updates every player's rating
+ * in one transaction, replacing any rounds saved during the game
+ * @param gameId the game ID of the game to complete
+ * @param rounds the [team 1 score, team 2 score] of each round, in order
+ * @returns the completed game, its rounds and each player's rating change, or null if the game was already completed or cancelled
+ * @throws IncompleteTeamsError if either team is missing players; nothing is saved
+ */
+export async function completeGame(gameId: string, rounds: [number, number][]) {
+  return await prisma.$transaction(async (tx) => {
+    // Only complete a game that is still open, so two reports at once can't both save rounds
+    const { count } = await tx.game.updateMany({
+      where: {
+        id: gameId,
+        status: { notIn: [GameStatus.COMPLETED, GameStatus.CANCELLED] },
+      },
+      data: { status: GameStatus.COMPLETED },
+    });
+
+    if (count === 0) {
+      return null;
+    }
+
+    await tx.gameRound.deleteMany({ where: { gameId } });
+    const savedRounds = await tx.gameRound.createManyAndReturn({
+      data: rounds.map(([team1Score, team2Score], index) => ({
+        gameId,
+        number: index + 1,
+        team1Score,
+        team2Score,
+      })),
+    });
+    const game = await tx.game.findUniqueOrThrow({ where: { id: gameId } });
+    const ratingChanges = await applyGameResult(tx, gameId, game.format, rounds);
+
+    return { game, rounds: savedRounds, ratingChanges };
+  });
 }
 
 /**

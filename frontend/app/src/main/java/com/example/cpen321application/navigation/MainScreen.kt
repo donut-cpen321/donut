@@ -16,7 +16,7 @@ import com.example.cpen321application.core.auth.AuthViewModel
 @Composable
 fun MainScreen(
     serverClientId: String,
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
 ) {
     val navController = rememberNavController()
 
@@ -52,16 +52,20 @@ fun MainScreen(
             if (showBottomBar) {
                 AppBottomBar(navController = navController)
             }
-        }
+        },
     ) { innerPadding ->
-        AppNavGraph(
-            navController = navController,
+        val navGraphArgs = NavGraphArgs(
             serverClientId = serverClientId,
             session = authViewModel.session,
             startRoute = startRoute,
+            authViewModel = authViewModel,
             onLoginSuccess = { newUser -> authViewModel.signIn(newUser) },
             onSignOut = { authViewModel.logout() },
-            modifier = Modifier.padding(innerPadding)
+        )
+        AppNavGraph(
+            navController = navController,
+            args = navGraphArgs,
+            modifier = Modifier.padding(innerPadding),
         )
     }
 }
@@ -75,11 +79,11 @@ fun MainScreen(
 fun authRedirect(isSignedIn: Boolean, currentRoute: String?): String? {
     // Signed in but stuck on Login → go to Profile
     if (isSignedIn && currentRoute == Screen.Login.route) {
-        return Screen.Profile.route   
+        return Screen.Profile.route
     }
     // Signed out but on some other screen → go to Login
     if (!isSignedIn && currentRoute != Screen.Login.route) {
-        return Screen.Login.route     
+        return Screen.Login.route
     }
     return null
 }
