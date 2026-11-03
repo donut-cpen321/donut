@@ -266,14 +266,7 @@ class ProfileViewModel(
 
         val isDefault = state.equipmentIsDefaultInput
         val editing = state.editingEquipment
-
-        // Only tennis rackets should have a next maintenance at date, set to 1 month from now
-        val nextMaintenanceAt = if (type == EquipmentType.RACKET) {
-            val nextMonth = Instant.now().plus(30, ChronoUnit.DAYS)
-            DateTimeFormatter.ISO_INSTANT.format(nextMonth)
-        } else {
-            null
-        }
+        val nextMaintenanceAt = nextMaintenanceFor(type)
 
         viewModelScope.launch(ioDispatcher) {
             _uiState.update { it.copy(isActionInProgress = true, errorMessage = null) }
@@ -285,23 +278,7 @@ class ProfileViewModel(
                     nextMaintenanceAt = nextMaintenanceAt,
                 )
                 val result = equipmentRepository.createEquipment(session, request)
-                result.onSuccess {
-                    _uiState.update {
-                        it.copy(
-                            isActionInProgress = false,
-                            showEquipmentDialog = false,
-                            successMessage = "Equipment added",
-                        )
-                    }
-                    fetchEquipment(session)
-                }.onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isActionInProgress = false,
-                            errorMessage = error.localizedMessage ?: "Failed to add equipment",
-                        )
-                    }
-                }
+                handleEquipmentSaveResult(session, result, "Equipment added", "Failed to add equipment")
             } else {
                 val request = UpdateEquipmentRequestDto(
                     type = type.name,
@@ -310,23 +287,39 @@ class ProfileViewModel(
                     nextMaintenanceAt = nextMaintenanceAt,
                 )
                 val result = equipmentRepository.updateEquipment(session, editing.id, request)
-                result.onSuccess {
-                    _uiState.update {
-                        it.copy(
-                            isActionInProgress = false,
-                            showEquipmentDialog = false,
-                            successMessage = "Equipment updated",
-                        )
-                    }
-                    fetchEquipment(session)
-                }.onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isActionInProgress = false,
-                            errorMessage = error.localizedMessage ?: "Failed to update equipment",
-                        )
-                    }
-                }
+                handleEquipmentSaveResult(session, result, "Equipment updated", "Failed to update equipment")
+            }
+        }
+    }
+
+    // Only tennis rackets should have a next maintenance date, set to 1 month from now
+    private fun nextMaintenanceFor(type: EquipmentType): String? {
+        if (type != EquipmentType.RACKET) return null
+        val nextMonth = Instant.now().plus(30, ChronoUnit.DAYS)
+        return DateTimeFormatter.ISO_INSTANT.format(nextMonth)
+    }
+
+    private fun handleEquipmentSaveResult(
+        session: AuthSession,
+        result: Result<*>,
+        successMessage: String,
+        failureMessage: String,
+    ) {
+        result.onSuccess {
+            _uiState.update {
+                it.copy(
+                    isActionInProgress = false,
+                    showEquipmentDialog = false,
+                    successMessage = successMessage,
+                )
+            }
+            fetchEquipment(session)
+        }.onFailure { error ->
+            _uiState.update {
+                it.copy(
+                    isActionInProgress = false,
+                    errorMessage = error.localizedMessage ?: failureMessage,
+                )
             }
         }
     }
