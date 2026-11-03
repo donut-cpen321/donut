@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/requireAuth";
 import {
+  acceptMatchSchema,
   changeGameLocationSchema,
   changeGameTimeSchema,
   createGameSchema,
@@ -12,6 +13,9 @@ import {
 } from "./games.schemas";
 import { Prisma } from "../generated/prisma/client";
 import {
+  acceptMatch,
+  type AcceptMatchError,
+  acceptMatchErrors,
   cancelGame,
   type CancelGameError,
   cancelGameErrors,
@@ -40,6 +44,7 @@ const gameEditErrorStatus: Record<GameEditError, number> = {
   [gameEditErrors.NotInGame]: 403,
   [gameEditErrors.Closed]: 409,
   [gameEditErrors.IncompleteTeams]: 409,
+  [gameEditErrors.Matched]: 409,
 };
 
 const joinGameErrorStatus: Record<JoinGameError, number> = {
@@ -53,12 +58,20 @@ const leaveGameErrorStatus: Record<LeaveGameError, number> = {
   [leaveGameErrors.TournamentGame]: 409,
   [leaveGameErrors.Closed]: 409,
   [leaveGameErrors.TooLate]: 409,
+  [leaveGameErrors.Matched]: 409,
 };
 
 const cancelGameErrorStatus: Record<CancelGameError, number> = {
   [cancelGameErrors.NotFound]: 404,
   [cancelGameErrors.NotInGame]: 403,
   [cancelGameErrors.TournamentGame]: 409,
+  [cancelGameErrors.Closed]: 409,
+};
+
+const acceptMatchErrorStatus: Record<AcceptMatchError, number> = {
+  [acceptMatchErrors.NotFound]: 404,
+  [acceptMatchErrors.NotInGame]: 403,
+  [acceptMatchErrors.NotPending]: 409,
 };
 
 gamesRouter.use(requireAuth);
@@ -262,6 +275,38 @@ gamesRouter.post("/leave", async (req: Request, res: Response) => {
       res.status(404).json({ error: "User not in game" });
       return;
     }
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+gamesRouter.post("/accept", async (req: Request, res: Response) => {
+  const parsed = acceptMatchSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid request body",
+      details: z.flattenError(parsed.error),
+    });
+    return;
+  }
+
+  if (!req.userId) {
+    res.sendStatus(401);
+    return;
+  }
+
+  try {
+    const result = await acceptMatch(parsed.data.gameId, req.userId);
+
+    if (!result.success) {
+      res
+        .status(acceptMatchErrorStatus[result.error])
+        .json({ error: result.error });
+      return;
+    }
+    res.sendStatus(204);
+  } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });
   }

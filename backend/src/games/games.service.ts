@@ -2,7 +2,9 @@ import { getForecast } from "../external/weather";
 import { Format, GameSource, GameStatus } from "../generated/prisma/enums";
 import { IncompleteTeamsError } from "../ranking/ranking.service";
 import {
+  acceptMatch as recordAcceptance,
   addPlayerToTeam,
+  cancelMatchedGame,
   completeGame,
   createGame,
   deleteGame,
@@ -26,6 +28,7 @@ export const gameEditErrors = {
   NotInGame: "User not in game",
   Closed: "Game is already completed or cancelled",
   IncompleteTeams: "Game does not have full teams",
+  Matched: "Matched games can't be moved",
 } as const;
 
 export type GameEditError =
@@ -45,15 +48,26 @@ export const leaveGameErrors = {
   TournamentGame: "Players cannot leave a tournament game",
   Closed: "Game is already completed or cancelled",
   TooLate: "Game starts in less than 30 minutes",
+  Matched: "Matched games can't be left",
 } as const;
 
 export type LeaveGameError =
   (typeof leaveGameErrors)[keyof typeof leaveGameErrors];
 
+export const acceptMatchErrors = {
+  NotFound: "Game not found",
+  NotInGame: "User not in game",
+  NotPending: "Match is no longer waiting for answers",
+} as const;
+
+export type AcceptMatchError =
+  (typeof acceptMatchErrors)[keyof typeof acceptMatchErrors];
+
 export const cancelGameErrors = {
   NotFound: "Game not found",
-  NotInGame: "Unauthorized",
+  NotInGame: "User not in game",
   TournamentGame: "Tournament games cannot be cancelled",
+  Closed: "Game is already completed or cancelled",
 } as const;
 
 export type CancelGameError =
@@ -124,8 +138,9 @@ export async function getUserHistory(userId: string) {
 }
 
 /**
- * Cancels a game with the given game ID. Tournament games can't be cancelled, since the bracket depends on them
- * @param gameId the game ID of the game to be deleted
+ * Cancels a game with the given game ID: a scheduled game is deleted, a matched game is marked cancelled.
+ * Tournament games can't be cancelled, since the bracket depends on them
+ * @param gameId the game ID of the game to be cancelled
  * @param userId the user cancelling the game, who must be in it
  * @returns success, or the reason the game cannot be cancelled
  */
@@ -141,6 +156,13 @@ export async function cancelGame(gameId: GameIdInput, userId: string) {
 
   if (!(await isUserInGame(userId, gameId))) {
     return { success: false, error: cancelGameErrors.NotInGame } as const;
+  }
+
+  if (game.gameSource === GameSource.MATCHED) {
+    if (!(await cancelMatchedGame(gameId))) {
+      return { success: false, error: cancelGameErrors.Closed } as const;
+    }
+    return { success: true } as const;
   }
 
   await deleteGame(gameId);
@@ -189,8 +211,8 @@ export async function joinGame(gameId: string, userId: string, team: number) {
 }
 
 /**
- * Removes a given user from a given game, unless it is a tournament game, the game is closed or it starts in less
- * than 30 minutes
+ * Removes a given user from a given game, unless it is a tournament or matched game, the game is closed or it starts
+ * in less than 30 minutes
  * @param gameId the game ID of the game to leave
  * @param userId the user leaving the game
  * @returns success, or the reason the user cannot leave the game
@@ -204,6 +226,11 @@ export async function leaveGame(gameId: string, userId: string) {
   // Leaving would leave a team short in the bracket
   if (game.gameSource === GameSource.TOURNAMENT) {
     return { success: false, error: leaveGameErrors.TournamentGame } as const;
+  }
+
+  // Matched games keep the players matchmaking picked
+  if (game.gameSource === GameSource.MATCHED) {
+    return { success: false, error: leaveGameErrors.Matched } as const;
   }
 
   if (
@@ -222,14 +249,40 @@ export async function leaveGame(gameId: string, userId: string) {
 }
 
 /**
+ * Accepts a matched game for one of its players. The game is booked once every player has accepted
+ * @param gameId the game ID of the matched game
+ * @param userId the player accepting
+ * @returns success, or the reason the match cannot be accepted
+ */
+export async function acceptMatch(gameId: string, userId: string) {
+  const game = await fetchGame(gameId);
+  if (game === null) {
+    return { success: false, error: acceptMatchErrors.NotFound } as const;
+  }
+
+  if (!(await isUserInGame(userId, gameId))) {
+    return { success: false, error: acceptMatchErrors.NotInGame } as const;
+  }
+
+  const result = await recordAcceptance(gameId, userId, new Date());
+  if (result === "notPending") {
+    return { success: false, error: acceptMatchErrors.NotPending } as const;
+  }
+
+  return { success: true } as const;
+}
+
+/**
  * Checks that a game exists, that the given user is in it, and that it is not completed or cancelled
  * @param gameId the game ID of the game to edit
  * @param userId the user editing the game
+ * @param isMove true when changing the time or court, which matched games don't allow
  * @returns the reason the user cannot edit the game, or null if they can
  */
 async function checkCanEditGame(
   gameId: string,
   userId: string,
+  isMove = false,
 ): Promise<GameEditError | null> {
   const game = await fetchGame(gameId);
   if (game === null) {
@@ -247,6 +300,11 @@ async function checkCanEditGame(
     return gameEditErrors.Closed;
   }
 
+  // Matched players accepted this time and court
+  if (isMove && game.gameSource === GameSource.MATCHED) {
+    return gameEditErrors.Matched;
+  }
+
   return null;
 }
 
@@ -262,7 +320,7 @@ export async function changeGameTime(
   userId: string,
   startsAt: Date,
 ) {
-  const error = await checkCanEditGame(gameId, userId);
+  const error = await checkCanEditGame(gameId, userId, true);
   if (error) {
     return { success: false, error } as const;
   }
@@ -285,7 +343,7 @@ export async function changeGameLocation(
   userId: string,
   courtId: number,
 ) {
-  const error = await checkCanEditGame(gameId, userId);
+  const error = await checkCanEditGame(gameId, userId, true);
   if (error) {
     return { success: false, error } as const;
   }

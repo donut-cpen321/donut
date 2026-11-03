@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../auth/requireAuth";
 import { Prisma } from "../generated/prisma/client";
 import { joinQueueSchema } from "./matchmaking.schemas";
-import { getQueueEntry, joinQueue, leaveQueue } from "./matchmaking.service";
+import { ActiveMatchError, getQueueEntry, joinQueue, leaveQueue } from "./matchmaking.service";
 
 export const matchmakingRouter = Router();
 
@@ -29,6 +29,11 @@ matchmakingRouter.post("/", async (req: Request, res: Response) => {
     const request = await joinQueue(req.userId, parsedBody.data);
     res.status(201).json({ request });
   } catch (e) {
+    // 403, not 409: the app treats 409 as already being in the queue
+    if (e instanceof ActiveMatchError) {
+      res.status(403).json({ error: "Already has a match" });
+      return;
+    }
     // userId is the queue's primary key, so a second entry for the same player fails
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       res.status(409).json({ error: "Already in the queue" });

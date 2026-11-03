@@ -39,6 +39,10 @@ export const leaveGameSchema = z.strictObject({
   gameId: z.uuid(),
 });
 
+export const acceptMatchSchema = z.strictObject({
+  gameId: z.uuid(),
+});
+
 export const changeGameTimeSchema = z.strictObject({
   gameId: z.uuid(),
   startsAt: startsAtSchema,
@@ -74,6 +78,7 @@ export type GameIdInput = z.infer<typeof gameIdSchema>;
 export type JoinGameInput = z.infer<typeof joinGameSchema>;
 export type CreateGameUserInput = z.infer<typeof createGameUserSchema>;
 export type LeaveGameInput = z.infer<typeof leaveGameSchema>;
+export type AcceptMatchInput = z.infer<typeof acceptMatchSchema>;
 export type ChangeGameTimeInput = z.infer<typeof changeGameTimeSchema>;
 export type ChangeGameLocationInput = z.infer<typeof changeGameLocationSchema>;
 export type ReportScoreInput = z.infer<typeof reportScoreSchema>;
