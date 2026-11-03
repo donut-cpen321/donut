@@ -161,28 +161,19 @@ class FriendsRepositoryImpl(
         return null
     }
 
+    private val ELO_KEYS = listOf("elo", "rating", "eloRating", "rankRating")
+
     private fun extractElo(obj: JsonObject): Int? {
-        val candidateKeys = listOf("elo", "rating", "eloRating", "rankRating")
-        for (key in candidateKeys) {
-            if (obj.has(key) && !obj.get(key).isJsonNull) {
-                val elem = obj.get(key)
-                return try {
-                    elem.asInt
-                } catch (_: Exception) {
-                    try {
-                        elem.asDouble.toInt()
-                    } catch (_: Exception) {
-                        try {
-                            elem.asString.toDoubleOrNull()?.toInt()
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                }
-            }
-        }
-        return null
+        val elem = ELO_KEYS
+            .firstNotNullOfOrNull { key -> obj.get(key)?.takeUnless { it.isJsonNull } }
+            ?: return null
+        return parseEloElement(elem)
     }
+
+    private fun parseEloElement(elem: JsonElement): Int? =
+        runCatching { elem.asInt }.getOrNull()
+            ?: runCatching { elem.asDouble.toInt() }.getOrNull()
+            ?: runCatching { elem.asString.toDoubleOrNull()?.toInt() }.getOrNull()
 
     private inline fun <reified T> parseFlexibleList(
         jsonElement: JsonElement?,
