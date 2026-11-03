@@ -227,8 +227,14 @@ private fun ScoreCard(match: MatchResult) {
                     )
                 }
             }
-            ScoreRow(name = "You" + teammatesSuffix(match.partners), scores = match.myScores)
-            ScoreRow(name = playerNames(match.opponents), scores = match.myScores.map { it.second to it.first })
+            TeamSetScoresRow(
+                teamName = "You" + teammatesSuffix(match.partners),
+                ownVsOtherSetScores = match.myScores
+            )
+            TeamSetScoresRow(
+                teamName = playerNames(match.opponents),
+                ownVsOtherSetScores = match.myScores.map { it.second to it.first }
+            )
         }
     }
 }
@@ -236,18 +242,15 @@ private fun ScoreCard(match: MatchResult) {
 private fun teammatesSuffix(partners: List<Player>): String =
     if (partners.isEmpty()) "" else " & ${playerNames(partners)}"
 
-/**
- * @param scores this team's score and the other team's score in each set; the sets this team won are bold
- */
 @Composable
-private fun ScoreRow(name: String, scores: List<Pair<Int, Int>>) {
+private fun TeamSetScoresRow(teamName: String, ownVsOtherSetScores: List<Pair<Int, Int>>) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = name,
+            text = teamName,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f)
         )
-        scores.forEach { (own, other) ->
+        ownVsOtherSetScores.forEach { (own, other) ->
             Text(
                 text = own.toString(),
                 style = MaterialTheme.typography.titleMedium,
@@ -275,10 +278,10 @@ private fun PlayersSection(
         teams.forEachIndexed { index, team ->
             if (index > 0) HorizontalDivider()
             match.game.playersOnTeam(team).forEach { player ->
-                PlayerRow(
+                PlayerRowWithFriendButton(
                     player = player,
                     isMe = player.id == match.me.id,
-                    friendStatus = uiState.friendStatuses[player.id],
+                    friendStatusOrNullToHideButton = uiState.friendStatuses[player.id],
                     isSending = player.id in uiState.sendingRequestTo,
                     onAddFriend = { onAddFriend(player.id) }
                 )
@@ -302,18 +305,15 @@ private fun FriendMessage(uiState: MatchSummaryUiState, onDismiss: () -> Unit) {
     }
 }
 
-/**
- * @param friendStatus the signed-in user's friendship with this player, null for the user themselves
- *   or before the friends list loads
- */
 @Composable
-private fun PlayerRow(
+private fun PlayerRowWithFriendButton(
     player: Player,
     isMe: Boolean,
-    friendStatus: FriendStatus?,
+    friendStatusOrNullToHideButton: FriendStatus?,
     isSending: Boolean,
     onAddFriend: () -> Unit
 ) {
+    val friendStatus = friendStatusOrNullToHideButton
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
