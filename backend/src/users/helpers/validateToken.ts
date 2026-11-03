@@ -1,12 +1,18 @@
-import { OAuth2Client, type TokenPayload } from 'google-auth-library';
+import { OAuth2Client } from 'google-auth-library';
 
+// The fields of a verified Google ID token that login uses
+export interface GoogleProfile {
+  sub: string;
+  email?: string | undefined;
+  name?: string | undefined;
+}
 
 /**
  * Validates a user's auth token
  * @param idToken google auth token given by the frontend
- * @returns payload with user information provided by google, null if an error occured
+ * @returns the Google account's id, email and name, null if the token is invalid
  */
-export async function validateToken(idToken: string): Promise<TokenPayload | null> {
+export async function validateToken(idToken: string): Promise<GoogleProfile | null> {
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
   if (!googleClientId) {
@@ -22,7 +28,12 @@ export async function validateToken(idToken: string): Promise<TokenPayload | nul
       audience: googleClientId,
     });
 
-    return ticket.getPayload() ?? null;
+    const payload = ticket.getPayload();
+    if (!payload) {
+      return null;
+    }
+    const profile: GoogleProfile = { sub: payload.sub, email: payload.email, name: payload.name };
+    return profile;
   } catch (e)
   {
     console.error(e)

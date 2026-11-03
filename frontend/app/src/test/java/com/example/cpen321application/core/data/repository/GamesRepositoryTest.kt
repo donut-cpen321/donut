@@ -11,6 +11,7 @@ import com.example.cpen321application.core.data.model.GameTournament
 import com.example.cpen321application.core.data.model.Player
 import com.example.cpen321application.core.data.model.Round
 import com.example.cpen321application.core.network.ApiService
+import com.example.cpen321application.core.network.GamesApi
 import com.example.cpen321application.core.network.toUserMessage
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
@@ -110,17 +111,18 @@ class GamesRepositoryTest {
     }
 
     // Created on first use, after the server started
-    private val api by lazy {
+    private val retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(server.url("/"))
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(ApiService::class.java)
     }
+    private val api by lazy { retrofit.create(ApiService::class.java) }
+    private val gamesApi by lazy { retrofit.create(GamesApi::class.java) }
 
     private fun session(user: User? = signedIn) = AuthSession(api, user) {}
 
-    private fun repository(user: User? = signedIn) = GamesRepositoryImpl(session(user), api)
+    private fun repository(user: User? = signedIn) = GamesRepositoryImpl(session(user), gamesApi)
 
     private fun respond(code: Int, body: String = "") {
         server.enqueue(MockResponse().setResponseCode(code).setBody(body))
