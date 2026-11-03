@@ -1,4 +1,4 @@
-import { type NextFunction, type Request, type Response, Router} from 'express';
+import { type Request, type Response, Router} from 'express';
 import { z } from 'zod';
 import { logout, refreshTokens } from '../auth/auth.service';
 import { requireAuth } from '../auth/requireAuth';
@@ -10,11 +10,13 @@ import {
     login,
     loginErrors,
     removeEquipment,
+    saveFcmToken,
     type LoginError,
 } from './users.service';
 import {
     createEquipmentSchema,
     equipmentIdSchema,
+    fcmTokenSchema,
     loginSchema,
     refreshTokenSchema,
     updateEquipmentSchema,
@@ -100,9 +102,7 @@ usersRouter.post('/logout', async (req: Request, res: Response) => {
     }
 });
 
-usersRouter.use('/equipment', (req: Request, res: Response, next: NextFunction) => {
-    requireAuth(req, res, next);
-});
+usersRouter.use('/equipment', requireAuth);
 
 usersRouter.get('/equipment', async (req: Request, res: Response) => {
     if (!req.userId) {
@@ -208,12 +208,7 @@ usersRouter.delete('/equipment/:equipmentId', async (req: Request, res: Response
     }
 });
 
-usersRouter.get(
-    '/me',
-    (req: Request, res: Response, next: NextFunction) => {
-        requireAuth(req, res, next);
-    },
-    async (req: Request, res: Response) => {
+usersRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
         if (!req.userId) {
             res.sendStatus(401);
             return;
@@ -232,3 +227,27 @@ usersRouter.get(
         }
     },
 );
+
+usersRouter.put('/me/fcm-token', requireAuth, async (req: Request, res: Response) => {
+    const parsedBody = fcmTokenSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+        res.status(400).json({
+            error: 'Invalid request body',
+            details: z.flattenError(parsedBody.error),
+        });
+        return;
+    }
+
+    if (!req.userId) {
+        res.sendStatus(401);
+        return;
+    }
+
+    try {
+        await saveFcmToken(req.userId, parsedBody.data.token);
+        res.sendStatus(204);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});

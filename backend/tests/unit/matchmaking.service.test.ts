@@ -16,6 +16,8 @@ import {
   type MatchedPlayer,
 } from '../../src/matchmaking/matchmaking.service';
 import type { Location } from '../../src/matchmaking/geo';
+import { sendPush } from '../../src/external/fcm';
+import { clearFcmTokens, getFcmTokens } from '../../src/users/users.repository';
 
 jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
   getCandidates: jest.fn(),
@@ -24,10 +26,21 @@ jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
   claimMatch: jest.fn(),
 }));
 
+jest.mock('../../src/users/users.repository', () => ({
+  getFcmTokens: jest.fn(),
+  clearFcmTokens: jest.fn(),
+}));
+
+jest.mock('../../src/external/fcm', () => ({
+  sendPush: jest.fn(),
+}));
+
 const UBC: Location = { latitude: 49.2606, longitude: -123.246 }; // UBC campus
 const KITSILANO: Location = { latitude: 49.2684, longitude: -123.1683 }; // ~5.7 km from UBC
 const COMMERCIAL_DRIVE: Location = { latitude: 49.27, longitude: -123.07 }; // ~12.8 km from UBC, ~7.1 km from Kitsilano
 const SURREY: Location = { latitude: 49.1913, longitude: -122.849 }; // ~30 km from UBC
+
+const claimedGame = { id: 'game-1', court: { name: 'UBC Tennis Centre' } };
 
 function playerStub(userId: string, overrides: Partial<Candidate> = {}): Candidate {
   return { userId, format: 'SINGLES', rating: 1500, createdAt: new Date(0), ...UBC, ...overrides };
@@ -226,7 +239,10 @@ describe('runMatchmaking', () => {
   });
 
   beforeEach(() => {
-    jest.mocked(claimMatch).mockReset();
+    jest.mocked(claimMatch).mockReset().mockResolvedValue(claimedGame);
+    jest.mocked(getFcmTokens).mockReset().mockResolvedValue([]);
+    jest.mocked(clearFcmTokens).mockReset();
+    jest.mocked(sendPush).mockReset().mockResolvedValue([]);
     jest.mocked(getCourts).mockReset().mockResolvedValue([courtStub(7, SURREY), courtStub(8, KITSILANO)]);
     jest.mocked(getMatchedPlayers).mockReset().mockImplementation((userIds) =>
       Promise.resolve(userIds.map((id) => matchedPlayerStub(id))),
@@ -240,7 +256,6 @@ describe('runMatchmaking', () => {
     const now = Date.UTC(2026, 0, 1);
     jest.spyOn(Date, 'now').mockReturnValue(now);
     jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b'), playerStub('c', { rating: 2000 })]);
-    jest.mocked(claimMatch).mockResolvedValue(true);
 
     const match = { format: 'SINGLES', userIds: ['a', 'b'] };
     await expect(runMatchmaking()).resolves.toEqual([match]);
@@ -268,7 +283,6 @@ describe('runMatchmaking', () => {
     jest.mocked(getMatchedPlayers).mockImplementation((userIds) =>
       Promise.resolve(userIds.map((id) => matchedPlayerStub(id, 1500, []))),
     );
-    jest.mocked(claimMatch).mockResolvedValue(true);
 
     await expect(runMatchmaking()).resolves.toEqual([{ format: 'SINGLES', userIds: ['a', 'b'] }]);
     expect(claimMatch).toHaveBeenCalledWith(['a', 'b'], expect.objectContaining({ court: { connect: { id: 8 } } }));
@@ -284,12 +298,14 @@ describe('runMatchmaking', () => {
       playerStub('c', { rating: 2000, createdAt: new Date(3) }),
       playerStub('d', { rating: 2000, createdAt: new Date(4) }),
     ]);
-    jest.mocked(claimMatch).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    jest.mocked(claimMatch).mockResolvedValueOnce(null).mockResolvedValueOnce(claimedGame);
 
     await expect(runMatchmaking()).resolves.toEqual([
       { format: 'SINGLES', userIds: ['c', 'd'] },
     ]);
     expect(claimMatch).toHaveBeenCalledTimes(2);
+    expect(getFcmTokens).toHaveBeenCalledTimes(1);
+    expect(getFcmTokens).toHaveBeenCalledWith(['c', 'd']);
   });
 
   // Input: repository returns candidates that cannot be matched
@@ -300,6 +316,58 @@ describe('runMatchmaking', () => {
 
     await expect(runMatchmaking()).resolves.toEqual([]);
     expect(claimMatch).not.toHaveBeenCalled();
+  });
+
+  // Input: a claimed singles match; both players have a device token
+  // Expected behavior: one push to both devices naming the format and court, carrying the game id
+  // Expected output: sendPush called once with both tokens; no dead tokens, so nothing cleared
+  test('Notifies the players of a claimed match', async () => {
+    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b')]);
+    jest.mocked(getFcmTokens).mockResolvedValue(['token-a', 'token-b']);
+
+    await runMatchmaking();
+
+    expect(getFcmTokens).toHaveBeenCalledWith(['a', 'b']);
+    expect(sendPush).toHaveBeenCalledWith(['token-a', 'token-b'], {
+      title: 'Match found!',
+      body: 'Your singles game at UBC Tennis Centre starts in 1 hour. Open Donut to accept.',
+      data: { gameId: 'game-1' },
+    });
+    expect(clearFcmTokens).not.toHaveBeenCalled();
+  });
+
+  // Input: a claimed match; FCM says one player's token no longer exists
+  // Expected behavior: the dead token is removed so it is not used again
+  // Expected output: clearFcmTokens called with the dead token
+  test('Clears tokens FCM says are dead', async () => {
+    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b')]);
+    jest.mocked(getFcmTokens).mockResolvedValue(['token-a', 'token-b']);
+    jest.mocked(sendPush).mockResolvedValue(['token-b']);
+
+    await runMatchmaking();
+
+    expect(clearFcmTokens).toHaveBeenCalledWith(['token-b']);
+  });
+
+  // Input: two matches found; the push for the first one throws
+  // Expected behavior: the error is logged; the game stays claimed and the second match is still claimed and notified
+  // Expected output: both matches returned, sendPush called twice, error logged
+  test('Keeps going when a push fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest.mocked(getCandidates).mockResolvedValue([
+      playerStub('a', { createdAt: new Date(1) }),
+      playerStub('b', { createdAt: new Date(2) }),
+      playerStub('c', { rating: 2000, createdAt: new Date(3) }),
+      playerStub('d', { rating: 2000, createdAt: new Date(4) }),
+    ]);
+    jest.mocked(sendPush).mockRejectedValueOnce(new Error('FCM down')).mockResolvedValue([]);
+
+    await expect(runMatchmaking()).resolves.toEqual([
+      { format: 'SINGLES', userIds: ['a', 'b'] },
+      { format: 'SINGLES', userIds: ['c', 'd'] },
+    ]);
+    expect(sendPush).toHaveBeenCalledTimes(2);
+    expect(consoleError).toHaveBeenCalled();
   });
 });
 

@@ -1,7 +1,7 @@
 // Queries for overlapping availabilities, nearby courts, close ratings.
 import { prisma } from '../db';
 import type { Prisma } from '../generated/prisma/client';
-import type { Candidate, CourtLocation, MatchedPlayer, QueueEntry } from './matchmaking.service';
+import type { Candidate, ClaimedGame, CourtLocation, MatchedPlayer, QueueEntry } from './matchmaking.service';
 import type { JoinQueueInput } from './matchmaking.schemas';
 
 /**
@@ -64,11 +64,11 @@ class MatchUnavailableError extends Error {}
  *
  * @param userIds - The ids of the matched players.
  * @param game - The game to create for them.
- * @returns true if every player was still waiting and the game was created.
+ * @returns The created game, or null if a player was no longer waiting.
  */
-export async function claimMatch(userIds: string[], game: Prisma.GameCreateInput): Promise<boolean> {
+export async function claimMatch(userIds: string[], game: Prisma.GameCreateInput): Promise<ClaimedGame | null> {
   try {
-    await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       const { count } = await tx.matchmakingRequest.deleteMany({
         where: { userId: { in: userIds } },
       });
@@ -76,11 +76,10 @@ export async function claimMatch(userIds: string[], game: Prisma.GameCreateInput
       // If not all players are still waiting
       if (count !== userIds.length) throw new MatchUnavailableError();
 
-      await tx.game.create({ data: game });
+      return await tx.game.create({ data: game, select: { id: true, court: { select: { name: true } } } });
     });
-    return true;
   } catch (err) {
-    if (err instanceof MatchUnavailableError) return false;
+    if (err instanceof MatchUnavailableError) return null;
     throw err;
   }
 }

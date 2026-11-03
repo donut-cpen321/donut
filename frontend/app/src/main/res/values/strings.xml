@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">CPEN321 Application</string>
+    <string name="match_channel_id" translatable="false">matches</string>
+    <string name="match_channel_name">Matches</string>
 </resources>

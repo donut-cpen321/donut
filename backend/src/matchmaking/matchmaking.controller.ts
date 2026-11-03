@@ -1,4 +1,4 @@
-import { NextFunction, Router, type Request, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/requireAuth";
 import { Prisma } from "../generated/prisma/client";
@@ -7,9 +7,7 @@ import { getQueueEntry, joinQueue, leaveQueue } from "./matchmaking.service";
 
 export const matchmakingRouter = Router();
 
-matchmakingRouter.use((req: Request, res: Response, next: NextFunction) => {
-  requireAuth(req, res, next);
-});
+matchmakingRouter.use(requireAuth);
 
 matchmakingRouter.post("/", async (req: Request, res: Response) => {
   const parsedBody = joinQueueSchema.safeParse(req.body);

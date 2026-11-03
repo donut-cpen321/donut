@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import kotlinx.coroutines.delay
 import com.example.cpen321application.core.auth.AuthSession
+import com.example.cpen321application.core.notifications.rememberAskNotificationPermission
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedButton
@@ -98,6 +99,7 @@ fun MatchmakingRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val loadLocation = rememberLocationLoader(viewModel)
+    val askNotificationPermission = rememberAskNotificationPermission()
     val scope = rememberCoroutineScope()
 
     // The player may have joined the queue before the app was closed
@@ -129,7 +131,10 @@ fun MatchmakingRoute(
         onUseCurrentLocation = rememberOnUseCurrentLocation(viewModel, loadLocation),
         onEnterAddress = rememberOnEnterAddress(viewModel, loadLocation),
         onFormatSelected = viewModel::onFormatSelected,
-        onFindMatch = { scope.launch { viewModel.onFindMatch() } },
+        onFindMatch = {
+            askNotificationPermission()
+            scope.launch { viewModel.onFindMatch() }
+        },
         onLeaveQueue = { scope.launch { viewModel.onLeaveQueue() } }
     )
 }
