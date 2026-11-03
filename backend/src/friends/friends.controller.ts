@@ -1,4 +1,4 @@
-import { NextFunction, Router, type Request, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/requireAuth";
 import { Prisma } from "../generated/prisma/client";
@@ -20,9 +20,7 @@ const friendRequestErrorResponses = {
 
 export const friendsRouter = Router();
 
-friendsRouter.use((req: Request, res: Response, next: NextFunction) => {
-  requireAuth(req, res, next);
-});
+friendsRouter.use(requireAuth);
 
 friendsRouter.get("/", async (req: Request, res: Response) => {
   if (!req.userId) {
