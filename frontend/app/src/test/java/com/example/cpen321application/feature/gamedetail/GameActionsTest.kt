@@ -6,6 +6,7 @@ import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.GameSource
 import com.example.cpen321application.core.data.model.GameStatus
 import com.example.cpen321application.core.data.model.Player
+import com.example.cpen321application.core.network.dto.FriendDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -199,5 +200,38 @@ class GameActionsTest {
         assertFalse(actions.canLeave)
         assertFalse(actions.leaveTooLate)
         assertFalse(actions.canChangeTimeOrCourt)
+    }
+
+    // Input: player in an open scheduled game that has not started
+    // Expected output: they can invite friends
+    @Test
+    fun playerCanInviteFriendsToAnOpenGame() {
+        assertTrue(gameActions(game(), "alice", now).canInvite)
+    }
+
+    // Input: games a friend could not join: viewed by a non-player, booked, matched, tournament, started, completed
+    // Expected output: no invites
+    @Test
+    fun cannotInviteToGamesFriendsCannotJoin() {
+        assertFalse(gameActions(game(), "bob", now).canInvite)
+        assertFalse(gameActions(game(), null, now).canInvite)
+        assertFalse(
+            gameActions(game(players = listOf(alice, bob), status = GameStatus.BOOKED), "alice", now).canInvite
+        )
+        assertFalse(gameActions(game(source = GameSource.MATCHED), "alice", now).canInvite)
+        assertFalse(gameActions(game(source = GameSource.TOURNAMENT), "alice", now).canInvite)
+        assertFalse(gameActions(game(startsIn = Duration.ZERO), "alice", now).canInvite)
+        assertFalse(gameActions(game(status = GameStatus.COMPLETED), "alice", now).canInvite)
+    }
+
+    // Input: friends bob, who is already playing, and dave, who is not
+    // Expected output: only dave can be invited
+    @Test
+    fun friendsInTheGameAreNotInvitable() {
+        val friends = listOf(FriendDto(bob.id, bob.username), FriendDto("u4", "dave"))
+
+        val invitable = invitableFriends(friends, game(players = listOf(alice, bob)))
+
+        assertEquals(listOf("u4"), invitable.map { it.userId })
     }
 }

@@ -10,6 +10,7 @@ import com.example.cpen321application.core.network.dto.AcceptMatchRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameLocationRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameTimeRequestDto
 import com.example.cpen321application.core.network.dto.CreateGameRequestDto
+import com.example.cpen321application.core.network.dto.InviteFriendRequestDto
 import com.example.cpen321application.core.network.dto.JoinGameRequestDto
 import com.example.cpen321application.core.network.dto.LeaveGameRequestDto
 import com.example.cpen321application.core.network.dto.ReportScoreRequestDto
@@ -40,6 +41,9 @@ interface GamesRepository {
 
     // Accepts a matched game for the signed-in user. The game is booked once every player has
     suspend fun acceptMatch(gameId: String): Result<Unit>
+
+    // Invites a friend to the game with a push notification. True if their device was notified
+    suspend fun inviteFriend(gameId: String, userId: String): Result<Boolean>
 
     suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit>
 
@@ -85,6 +89,9 @@ class GamesRepositoryImpl(
 
     override suspend fun acceptMatch(gameId: String): Result<Unit> =
         request { apiService.acceptMatch(it, AcceptMatchRequestDto(gameId)) }
+
+    override suspend fun inviteFriend(gameId: String, userId: String): Result<Boolean> =
+        request { apiService.inviteToGame(it, InviteFriendRequestDto(gameId, userId)).notified }
 
     override suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit> =
         request { apiService.changeGameTime(it, ChangeGameTimeRequestDto(gameId, toIsoString(startsAt))) }

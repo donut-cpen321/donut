@@ -3,6 +3,7 @@ import { createApp } from "../../src/app";
 import { Game, Prisma } from "../../src/generated/prisma/client";
 import {
   Format,
+  FriendshipStatus,
   GameSource,
   GameStatus,
 } from "../../src/generated/prisma/enums";
@@ -41,6 +42,12 @@ import {
   reportScore,
 } from "../../src/games/games.service";
 import { getForecast } from "../../src/external/weather";
+import { isPushEnabled, sendPush } from "../../src/external/fcm";
+import { fetchFriendship } from "../../src/friends/friends.repository";
+import {
+  clearFcmTokens,
+  getFcmTokens,
+} from "../../src/users/users.repository";
 import { signAccessToken } from "../../src/auth/tokens";
 import { IncompleteTeamsError } from "../../src/ranking/ranking.service";
 
@@ -69,6 +76,26 @@ jest.mock("../../src/games/games.repository", () => ({
 jest.mock("../../src/external/weather", () => ({
   getForecast: jest.fn(),
 }));
+
+jest.mock("../../src/external/fcm", () => ({
+  isPushEnabled: jest.fn(),
+  sendPush: jest.fn(),
+}));
+
+jest.mock("../../src/friends/friends.repository", () => ({
+  fetchFriendship: jest.fn(),
+}));
+
+jest.mock("../../src/users/users.repository", () => ({
+  getFcmTokens: jest.fn(),
+  clearFcmTokens: jest.fn(),
+}));
+
+const mockedIsPushEnabled = jest.mocked(isPushEnabled);
+const mockedSendPush = jest.mocked(sendPush);
+const mockedFetchFriendship = jest.mocked(fetchFriendship);
+const mockedGetFcmTokens = jest.mocked(getFcmTokens);
+const mockedClearFcmTokens = jest.mocked(clearFcmTokens);
 
 const mockedCreateGame = jest.mocked(createGame);
 const mockedFetchGame = jest.mocked(fetchGame);
@@ -158,6 +185,13 @@ describe("Mocked: /games requireAuth", () => {
       [
         "POST /games/accept",
         () => request(createApp()).post("/games/accept").send({ gameId }),
+      ],
+      [
+        "POST /games/invite",
+        () =>
+          request(createApp())
+            .post("/games/invite")
+            .send({ gameId, userId: gameId }),
       ],
       [
         "PATCH /games/time",
@@ -2305,5 +2339,211 @@ describe("Mocked: matched games can be cancelled but not left or moved", () => {
     expect(response.status).toBe(409);
     expect(response.body).toEqual({ error: "Matched games can't be moved" });
     expect(mockedUpdateGame).not.toHaveBeenCalled();
+  });
+});
+
+describe("Mocked: POST /games/invite", () => {
+  const inviteGameId = "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b";
+  const friendId = "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
+
+  const friendship = (status: FriendshipStatus) => ({
+    requesterId: userId,
+    addresseeId: friendId,
+    status,
+    createdAt: new Date(),
+    acceptedAt: status === FriendshipStatus.ACCEPTED ? new Date() : null,
+  });
+
+  const invite = (body: object = { gameId: inviteGameId, userId: friendId }) =>
+    request(createApp())
+      .post("/games/invite")
+      .set("Authorization", authHeader)
+      .send(body);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedFetchGameDetails.mockResolvedValue(gameDetails());
+    mockedFetchFriendship.mockResolvedValue(friendship(FriendshipStatus.ACCEPTED));
+    mockedIsPushEnabled.mockReturnValue(true);
+    mockedGetFcmTokens.mockResolvedValue(["friend-token"]);
+    mockedSendPush.mockResolvedValue([]);
+  });
+
+  // Input: the FIREBASE_* credentials are not set
+  // Expected status code: 200
+  // Expected behavior: no push is attempted, and the app is told the friend was not notified
+  // Expected output: { notified: false }
+  test("Returns notified false when push notifications are not configured", async () => {
+    mockedIsPushEnabled.mockReturnValue(false);
+    const consoleWarn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const response = await invite();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ notified: false });
+    expect(mockedSendPush).not.toHaveBeenCalled();
+    consoleWarn.mockRestore();
+  });
+
+  // Input: a player of an open scheduled game invites a friend who has a push token
+  // Expected status code: 200
+  // Expected behavior: the friend gets a push that opens the game
+  // Expected output: { notified: true }
+  test("Sends the friend a push notification for the game", async () => {
+    const response = await invite();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ notified: true });
+    expect(mockedGetFcmTokens).toHaveBeenCalledWith([friendId]);
+    expect(mockedSendPush).toHaveBeenCalledWith(["friend-token"], {
+      title: "Game invite",
+      body: "Ace Player invited you to a singles game at Kitsilano Beach Park.",
+      data: { gameId: inviteGameId, type: "gameInvite" },
+    });
+    expect(mockedClearFcmTokens).not.toHaveBeenCalled();
+  });
+
+  // Input: the friend has no push token
+  // Expected status code: 200
+  // Expected behavior: no push is sent
+  // Expected output: { notified: false }
+  test("Returns notified false when the friend has no push token", async () => {
+    mockedGetFcmTokens.mockResolvedValue([]);
+
+    const response = await invite();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ notified: false });
+    expect(mockedSendPush).not.toHaveBeenCalled();
+  });
+
+  // Input: FCM says the friend's token no longer exists
+  // Expected status code: 200
+  // Expected behavior: the dead token is cleared
+  // Expected output: { notified: false }
+  test("Clears a dead token and returns notified false", async () => {
+    mockedSendPush.mockResolvedValue(["friend-token"]);
+
+    const response = await invite();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ notified: false });
+    expect(mockedClearFcmTokens).toHaveBeenCalledWith(["friend-token"]);
+  });
+
+  // Input: a userId that is not a UUID
+  // Expected status code: 400
+  // Expected behavior: nothing is sent
+  // Expected output: the validation error
+  test("Rejects a body with a non-UUID userId", async () => {
+    const response = await invite({ gameId: inviteGameId, userId: "nope" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Invalid request body");
+    expect(mockedFetchGameDetails).not.toHaveBeenCalled();
+  });
+
+  // Input: the game does not exist
+  // Expected status code: 404
+  // Expected behavior: nothing is sent
+  // Expected output: { error: "Game not found" }
+  test("Returns 404 when the game does not exist", async () => {
+    mockedFetchGameDetails.mockResolvedValue(null);
+
+    const response = await invite();
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "Game not found" });
+    expect(mockedSendPush).not.toHaveBeenCalled();
+  });
+
+  // Input: the inviter is not a player of the game
+  // Expected status code: 403
+  // Expected behavior: nothing is sent
+  // Expected output: { error: "User not in game" }
+  test("Returns 403 when the inviter is not in the game", async () => {
+    mockedFetchGameDetails.mockResolvedValue(gameDetails({ players: [] }));
+
+    const response = await invite();
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "User not in game" });
+    expect(mockedSendPush).not.toHaveBeenCalled();
+  });
+
+  // Input: the game is matched, booked or already started
+  // Expected status code: 409
+  // Expected behavior: nothing is sent
+  // Expected output: { error: "Game is not open to join" }
+  test.each([
+    ["a matched game", { gameSource: GameSource.MATCHED }],
+    ["a booked game", { status: GameStatus.BOOKED }],
+    ["a game that started", { startsAt: new Date(Date.now() - 60 * 1000) }],
+  ])("Returns 409 for %s", async (_name, overrides) => {
+    mockedFetchGameDetails.mockResolvedValue(gameDetails(overrides));
+
+    const response = await invite();
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Game is not open to join" });
+    expect(mockedSendPush).not.toHaveBeenCalled();
+  });
+
+  // Input: the invited user is already a player of the game
+  // Expected status code: 409
+  // Expected behavior: nothing is sent
+  // Expected output: { error: "User already in game" }
+  test("Returns 409 when the friend is already in the game", async () => {
+    const { players } = gameDetails();
+    mockedFetchGameDetails.mockResolvedValue(
+      gameDetails({
+        players: [
+          ...players,
+          ...players.map((player) => ({ ...player, id: friendId, team: 2 })),
+        ],
+      }),
+    );
+
+    const response = await invite();
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "User already in game" });
+    expect(mockedSendPush).not.toHaveBeenCalled();
+  });
+
+  // Input: the users are not friends, or the request is still pending
+  // Expected status code: 403
+  // Expected behavior: nothing is sent
+  // Expected output: { error: "Users are not friends" }
+  test.each([
+    ["no friendship", null],
+    ["a pending request", friendship(FriendshipStatus.PENDING)],
+  ])("Returns 403 with %s", async (_name, existing) => {
+    mockedFetchFriendship.mockResolvedValue(existing);
+
+    const response = await invite();
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Users are not friends" });
+    expect(mockedSendPush).not.toHaveBeenCalled();
+  });
+
+  // Input: sending the push fails
+  // Expected status code: 500
+  // Expected behavior: the error is logged
+  // Expected output: { error: "Internal server error" }
+  test("Returns 500 when the push cannot be sent", async () => {
+    mockedSendPush.mockRejectedValue(new Error("FCM down"));
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const response = await invite();
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Internal server error" });
+    consoleError.mockRestore();
   });
 });

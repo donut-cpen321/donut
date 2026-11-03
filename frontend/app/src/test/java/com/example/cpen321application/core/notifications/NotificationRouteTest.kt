@@ -14,6 +14,14 @@ class NotificationRouteTest {
         assertEquals(Screen.Matchmaking.route, notificationRoute("game-1"))
     }
 
+    // Input: the app was opened from a friend's game invite
+    // Expected behavior: go to the game, where the user can join it
+    // Expected output: the game's screen
+    @Test
+    fun gameInviteOpensTheGame() {
+        assertEquals(Screen.GameDetail.createRoute("game-1"), notificationRoute("game-1", GAME_INVITE_TYPE))
+    }
+
     // Input: the app was opened normally, without a notification
     // Expected behavior: stay where the app starts
     // Expected output: null
