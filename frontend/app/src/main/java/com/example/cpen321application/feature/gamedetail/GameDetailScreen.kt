@@ -1,5 +1,6 @@
 package com.example.cpen321application.feature.gamedetail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,12 +9,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -42,14 +45,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.GameStatus
+import com.example.cpen321application.core.data.model.GameTournament
 import com.example.cpen321application.core.data.model.Round
 import com.example.cpen321application.core.data.model.TEAMS
 import com.example.cpen321application.core.data.model.playersOnTeam
 import com.example.cpen321application.core.data.model.teamSize
 import com.example.cpen321application.core.ui.components.BackHeader
+import com.example.cpen321application.core.ui.components.ConfirmDialog
 import com.example.cpen321application.core.ui.components.CourtPickerDialog
 import com.example.cpen321application.core.ui.components.DateTimePickerDialog
 import com.example.cpen321application.core.ui.formatStartsAt
+import com.example.cpen321application.core.ui.gameTournamentText
 import com.example.cpen321application.core.ui.label
 import java.time.Instant
 import kotlin.math.roundToInt
@@ -66,6 +72,7 @@ private const val MAX_SETS = 5
  * @property onChangeCourt moves the game to the court with this id
  * @property onReportScore reports the final score, then calls onReported if the backend accepted it
  * @property onCancelGame cancels the game for every player
+ * @property onOpenTournament opens the bracket of the tournament with this id, for a tournament game
  */
 data class GameDetailCallbacks(
     val onJoin: (team: Int) -> Unit,
@@ -74,7 +81,8 @@ data class GameDetailCallbacks(
     val onOpenCourtPicker: () -> Unit,
     val onChangeCourt: (courtId: Int) -> Unit,
     val onReportScore: (rounds: List<Pair<Int, Int>>, onReported: () -> Unit) -> Unit,
-    val onCancelGame: () -> Unit
+    val onCancelGame: () -> Unit,
+    val onOpenTournament: (tournamentId: String) -> Unit
 )
 
 // The dialogs the game screen opens, at most one at a time
@@ -83,10 +91,11 @@ private enum class GameDialog { TIME, COURT, SCORE, LEAVE, CANCEL }
 @Composable
 fun GameDetailRoute(
     viewModel: GameDetailViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenTournament: (tournamentId: String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val callbacks = remember(viewModel, onBack) {
+    val callbacks = remember(viewModel, onBack, onOpenTournament) {
         GameDetailCallbacks(
             onJoin = viewModel::join,
             onLeave = viewModel::leave,
@@ -94,7 +103,8 @@ fun GameDetailRoute(
             onOpenCourtPicker = viewModel::loadCourts,
             onChangeCourt = viewModel::changeCourt,
             onReportScore = viewModel::reportScore,
-            onCancelGame = { viewModel.cancel(onCancelled = onBack) }
+            onCancelGame = { viewModel.cancel(onCancelled = onBack) },
+            onOpenTournament = onOpenTournament
         )
     }
 
@@ -165,7 +175,7 @@ private fun GameDetails(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        GameSummaryCard(game = game)
+        GameSummaryCard(game = game, onOpenTournament = callbacks.onOpenTournament)
 
         TEAMS.forEach { team ->
             TeamSection(
@@ -214,7 +224,7 @@ private fun GameDetails(
 }
 
 @Composable
-private fun GameSummaryCard(game: Game) {
+private fun GameSummaryCard(game: Game, onOpenTournament: (tournamentId: String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -227,7 +237,34 @@ private fun GameSummaryCard(game: Game) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (game.tournament != null) {
+                TournamentLink(tournament = game.tournament, onClick = { onOpenTournament(game.tournament.id) })
+            }
         }
+    }
+}
+
+@Composable
+private fun TournamentLink(tournament: GameTournament, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = "Open the bracket", onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Star,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = gameTournamentText(tournament),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }
 
@@ -515,26 +552,5 @@ private fun ScoreField(value: String, onValueChange: (String) -> Unit) {
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.width(80.dp)
-    )
-}
-
-@Composable
-private fun ConfirmDialog(
-    title: String,
-    text: String,
-    confirmLabel: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(text) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(confirmLabel) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Back") }
-        }
     )
 }

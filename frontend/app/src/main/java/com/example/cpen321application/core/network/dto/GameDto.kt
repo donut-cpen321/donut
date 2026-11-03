@@ -6,6 +6,7 @@ import com.example.cpen321application.core.data.model.Format
 import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.GameSource
 import com.example.cpen321application.core.data.model.GameStatus
+import com.example.cpen321application.core.data.model.GameTournament
 import com.example.cpen321application.core.data.model.Player
 import com.example.cpen321application.core.data.model.Round
 import java.time.Instant
@@ -21,7 +22,8 @@ data class GameDto(
     val court: CourtDto,
     val players: List<PlayerDto>,
     val rounds: List<RoundDto>,
-    val forecast: ForecastDto?
+    val forecast: ForecastDto?,
+    val tournament: GameTournamentDto?  // null unless the game is a tournament match
 )
 
 data class CourtDto(
@@ -45,6 +47,12 @@ data class RoundDto(
     val team2Score: Int
 )
 
+data class GameTournamentDto(
+    val id: String,
+    val name: String,
+    val round: Int
+)
+
 data class ForecastDto(
     val temperature: Double,
     val description: String,
@@ -59,9 +67,14 @@ fun GameDto.toGame(): Game = Game(
     startsAt = Instant.parse(startsAt),
     court = court.toCourt(),
     players = players.map { Player(it.id, it.username, it.name, it.rating, it.team) },
-    rounds = rounds.map { Round(it.number, it.team1Score, it.team2Score) },
-    forecast = forecast?.let { Forecast(it.temperature, it.description, it.precipitationChance) }
+    rounds = rounds.map { it.toRound() },
+    forecast = forecast?.toForecast(),
+    tournament = tournament?.let { GameTournament(it.id, it.name, it.round) }
 )
+
+fun ForecastDto.toForecast(): Forecast = Forecast(temperature, description, precipitationChance)
+
+fun RoundDto.toRound(): Round = Round(number, team1Score, team2Score)
 
 fun CourtDto.toCourt(): Court = Court(
     id = id,

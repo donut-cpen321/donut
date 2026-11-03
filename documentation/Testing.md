@@ -6,6 +6,7 @@
 | ----------------- | --------------------- | ------------- |
 | 10-19-2026        | 2. Back-end Test      | Added tests   |
 | 11-01-2026        | 2.1.1                 | Added tests for `GET /courts`, `GET /games`, `GET /games/feed`, `GET /games/me`, `POST /games/join` and `POST /games/leave`, the OpenWeather client and the games and courts repositories |
+| 11-02-2026        | 2.1.1, 2.1.3, 2.2     | Added tests for the tournament routes, the tournament and bracket repositories and the bracket rules, updated the rows of the games routes that tournaments changed, and noted that the no-mock tests need a migrated Postgres database |
 
 ---
 
@@ -20,16 +21,27 @@
 | **POST /user/login**          | ...                                                  | [`tests/mock/userLogin.test.ts`](#)                | Google Authentication API, User DB |
 | **Matchmaking**               | ...                                                  | [`tests/mock/matchmaking.job.test.ts`](#)          | Task Scheduler                     |
 | **GET /courts**               | ...                                                  | [`tests/mock/courts.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Court DB                 |
+| **POST /games**               | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
 | **GET /games**                | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
-| **GET /games/feed**           | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#), [`tests/mock/weather.test.ts`](#) | Game DB, OpenWeather API |
-| **GET /games/me**             | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
-| **POST /games/join**          | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
-| **POST /games/leave**         | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
+| **GET /games/feed**           | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#), [`tests/mock/weather.test.ts`](#) | Game DB, OpenWeather API           |
+| **GET /games/me**             | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
+| **DELETE /games**             | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
+| **POST /games/join**          | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
+| **POST /games/leave**         | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
 | **PATCH /games/time**         | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
 | **PATCH /games/location**     | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
-| **POST /games/score**         | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
+| **POST /games/score**         | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#), [`tests/mock/bracket.repository.test.ts`](#) | Game DB, Tournament DB             |
+| **POST /tournaments**         | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/tournaments.test.ts`](#), [`tests/mock/tournaments.repository.test.ts`](#) | Tournament DB                      |
+| **GET /tournaments**          | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/tournaments.test.ts`](#), [`tests/mock/tournaments.repository.test.ts`](#) | Tournament DB                      |
+| **GET /tournaments/feed**     | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/tournaments.test.ts`](#), [`tests/mock/tournaments.repository.test.ts`](#), [`tests/mock/weather.test.ts`](#) | Tournament DB, OpenWeather API     |
+| **GET /tournaments/me**       | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/tournaments.test.ts`](#), [`tests/mock/tournaments.repository.test.ts`](#) | Tournament DB                      |
+| **POST /tournaments/join**    | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/tournaments.test.ts`](#), [`tests/mock/tournaments.repository.test.ts`](#), [`tests/mock/bracket.repository.test.ts`](#) | Tournament DB, Game DB             |
+| **POST /tournaments/leave**   | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/tournaments.test.ts`](#), [`tests/mock/tournaments.repository.test.ts`](#) | Tournament DB                      |
+| **DELETE /tournaments**       | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/tournaments.test.ts`](#), [`tests/mock/tournaments.repository.test.ts`](#) | Tournament DB                      |
 | ...                           | ...                                                  | ...                                                | ...                                |
 | ...                           | ...                                                  | ...                                                | ...                                |
+
+The rows that cite `tests/no-mock/tournaments.test.ts` run in its `Unmocked: tournament flow` describe group, against a real, migrated Postgres database (see 2.1.3). The pure bracket rules (`formTeams`, the bracket's slots, where a winner plays next and when each round starts) are unit tested in `tests/unit/bracket.test.ts`.
 
 #### 2.1.2. Commit Hash Where Tests Run
 
@@ -44,11 +56,17 @@
      git clone https://github.com/example/your-project.git
      ```
 
-2. **...**
+2. **Start a database for the no-mock tests**:
+
+   - The no-mock tests (`tests/no-mock/`) now read and write a real, migrated Postgres database at `DATABASE_URL` (set in `backend/.env`). From the repository root, start one with `docker compose up -d postgres` (it needs `POSTGRES_PASSWORD` in `./.env`), then run `npx prisma migrate deploy` in `backend/`. The GitHub Actions workflow (2.2) provides its own Postgres service and runs the migrations before the tests.
+
+3. **Run the tests**:
+
+   - In `backend/`, run `npm ci`, `npm run generate`, then `npm test` for every suite with coverage. `npx jest tests/unit tests/mock` runs only the unit and mocked tests, which need no database.
 
 ### 2.2. GitHub Actions Configuration Location
 
-`~/.github/workflows/backend-tests.yml`
+`~/.github/workflows/backend-test.yml`
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 

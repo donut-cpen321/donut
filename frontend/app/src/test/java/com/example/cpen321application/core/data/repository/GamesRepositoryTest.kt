@@ -7,6 +7,7 @@ import com.example.cpen321application.core.data.model.Forecast
 import com.example.cpen321application.core.data.model.Format
 import com.example.cpen321application.core.data.model.GameSource
 import com.example.cpen321application.core.data.model.GameStatus
+import com.example.cpen321application.core.data.model.GameTournament
 import com.example.cpen321application.core.data.model.Player
 import com.example.cpen321application.core.data.model.Round
 import com.example.cpen321application.core.network.ApiService
@@ -76,6 +77,25 @@ class GamesRepositoryTest {
           ]
         }
     """.trimIndent()
+
+    private val tournamentGameJson = """
+        {
+          "id": "$gameId",
+          "format": "SINGLES",
+          "status": "BOOKED",
+          "startsAt": "2026-11-02T19:00:00.000Z",
+          "courtId": 3,
+          "createdAt": "2026-11-02T18:30:00.000Z",
+          "gameSource": "TOURNAMENT",
+          "court": { "id": 3, "name": "Kitsilano Beach", "latitude": 49.27, "longitude": -123.15 },
+          "players": [
+            { "id": "u1", "username": "alice", "name": "Alice A", "rating": 1512.5, "team": 1, "acceptedAt": "2026-11-02T18:30:00.000Z" },
+            { "id": "u2", "username": "bob", "name": "Bob B", "rating": 1490, "team": 2, "acceptedAt": "2026-11-02T18:30:00.000Z" }
+          ],
+          "rounds": [],
+          "tournament": { "id": "t1", "name": "Sunday Smash", "round": 2 }
+        }
+    """.trimIndent()  // A tournament semifinal as GET /games/me returns it: TOURNAMENT source and the tournament's label
 
     private val server = MockWebServer()
 
@@ -151,6 +171,23 @@ class GamesRepositoryTest {
 
         assertEquals("/games/me", takeRequest().path)
         assertNull(games.single().forecast)
+    }
+
+    // Input: GET /games/me returns a tournament semifinal next to a game with "tournament": null
+    // Expected output: the TOURNAMENT source and the tournament label are parsed, not a crash;
+    // the regular game has no tournament label
+    @Test
+    fun getMyGamesParsesTournamentGames() = runBlocking {
+        val regularGameJson = completedGameJson.replace("\"rounds\": [", "\"tournament\": null, \"rounds\": [")
+        respond(200, """{ "games": [$tournamentGameJson, $regularGameJson] }""")
+
+        val (tournamentGame, regularGame) = repository().getMyGames().getOrThrow()
+
+        assertEquals(GameSource.TOURNAMENT, tournamentGame.source)
+        assertEquals(GameStatus.BOOKED, tournamentGame.status)
+        assertEquals(GameTournament("t1", "Sunday Smash", 2), tournamentGame.tournament)
+        assertEquals(GameSource.MATCHED, regularGame.source)
+        assertNull(regularGame.tournament)
     }
 
     // Input: GET /games?gameId=... returns a completed game

@@ -41,12 +41,22 @@ export type JoinGameError =
 
 export const leaveGameErrors = {
   NotFound: "Game not found",
+  TournamentGame: "Players cannot leave a tournament game",
   Closed: "Game is already completed or cancelled",
   TooLate: "Game starts in less than 30 minutes",
 } as const;
 
 export type LeaveGameError =
   (typeof leaveGameErrors)[keyof typeof leaveGameErrors];
+
+export const cancelGameErrors = {
+  NotFound: "Game not found",
+  NotInGame: "Unauthorized",
+  TournamentGame: "Tournament games cannot be cancelled",
+} as const;
+
+export type CancelGameError =
+  (typeof cancelGameErrors)[keyof typeof cancelGameErrors];
 
 const teamSize: Record<Format, number> = {
   [Format.SINGLES]: 1,
@@ -104,17 +114,27 @@ export async function getUserGames(userId: string) {
 }
 
 /**
- * Cancels a game with the given game ID
+ * Cancels a game with the given game ID. Tournament games can't be cancelled, since the bracket depends on them
  * @param gameId the game ID of the game to be deleted
+ * @param userId the user cancelling the game, who must be in it
+ * @returns success, or the reason the game cannot be cancelled
  */
 export async function cancelGame(gameId: GameIdInput, userId: string) {
-  const canDelete = await isUserInGame(userId, gameId);
-  if (canDelete) {
-    await deleteGame(gameId);
-    return { success: true };
-  } else {
-    return { success: false, error: "Unauthorized" };
+  const game = await fetchGame(gameId);
+  if (game === null) {
+    return { success: false, error: cancelGameErrors.NotFound } as const;
   }
+
+  if (game.gameSource === GameSource.TOURNAMENT) {
+    return { success: false, error: cancelGameErrors.TournamentGame } as const;
+  }
+
+  if (!(await isUserInGame(userId, gameId))) {
+    return { success: false, error: cancelGameErrors.NotInGame } as const;
+  }
+
+  await deleteGame(gameId);
+  return { success: true } as const;
 }
 
 /**
@@ -159,7 +179,8 @@ export async function joinGame(gameId: string, userId: string, team: number) {
 }
 
 /**
- * Removes a given user from a given game, unless the game is closed or starts in less than 30 minutes
+ * Removes a given user from a given game, unless it is a tournament game, the game is closed or it starts in less
+ * than 30 minutes
  * @param gameId the game ID of the game to leave
  * @param userId the user leaving the game
  * @returns success, or the reason the user cannot leave the game
@@ -168,6 +189,11 @@ export async function leaveGame(gameId: string, userId: string) {
   const game = await fetchGame(gameId);
   if (game === null) {
     return { success: false, error: leaveGameErrors.NotFound } as const;
+  }
+
+  // Leaving would leave a team short in the bracket
+  if (game.gameSource === GameSource.TOURNAMENT) {
+    return { success: false, error: leaveGameErrors.TournamentGame } as const;
   }
 
   if (

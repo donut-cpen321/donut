@@ -34,9 +34,22 @@ enum GameStatus {
 
 // SCHEDULED: created by a player. 
 // MATCHED: proposed by matchmaking.
+// TOURNAMENT: a match in a tournament bracket, created once both of its teams are known. Never on the feed.
 enum GameSource {
   SCHEDULED
   MATCHED
+  TOURNAMENT
+}
+
+// REGISTRATION: taking players, on the feed until it is full or starts
+// IN_PROGRESS: full; the bracket is drawn and its games are being played
+// COMPLETED: the final has been reported
+// CANCELLED: cancelled by its creator during registration
+enum TournamentStatus {
+  REGISTRATION
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum FriendshipStatus {
@@ -86,6 +99,9 @@ model User {
   friendshipsReceived Friendship[] @relation("FriendshipsReceived")
   equipment           Equipment[]
 
+  tournamentsCreated Tournament[]       @relation("TournamentsCreated")
+  tournamentEntries  TournamentPlayer[]
+
   @@index([rating(sort: Desc), username]) // leaderboard order
   @@map("users")
 }
@@ -99,6 +115,7 @@ model Court {
 
   preferredBy User[]
   games       Game[]
+  tournaments Tournament[]
 
   @@map("courts")
 }
@@ -164,6 +181,9 @@ model Game {
   players GameUser[]
   rounds  GameRound[]
   equipment GameEquipment[]
+
+  // Set for TOURNAMENT games only
+  tournamentMatch TournamentMatch?
 
   @@index([courtId])
   @@map("games")
@@ -232,4 +252,61 @@ model GameEquipment {
   @@id([gameId, equipmentId])
   @@index([equipmentId])
   @@map("game_equipment")
+}
+
+// An 8-team single-elimination bracket. Players register one by one; when it is full the teams are
+// formed by rating and the bracket is drawn.
+model Tournament {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String
+  format      Format
+  status      TournamentStatus @default(REGISTRATION)
+  startsAt    DateTime         @db.Timestamptz(3) // quarterfinals start; later rounds follow an hour apart
+  courtId     Int
+  creatorId   String           @db.Uuid
+  winningTeam Int? // seed of the champion team, set when the final is reported
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+
+  court   Court              @relation(fields: [courtId], references: [id])
+  creator User               @relation("TournamentsCreated", fields: [creatorId], references: [id])
+  players TournamentPlayer[]
+  matches TournamentMatch[]
+
+  @@index([status, startsAt]) // feed order
+  @@index([courtId])
+  @@index([creatorId])
+  @@map("tournaments")
+}
+
+// A registered player
+model TournamentPlayer {
+  tournamentId String   @db.Uuid
+  userId       String   @db.Uuid
+  team         Int? // the team's seed (1 = top seed), null until the bracket is drawn
+  joinedAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@id([tournamentId, userId])
+  @@index([userId])
+  @@map("tournament_players")
+}
+
+// One slot of the bracket. Round 1 is the quarterfinals (positions 0-3), 2 the semifinals (0-1), 3 the final (0).
+// The winner of (round, position) plays in (round + 1, position / 2).
+model TournamentMatch {
+  tournamentId String  @db.Uuid
+  round        Int
+  position     Int
+  team1        Int? // seed playing as team 1 of the game; null until its feeder match is decided
+  team2        Int?
+  winner       Int? // seed of the team that won, set when the game's score is reported
+  gameId       String? @unique @db.Uuid // created once both teams are known
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  game       Game?      @relation(fields: [gameId], references: [id])
+
+  @@id([tournamentId, round, position])
+  @@map("tournament_matches")
 }

@@ -22,6 +22,7 @@ import {
 } from "../../src/games/games.repository";
 import {
   cancelGame,
+  cancelGameErrors,
   changeGameLocation,
   changeGameTime,
   gameEditErrors,
@@ -105,6 +106,7 @@ const gameDetails = (overrides: Partial<GameDetails> = {}): GameDetails => ({
     },
   ],
   rounds: [],
+  tournament: null,
   ...overrides,
 });
 
@@ -249,6 +251,7 @@ describe("Mocked: POST /games", () => {
     ["non-positive courtId", { courtId: 0 }],
     ["string courtId", { courtId: "1" }],
     ["invalid gameSource", { gameSource: "MANUAL" }],
+    ["TOURNAMENT gameSource", { gameSource: GameSource.TOURNAMENT }],
     ["unknown field", { status: GameStatus.COMPLETED }],
   ])("Rejects a body with %s", async (_description, overrides) => {
     const response = await request(createApp())
@@ -548,6 +551,7 @@ describe("Mocked: GET /games/me", () => {
 describe("Mocked: DELETE /games", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedFetchGame.mockResolvedValue(joinableGame());
     mockedIsUserInGame.mockResolvedValue(true);
   });
 
@@ -576,7 +580,47 @@ describe("Mocked: DELETE /games", () => {
       .query({ gameId });
 
     expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: cancelGameErrors.NotInGame });
     expect(mockedIsUserInGame).toHaveBeenCalledWith(userId, gameId);
+    expect(mockedDeleteGame).not.toHaveBeenCalled();
+  });
+
+  // Input: the ID of a game that does not exist
+  // Expected status code: 404
+  // Expected behavior: nothing is deleted
+  // Expected output: { error: "Game not found" }
+  test("Returns 404 when the game does not exist", async () => {
+    mockedFetchGame.mockResolvedValue(null);
+
+    const response = await request(createApp())
+      .delete("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: cancelGameErrors.NotFound });
+    expect(mockedDeleteGame).not.toHaveBeenCalled();
+  });
+
+  // Input: the ID of a booked tournament game the caller plays in
+  // Expected status code: 409
+  // Expected behavior: the game is kept, since the bracket depends on it
+  // Expected output: { error: "Tournament games cannot be cancelled" }
+  test("Returns 409 and keeps a tournament game", async () => {
+    mockedFetchGame.mockResolvedValue(
+      joinableGame({
+        gameSource: GameSource.TOURNAMENT,
+        status: GameStatus.BOOKED,
+      }),
+    );
+
+    const response = await request(createApp())
+      .delete("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: cancelGameErrors.TournamentGame });
     expect(mockedDeleteGame).not.toHaveBeenCalled();
   });
 
@@ -595,6 +639,7 @@ describe("Mocked: DELETE /games", () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toBe("Invalid request query");
     expect(response.body.details).toBeDefined();
+    expect(mockedFetchGame).not.toHaveBeenCalled();
     expect(mockedIsUserInGame).not.toHaveBeenCalled();
     expect(mockedDeleteGame).not.toHaveBeenCalled();
   });
@@ -657,9 +702,34 @@ describe("Mocked: DELETE /games", () => {
 describe("Mocked: cancelGame", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedFetchGame.mockResolvedValue(joinableGame());
   });
 
   const gameId = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  test("Returns NotFound without deleting when the game does not exist", async () => {
+    mockedFetchGame.mockResolvedValue(null);
+
+    await expect(cancelGame(gameId, userId)).resolves.toEqual({
+      success: false,
+      error: cancelGameErrors.NotFound,
+    });
+    expect(mockedIsUserInGame).not.toHaveBeenCalled();
+    expect(mockedDeleteGame).not.toHaveBeenCalled();
+  });
+
+  test("Returns TournamentGame without deleting a tournament game", async () => {
+    mockedFetchGame.mockResolvedValue(
+      joinableGame({ gameSource: GameSource.TOURNAMENT }),
+    );
+    mockedIsUserInGame.mockResolvedValue(true);
+
+    await expect(cancelGame(gameId, userId)).resolves.toEqual({
+      success: false,
+      error: cancelGameErrors.TournamentGame,
+    });
+    expect(mockedDeleteGame).not.toHaveBeenCalled();
+  });
 
   test("Deletes the game when the user is in it", async () => {
     mockedIsUserInGame.mockResolvedValue(true);
@@ -1037,6 +1107,28 @@ describe("Mocked: POST /games/leave", () => {
     expect(mockedDeleteGameUser).toHaveBeenCalledWith(body.gameId, userId);
   });
 
+  // Input: the ID of a tournament game the caller plays in
+  // Expected status code: 409
+  // Expected behavior: the caller stays in the game, so the bracket keeps full teams
+  // Expected output: { error: "Players cannot leave a tournament game" }
+  test("Returns 409 and keeps the user in a tournament game", async () => {
+    mockedFetchGame.mockResolvedValue(
+      joinableGame({
+        gameSource: GameSource.TOURNAMENT,
+        status: GameStatus.BOOKED,
+      }),
+    );
+
+    const response = await request(createApp())
+      .post("/games/leave")
+      .set("Authorization", authHeader)
+      .send(validLeaveBody());
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: leaveGameErrors.TournamentGame });
+    expect(mockedDeleteGameUser).not.toHaveBeenCalled();
+  });
+
   test("Lets the user leave a booked game 31 minutes before it starts", async () => {
     mockedFetchGame.mockResolvedValue(
       joinableGame({
@@ -1261,6 +1353,18 @@ describe("Mocked: leaveGame", () => {
       success: true,
     });
     expect(mockedDeleteGameUser).toHaveBeenCalledWith(joinGameId, userId);
+  });
+
+  test("Returns TournamentGame without deleting when the game is in a tournament", async () => {
+    mockedFetchGame.mockResolvedValue(
+      joinableGame({ gameSource: GameSource.TOURNAMENT }),
+    );
+
+    await expect(leaveGame(joinGameId, userId)).resolves.toEqual({
+      success: false,
+      error: leaveGameErrors.TournamentGame,
+    });
+    expect(mockedDeleteGameUser).not.toHaveBeenCalled();
   });
 
   test("Returns TooLate without deleting when the game starts in less than 30 minutes", async () => {
@@ -1726,6 +1830,29 @@ describe("Mocked: POST /games/score", () => {
     expect(response.status).toBe(400);
     expect(response.body.details.fieldErrors.rounds).toContain(message);
     expect(mockedCompleteGame).not.toHaveBeenCalled();
+  });
+
+  // Input: a valid score, while Postgres aborts the transaction as a deadlock
+  // Expected status code: 409
+  // Expected behavior: nothing is saved, so the player can report again
+  // Expected output: { error: "The score could not be saved, please try again" }
+  test("Returns 409 when the transaction is aborted as a deadlock", async () => {
+    mockedCompleteGame.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Transaction failed due to a write conflict or a deadlock", {
+        code: "P2034",
+        clientVersion: Prisma.prismaVersion.client,
+      }),
+    );
+
+    const response = await request(createApp())
+      .post("/games/score")
+      .set("Authorization", authHeader)
+      .send(validScoreBody());
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      error: "The score could not be saved, please try again",
+    });
   });
 
   test("Returns 500 when saving the score throws unexpectedly", async () => {

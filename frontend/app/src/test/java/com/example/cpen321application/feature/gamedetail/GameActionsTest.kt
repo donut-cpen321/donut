@@ -140,4 +140,52 @@ class GameActionsTest {
         assertFalse(actions.isPlayer)
         assertFalse(actions.canCancel)
     }
+
+    // Input: player in a booked tournament game that starts in 2 hours
+    // Expected output: they can't leave or cancel it (no "too late" note either), but can move it
+    @Test
+    fun playerCannotLeaveOrCancelATournamentGame() {
+        val actions = gameActions(
+            game(players = listOf(alice, bob), status = GameStatus.BOOKED, source = GameSource.TOURNAMENT),
+            "alice",
+            now
+        )
+
+        assertTrue(actions.isPlayer)
+        assertFalse(actions.canLeave)
+        assertFalse(actions.leaveTooLate)
+        assertFalse(actions.canCancel)
+        assertTrue(actions.canChangeTimeOrCourt)
+        assertFalse(actions.canReportScore)
+    }
+
+    // Input: player in a tournament game that started 45 minutes ago
+    // Expected output: they can report the score, which advances the bracket, but still can't leave or cancel
+    @Test
+    fun playerCanReportTheScoreOfAStartedTournamentGame() {
+        val actions = gameActions(
+            game(
+                players = listOf(alice, bob),
+                status = GameStatus.BOOKED,
+                source = GameSource.TOURNAMENT,
+                startsIn = Duration.ofMinutes(-45)
+            ),
+            "bob",
+            now
+        )
+
+        assertTrue(actions.canReportScore)
+        assertFalse(actions.canLeave)
+        assertFalse(actions.leaveTooLate)
+        assertFalse(actions.canCancel)
+    }
+
+    // Input: someone who is not playing views a tournament game with a free-looking team
+    // Expected output: they can't join it, since the bracket decides who plays
+    @Test
+    fun nobodyCanJoinATournamentGame() {
+        val actions = gameActions(game(source = GameSource.TOURNAMENT), "carol", now)
+
+        assertEquals(emptyList<Int>(), actions.joinableTeams)
+    }
 }

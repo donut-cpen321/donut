@@ -8,8 +8,9 @@ enum class Format { SINGLES, DOUBLES }
 // BOOKED: every spot filled. COMPLETED: final score reported. CANCELLED: acceptance deadline missed
 enum class GameStatus { OPEN, BOOKED, COMPLETED, CANCELLED }
 
-// SCHEDULED: created by a player and shown on the feed. MATCHED: proposed by matchmaking
-enum class GameSource { SCHEDULED, MATCHED }
+// SCHEDULED: created by a player and shown on the feed. MATCHED: proposed by matchmaking.
+// TOURNAMENT: a match of a tournament bracket, created by the backend when both teams are known
+enum class GameSource { SCHEDULED, MATCHED, TOURNAMENT }
 
 // The two teams of a game. The creator of a scheduled game is on team 1
 val TEAMS = listOf(1, 2)
@@ -43,6 +44,13 @@ data class Forecast(
     val precipitationChance: Double  // from 0 to 1
 )
 
+// The tournament a bracket game belongs to. round is 1 for a quarterfinal, 2 for a semifinal, 3 for the final
+data class GameTournament(
+    val id: String,
+    val name: String,
+    val round: Int
+)
+
 data class Game(
     val id: String,
     val format: Format,
@@ -53,7 +61,9 @@ data class Game(
     val players: List<Player>,
     val rounds: List<Round>,
     // Only feed games have one, and it is null when OpenWeather could not be reached
-    val forecast: Forecast? = null
+    val forecast: Forecast? = null,
+    // Only tournament games have one
+    val tournament: GameTournament? = null
 )
 
 /**
