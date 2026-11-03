@@ -6,6 +6,7 @@ import {
   createRequest,
   deleteRequest,
   findRequest,
+  hasActiveMatch,
 } from "../../src/matchmaking/matchmaking.repository";
 
 process.env.JWT_SECRET = "test-jwt-secret";
@@ -16,11 +17,13 @@ jest.mock("../../src/matchmaking/matchmaking.repository", () => ({
   createRequest: jest.fn(),
   deleteRequest: jest.fn(),
   findRequest: jest.fn(),
+  hasActiveMatch: jest.fn(),
 }));
 
 const mockedCreateRequest = jest.mocked(createRequest);
 const mockedDeleteRequest = jest.mocked(deleteRequest);
 const mockedFindRequest = jest.mocked(findRequest);
+const mockedHasActiveMatch = jest.mocked(hasActiveMatch);
 
 // A player at UBC
 const validBody = () => ({ format: "EITHER", latitude: 49.2606, longitude: -123.246 });
@@ -71,6 +74,24 @@ describe("Mocked: /matchmaking requireAuth", () => {
 describe("Mocked: POST /matchmaking", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedHasActiveMatch.mockResolvedValue(false);
+  });
+
+  // Input: a player who already has a matched game coming up
+  // Expected status code: 403
+  // Expected output: { error: "Already has a match" }, the player is not queued
+  test("Rejects a player who already has a match", async () => {
+    mockedHasActiveMatch.mockResolvedValue(true);
+
+    const response = await request(createApp())
+      .post("/matchmaking")
+      .set("Authorization", authHeader)
+      .send(validBody());
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Already has a match" });
+    expect(mockedHasActiveMatch).toHaveBeenCalledWith(userId, expect.any(Date));
+    expect(mockedCreateRequest).not.toHaveBeenCalled();
   });
 
   // Input: format and location of a player not in the queue

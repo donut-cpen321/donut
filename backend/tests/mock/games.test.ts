@@ -7,7 +7,9 @@ import {
   GameStatus,
 } from "../../src/generated/prisma/enums";
 import {
+  acceptMatch,
   addPlayerToTeam,
+  cancelMatchedGame,
   completeGame,
   createGame,
   deleteGame,
@@ -60,6 +62,8 @@ jest.mock("../../src/games/games.repository", () => ({
   fetchUserGames: jest.fn(),
   fetchUserHistory: jest.fn(),
   addPlayerToTeam: jest.fn(),
+  acceptMatch: jest.fn(),
+  cancelMatchedGame: jest.fn(),
 }));
 
 jest.mock("../../src/external/weather", () => ({
@@ -73,6 +77,8 @@ const mockedFetchFeedGames = jest.mocked(fetchFeedGames);
 const mockedFetchUserGames = jest.mocked(fetchUserGames);
 const mockedFetchUserHistory = jest.mocked(fetchUserHistory);
 const mockedAddPlayerToTeam = jest.mocked(addPlayerToTeam);
+const mockedAcceptMatch = jest.mocked(acceptMatch);
+const mockedCancelMatchedGame = jest.mocked(cancelMatchedGame);
 const mockedGetForecast = jest.mocked(getForecast);
 const mockedDeleteGame = jest.mocked(deleteGame);
 const mockedIsUserInGame = jest.mocked(isUserInGame);
@@ -150,6 +156,10 @@ describe("Mocked: /games requireAuth", () => {
         () => request(createApp()).post("/games/leave").send({ gameId }),
       ],
       [
+        "POST /games/accept",
+        () => request(createApp()).post("/games/accept").send({ gameId }),
+      ],
+      [
         "PATCH /games/time",
         () =>
           request(createApp())
@@ -184,6 +194,7 @@ describe("Mocked: /games requireAuth", () => {
     expect(mockedFetchFeedGames).not.toHaveBeenCalled();
     expect(mockedFetchUserGames).not.toHaveBeenCalled();
     expect(mockedAddPlayerToTeam).not.toHaveBeenCalled();
+    expect(mockedAcceptMatch).not.toHaveBeenCalled();
   };
 
   test.each(routes())(
@@ -640,6 +651,7 @@ describe("Mocked: DELETE /games", () => {
     jest.clearAllMocks();
     mockedFetchGame.mockResolvedValue(joinableGame());
     mockedIsUserInGame.mockResolvedValue(true);
+    mockedFetchGame.mockResolvedValue(existingGame());
   });
 
   const gameId = "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b";
@@ -820,6 +832,7 @@ describe("Mocked: cancelGame", () => {
 
   test("Deletes the game when the user is in it", async () => {
     mockedIsUserInGame.mockResolvedValue(true);
+    mockedFetchGame.mockResolvedValue(existingGame({ id: gameId }));
     mockedDeleteGame.mockResolvedValue();
 
     await expect(cancelGame(gameId, userId)).resolves.toEqual({
@@ -834,7 +847,7 @@ describe("Mocked: cancelGame", () => {
 
     await expect(cancelGame(gameId, userId)).resolves.toEqual({
       success: false,
-      error: "Unauthorized",
+      error: "User not in game",
     });
     expect(mockedDeleteGame).not.toHaveBeenCalled();
   });
@@ -842,6 +855,7 @@ describe("Mocked: cancelGame", () => {
   test("Propagates repository errors", async () => {
     const error = new Error("Database unavailable");
     mockedIsUserInGame.mockResolvedValue(true);
+    mockedFetchGame.mockResolvedValue(existingGame({ id: gameId }));
     mockedDeleteGame.mockRejectedValue(error);
 
     await expect(cancelGame(gameId, userId)).rejects.toBe(error);
@@ -2117,5 +2131,179 @@ describe("Mocked: reportScore", () => {
     mockedCompleteGame.mockRejectedValue(error);
 
     await expect(reportScore(editGameId, userId, rounds)).rejects.toBe(error);
+  });
+});
+
+describe("Mocked: POST /games/accept", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedFetchGame.mockResolvedValue(joinableGame({ gameSource: GameSource.MATCHED }));
+    mockedIsUserInGame.mockResolvedValue(true);
+    mockedAcceptMatch.mockResolvedValue("accepted");
+  });
+
+  // Input: a player of a matched game waiting for answers accepts it
+  // Expected status code: 204
+  // Expected behavior: the acceptance is recorded for the authenticated user
+  // Expected output: empty body
+  test("Accepts the match for the authenticated user", async () => {
+    const response = await request(createApp())
+      .post("/games/accept")
+      .set("Authorization", authHeader)
+      .send({ gameId: joinGameId });
+
+    expect(response.status).toBe(204);
+    expect(mockedAcceptMatch).toHaveBeenCalledWith(joinGameId, userId, expect.any(Date));
+  });
+
+  // Input: a gameId that is not a UUID
+  // Expected status code: 400
+  // Expected behavior: nothing is recorded
+  // Expected output: the validation error
+  test("Rejects a body with a non-UUID gameId", async () => {
+    const response = await request(createApp())
+      .post("/games/accept")
+      .set("Authorization", authHeader)
+      .send({ gameId: "nope" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Invalid request body");
+    expect(mockedAcceptMatch).not.toHaveBeenCalled();
+  });
+
+  // Input: the game does not exist
+  // Expected status code: 404
+  // Expected behavior: nothing is recorded
+  // Expected output: { error: "Game not found" }
+  test("Returns 404 when the game does not exist", async () => {
+    mockedFetchGame.mockResolvedValue(null);
+
+    const response = await request(createApp())
+      .post("/games/accept")
+      .set("Authorization", authHeader)
+      .send({ gameId: joinGameId });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "Game not found" });
+    expect(mockedAcceptMatch).not.toHaveBeenCalled();
+  });
+
+  // Input: the user is not a player of the game
+  // Expected status code: 403
+  // Expected behavior: nothing is recorded
+  // Expected output: { error: "User not in game" }
+  test("Returns 403 when the user is not in the game", async () => {
+    mockedIsUserInGame.mockResolvedValue(false);
+
+    const response = await request(createApp())
+      .post("/games/accept")
+      .set("Authorization", authHeader)
+      .send({ gameId: joinGameId });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "User not in game" });
+    expect(mockedAcceptMatch).not.toHaveBeenCalled();
+  });
+
+  // Input: the match was cancelled, booked or passed its answer cutoff
+  // Expected status code: 409
+  // Expected behavior: nothing is recorded
+  // Expected output: { error: "Match is no longer waiting for answers" }
+  test("Returns 409 when the match is no longer waiting for answers", async () => {
+    mockedAcceptMatch.mockResolvedValue("notPending");
+
+    const response = await request(createApp())
+      .post("/games/accept")
+      .set("Authorization", authHeader)
+      .send({ gameId: joinGameId });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Match is no longer waiting for answers" });
+  });
+});
+
+describe("Mocked: matched games can be cancelled but not left or moved", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedFetchGame.mockResolvedValue(existingGame({ gameSource: GameSource.MATCHED }));
+    mockedIsUserInGame.mockResolvedValue(true);
+    mockedCancelMatchedGame.mockResolvedValue(true);
+  });
+
+  // Input: a player cancels a matched game that is still open
+  // Expected status code: 204
+  // Expected behavior: the game is marked cancelled, not deleted
+  // Expected output: empty body
+  test("DELETE /games marks a matched game cancelled instead of deleting it", async () => {
+    const response = await request(createApp())
+      .delete("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId: editGameId });
+
+    expect(response.status).toBe(204);
+    expect(mockedCancelMatchedGame).toHaveBeenCalledWith(editGameId);
+    expect(mockedDeleteGame).not.toHaveBeenCalled();
+  });
+
+  // Input: a player cancels a matched game that is already completed or cancelled
+  // Expected status code: 409
+  // Expected behavior: nothing changes
+  // Expected output: { error: "Game is already completed or cancelled" }
+  test("DELETE /games returns 409 when the matched game is already closed", async () => {
+    mockedCancelMatchedGame.mockResolvedValue(false);
+
+    const response = await request(createApp())
+      .delete("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId: editGameId });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Game is already completed or cancelled" });
+    expect(mockedDeleteGame).not.toHaveBeenCalled();
+  });
+
+  // Input: a player tries to leave a matched game
+  // Expected status code: 409
+  // Expected behavior: the player stays in the game
+  // Expected output: { error: "Matched games can't be left" }
+  test("POST /games/leave rejects a matched game", async () => {
+    const response = await request(createApp())
+      .post("/games/leave")
+      .set("Authorization", authHeader)
+      .send({ gameId: editGameId });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Matched games can't be left" });
+    expect(mockedDeleteGameUser).not.toHaveBeenCalled();
+  });
+
+  // Input: a player tries to move a matched game to another time
+  // Expected status code: 409
+  // Expected behavior: the game keeps its time
+  // Expected output: { error: "Matched games can't be moved" }
+  test("PATCH /games/time rejects a matched game", async () => {
+    const response = await request(createApp())
+      .patch("/games/time")
+      .set("Authorization", authHeader)
+      .send({ gameId: editGameId, startsAt: futureStartsAt() });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Matched games can't be moved" });
+    expect(mockedUpdateGame).not.toHaveBeenCalled();
+  });
+
+  // Input: a player tries to move a matched game to another court
+  // Expected status code: 409
+  // Expected behavior: the game keeps its court
+  // Expected output: { error: "Matched games can't be moved" }
+  test("PATCH /games/location rejects a matched game", async () => {
+    const response = await request(createApp())
+      .patch("/games/location")
+      .set("Authorization", authHeader)
+      .send({ gameId: editGameId, courtId: 2 });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Matched games can't be moved" });
+    expect(mockedUpdateGame).not.toHaveBeenCalled();
   });
 });

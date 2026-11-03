@@ -1,4 +1,5 @@
 import {
+  cancelMatchesStartingBefore,
   claimMatch,
   getCandidates,
   getCourts,
@@ -6,6 +7,7 @@ import {
 } from '../../src/matchmaking/matchmaking.repository';
 import {
   assignTeams,
+  cancelUnansweredMatches,
   chooseCourt,
   findMatches,
   Match,
@@ -24,6 +26,7 @@ jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
   getMatchedPlayers: jest.fn(),
   getCourts: jest.fn(),
   claimMatch: jest.fn(),
+  cancelMatchesStartingBefore: jest.fn(),
 }));
 
 jest.mock('../../src/users/users.repository', () => ({
@@ -488,5 +491,18 @@ describe('assignTeams', () => {
       { userId: 'b', team: 2 },
       { userId: 'a', team: 1 },
     ]);
+  });
+});
+
+// Interface cancelUnansweredMatches()
+describe('Mocked: cancelUnansweredMatches', () => {
+  // Input: the current time is 12:00
+  // Expected behavior: matched games starting by 12:30 that are still waiting for answers are cancelled
+  // Expected output: the number of cancelled games
+  test('Cancels matches starting within 30 minutes', async () => {
+    jest.mocked(cancelMatchesStartingBefore).mockResolvedValue(3);
+
+    await expect(cancelUnansweredMatches(new Date('2026-11-02T12:00:00Z'))).resolves.toBe(3);
+    expect(cancelMatchesStartingBefore).toHaveBeenCalledWith(new Date('2026-11-02T12:30:00Z'));
   });
 });
