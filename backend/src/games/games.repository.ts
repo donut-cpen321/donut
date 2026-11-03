@@ -196,17 +196,29 @@ export async function fetchUserHistory(userId: string): Promise<GameDetails[]> {
 }
 
 /**
- * Deletes a game from the database with the given game ID, along with its players, rounds and equipment.
- * Their foreign keys don't cascade, so they are deleted first, in the same transaction
+ * Deletes a game that is still open or booked, along with its players, rounds and equipment.
+ * Their foreign keys don't cascade, so they are deleted first, in the same transaction.
+ * A completed game is kept, since its players' ratings already include its result
  * @param gameId the game ID of the game to be deleted
- * @throws Prisma P2025 if the game does not exist; nothing is deleted
+ * @returns true if the game was deleted, false if it is gone or already completed or cancelled
  */
-export async function deleteGame(gameId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+export async function deleteGame(gameId: string): Promise<boolean> {
+  return await prisma.$transaction(async (tx) => {
+    // Without the lock, a score reported at the same moment could complete the game after the check
+    await lockGame(tx, gameId);
+
+    const deletable = await tx.game.count({
+      where: { id: gameId, status: { in: [GameStatus.OPEN, GameStatus.BOOKED] } },
+    });
+    if (deletable === 0) {
+      return false;
+    }
+
     await tx.gameUser.deleteMany({ where: { gameId } });
     await tx.gameRound.deleteMany({ where: { gameId } });
     await tx.gameEquipment.deleteMany({ where: { gameId } });
     await tx.game.delete({ where: { id: gameId } });
+    return true;
   });
 }
 

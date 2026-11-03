@@ -158,7 +158,8 @@ export async function getUserHistory(userId: string) {
 
 /**
  * Cancels a game with the given game ID: a scheduled game is deleted, a matched game is marked cancelled.
- * Tournament games can't be cancelled, since the bracket depends on them
+ * Tournament games can't be cancelled, since the bracket depends on them, and neither can completed games,
+ * since their players' ratings already include the result
  * @param gameId the game ID of the game to be cancelled
  * @param userId the user cancelling the game, who must be in it
  * @returns success, or the reason the game cannot be cancelled
@@ -184,7 +185,10 @@ export async function cancelGame(gameId: GameIdInput, userId: string) {
     return { success: true } as const;
   }
 
-  await deleteGame(gameId);
+  // A completed scheduled game is kept: its ratings were already applied
+  if (!(await deleteGame(gameId))) {
+    return { success: false, error: cancelGameErrors.Closed } as const;
+  }
   return { success: true } as const;
 }
 
