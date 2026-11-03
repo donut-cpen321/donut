@@ -1,4 +1,4 @@
-import { NextFunction, Router, type Request, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/requireAuth";
 import { leaderboardQuerySchema } from "./ranking.schemas";
@@ -6,9 +6,7 @@ import { getLeaderboard } from "./ranking.service";
 
 export const leaderboardRouter = Router();
 
-leaderboardRouter.use((req: Request, res: Response, next: NextFunction) => {
-  requireAuth(req, res, next);
-});
+leaderboardRouter.use(requireAuth);
 
 leaderboardRouter.get("/", async (req: Request, res: Response) => {
   const parsedQuery = leaderboardQuerySchema.safeParse(req.query);

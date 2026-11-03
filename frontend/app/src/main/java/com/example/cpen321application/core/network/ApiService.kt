@@ -1,6 +1,7 @@
 package com.example.cpen321application.core.network
 
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
+import com.example.cpen321application.core.network.dto.FcmTokenRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameLocationRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameTimeRequestDto
 import com.example.cpen321application.core.network.dto.CourtsResponseDto
@@ -29,6 +30,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -66,6 +68,11 @@ interface ApiService {
         @Header("Authorization") authorization: String,
         @Path("id") id: Int,
     ): Response<ResponseBody>
+    @PUT("user/me/fcm-token")
+    suspend fun saveFcmToken(
+        @Header("Authorization") authorization: String,
+        @Body request: FcmTokenRequestDto
+    )
 
     @GET("matchmaking")
     suspend fun getQueueEntry(@Header("Authorization") authorization: String): QueueEntryResponseDto

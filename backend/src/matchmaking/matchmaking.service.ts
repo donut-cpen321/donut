@@ -10,6 +10,8 @@ import {
 } from './matchmaking.repository';
 import type { JoinQueueInput } from './matchmaking.schemas';
 import { distanceKm, midpoint, type Location } from './geo';
+import { sendPush } from '../external/fcm';
+import { clearFcmTokens, getFcmTokens } from '../users/users.repository';
 
 const MATCH_START_DELAY_MS = 60 * 60 * 1000;
 export const MAX_DISTANCE_KM = 10;
@@ -39,6 +41,11 @@ export interface CourtLocation extends Location {
 export interface QueueEntry extends Location {
   format: FormatPreference;
   createdAt: Date;
+}
+
+export interface ClaimedGame {
+  id: string;
+  court: { name: string };
 }
 
 export interface MatchedPlayer {
@@ -214,10 +221,33 @@ export async function runMatchmaking(): Promise<Match[]> {
       },
     };
 
-    if (await claimMatch(match.userIds, game)) claimedMatches.push(match);
+    const claimedGame = await claimMatch(match.userIds, game);
+    if (!claimedGame) continue;
+    claimedMatches.push(match);
+    await notifyMatch(match, claimedGame);
   }
 
   return claimedMatches;
+}
+
+/**
+ * Sends every player in a new match a push notification.
+ *
+ * @param match - The matched players and format.
+ * @param game - The game created for them.
+ */
+async function notifyMatch(match: Match, game: ClaimedGame): Promise<void> {
+  try {
+    const tokens = await getFcmTokens(match.userIds);
+    const deadTokens = await sendPush(tokens, {
+      title: 'Match found!',
+      body: `Your ${match.format.toLowerCase()} game at ${game.court.name} starts in 1 hour. Open Donut to accept.`,
+      data: { gameId: game.id },
+    });
+    if (deadTokens.length > 0) await clearFcmTokens(deadTokens);
+  } catch (err) {
+    console.error(`Could not notify the players of game ${game.id}`, err);
+  }
 }
 
 /**

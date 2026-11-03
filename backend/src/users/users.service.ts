@@ -7,6 +7,7 @@ import {
   getUserById,
   listEquipment as listEquipmentRecords,
   retireEquipment as retireEquipmentRecord,
+  saveFcmToken as saveFcmTokenRecord,
   updateEquipment as updateEquipmentRecord,
 } from './users.repository';
 import type { CreateEquipmentInput, UpdateEquipmentInput } from './users.schemas';
@@ -96,6 +97,15 @@ export async function login(idToken: string): Promise<LoginResult> {
  */
 export async function getProfile(userId: string) {
   return await getUserById(userId);
+}
+
+/**
+ * Saves the device the user's push notifications go to.
+ * @param userId The signed-in user's ID
+ * @param token The device's FCM token
+ */
+export async function saveFcmToken(userId: string, token: string) {
+  await saveFcmTokenRecord(userId, token);
 }
 
 /**

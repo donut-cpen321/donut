@@ -9,6 +9,10 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+export const fcmTokenSchema = z.object({
+  token: z.string().min(1),
+});
+
 export const equipmentIdSchema = z.coerce.number().int().positive();
 const nextMaintenanceAtSchema = z.iso.datetime({ offset: true }).transform((value) => new Date(value)).nullable();
 
