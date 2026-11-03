@@ -52,14 +52,16 @@ fun gameActions(game: Game, username: String?, now: Instant): GameActions {
     val beforeLeaveDeadline = Duration.between(now, game.startsAt) >= LEAVE_DEADLINE
     // A tournament game belongs to the bracket: its players can't leave it or cancel it
     val canLeaveOrCancel = canEdit && game.source != GameSource.TOURNAMENT
+    // Matched players keep the players, time and court matchmaking picked
+    val canLeaveOrMove = canEdit && game.source != GameSource.MATCHED
 
     return GameActions(
         isPlayer = isPlayer,
         joinableTeams = joinableTeams,
-        canLeave = canLeaveOrCancel && beforeLeaveDeadline,
-        leaveTooLate = canLeaveOrCancel && !beforeLeaveDeadline,
+        canLeave = canLeaveOrCancel && canLeaveOrMove && beforeLeaveDeadline,
+        leaveTooLate = canLeaveOrCancel && canLeaveOrMove && !beforeLeaveDeadline,
         // Moving a game that already started would not make sense
-        canChangeTimeOrCourt = canEdit && !hasStarted,
+        canChangeTimeOrCourt = canLeaveOrMove && !hasStarted,
         // The score is reported once the game is played
         canReportScore = canEdit && hasStarted,
         canCancel = canLeaveOrCancel

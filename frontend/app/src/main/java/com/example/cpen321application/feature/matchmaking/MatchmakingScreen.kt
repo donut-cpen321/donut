@@ -28,11 +28,10 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import kotlinx.coroutines.delay
 import com.example.cpen321application.core.auth.AuthSession
+import com.example.cpen321application.core.data.repository.GamesRepositoryImpl
 import com.example.cpen321application.core.notifications.rememberAskNotificationPermission
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -88,23 +87,26 @@ private const val QUEUE_CHECK_INTERVAL_MS = 10_000L
 private typealias LocationLoader = (LocationOption, String, suspend () -> MatchLocation?) -> Unit
 
 /**
- * @param session the signed-in user, for the queue calls
- * @param onGoToGames opens the Games tab after a match is found
+ * @param session the signed-in user, for the queue and game calls
+ * @param onGoToGame opens a game's screen in Games
  */
 @Composable
 fun MatchmakingRoute(
     session: AuthSession,
-    onGoToGames: () -> Unit,
-    viewModel: MatchmakingViewModel = viewModel { MatchmakingViewModel(MatchmakingRepositoryImpl(session)) }
+    onGoToGame: (gameId: String) -> Unit,
+    viewModel: MatchmakingViewModel = viewModel {
+        MatchmakingViewModel(MatchmakingRepositoryImpl(session), GamesRepositoryImpl(session))
+    }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val loadLocation = rememberLocationLoader(viewModel)
     val askNotificationPermission = rememberAskNotificationPermission()
     val scope = rememberCoroutineScope()
 
-    // The player may have joined the queue before the app was closed
+    // The player may have joined the queue, or been matched, before the app was closed
     LaunchedEffect(Unit) {
         viewModel.restoreQueue()
+        viewModel.loadMatch()
     }
 
     // While waiting, ask the backend every 10 seconds whether matchmaking found a game.
@@ -116,14 +118,33 @@ fun MatchmakingRoute(
         }
     }
 
-    if (uiState.matchFound) {
-        MatchFoundDialog(
-            onGoToGames = {
-                viewModel.onMatchFoundSeen()
-                onGoToGames()
-            },
-            onDismiss = viewModel::onMatchFoundSeen
+    // While the match pop-up is open, ask the backend every 10 seconds whether the other players answered.
+    // Restarts when the match changes and stops when the pop-up closes.
+    val match = uiState.match
+    LaunchedEffect(match?.id) {
+        while (viewModel.uiState.value.match != null) {
+            delay(QUEUE_CHECK_INTERVAL_MS)
+            viewModel.checkMatch()
+        }
+    }
+
+    if (match != null) {
+        MatchDialog(
+            match = match,
+            prompt = matchPrompt(match, session.user?.username),
+            isAnswering = uiState.isAnswering,
+            errorMessage = uiState.errorMessage,
+            onAccept = { scope.launch { viewModel.onAccept() } },
+            onCancel = { scope.launch { viewModel.onCancelMatch() } },
+            onGoToGame = {
+                viewModel.onGoToGame()
+                onGoToGame(match.id)
+            }
         )
+    }
+
+    if (uiState.matchFellThrough) {
+        MatchFellThroughDialog(onDismiss = viewModel::onMatchFellThroughSeen)
     }
 
     MatchmakingScreen(
@@ -136,20 +157,6 @@ fun MatchmakingRoute(
             scope.launch { viewModel.onFindMatch() }
         },
         onLeaveQueue = { scope.launch { viewModel.onLeaveQueue() } }
-    )
-}
-
-@Composable
-private fun MatchFoundDialog(onGoToGames: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Match found") },
-        text = { Text("Your game starts in an hour on a court near you. See who you're playing in Games.") },
-        confirmButton = {
-            TextButton(onClick = onGoToGames) {
-                Text("Go to Games")
-            }
-        }
     )
 }
 

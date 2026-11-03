@@ -188,4 +188,16 @@ class GameActionsTest {
 
         assertEquals(emptyList<Int>(), actions.joinableTeams)
     }
+
+    // Input: open matched game, viewed by one of its players
+    // Expected output: they can cancel, but can't leave or move the game
+    @Test
+    fun matchedGamePlayerCanCancelButNotLeaveOrMove() {
+        val actions = gameActions(game(players = listOf(alice, bob), source = GameSource.MATCHED), "alice", now)
+
+        assertTrue(actions.canCancel)
+        assertFalse(actions.canLeave)
+        assertFalse(actions.leaveTooLate)
+        assertFalse(actions.canChangeTimeOrCourt)
+    }
 }

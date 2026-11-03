@@ -69,6 +69,17 @@ class MatchmakingRepositoryTest {
         assertEquals(-123.2432, body.getDouble("longitude"), 0.0)
     }
 
+    // Input: join while a matched game is coming up; backend answers 403
+    // Expected output: failure with ActiveMatchException, so the screen can say why
+    @Test
+    fun joinQueueReportsAnActiveMatch() = runBlocking {
+        respond(403, """{"error":"Already has a match"}""")
+
+        val result = repository().joinQueue(MatchFormat.SINGLES, ubc)
+
+        assertTrue(result.exceptionOrNull() is ActiveMatchException)
+    }
+
     // Input: join while already in the queue; backend answers 409
     // Expected behavior: the player is waiting either way
     // Expected output: success
