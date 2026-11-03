@@ -22,15 +22,15 @@ describe('Mocked: startMatchmakingJob', () => {
   });
 
   // Input: job started, 60 seconds pass
-  // Expected behavior: matchmaking runs once every 30 seconds
-  // Expected output: runMatchmaking called twice
-  test('Runs every 30 seconds', async () => {
+  // Expected behavior: matchmaking runs once every 10 seconds
+  // Expected output: runMatchmaking called 6 times
+  test('Runs every 10 seconds', async () => {
     jest.mocked(runMatchmaking).mockResolvedValue([]);
     task = startMatchmakingJob();
 
     await jest.advanceTimersByTimeAsync(60_000);
 
-    expect(runMatchmaking).toHaveBeenCalledTimes(2);
+    expect(runMatchmaking).toHaveBeenCalledTimes(6);
   });
 
   // Input: first run never finishes, another tick fires
@@ -56,7 +56,7 @@ describe('Mocked: startMatchmakingJob', () => {
     jest.mocked(runMatchmaking).mockRejectedValueOnce(new Error('db down')).mockResolvedValue([]);
     task = startMatchmakingJob();
 
-    await jest.advanceTimersByTimeAsync(60_000);
+    await jest.advanceTimersByTimeAsync(20_000);
 
     expect(runMatchmaking).toHaveBeenCalledTimes(2);
     expect(consoleError).toHaveBeenCalled();
