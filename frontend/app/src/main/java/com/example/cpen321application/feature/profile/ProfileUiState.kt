@@ -4,7 +4,7 @@ import com.example.cpen321application.core.network.dto.EquipmentDto
 import com.example.cpen321application.core.network.dto.EquipmentType
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
-import com.example.cpen321application.core.network.dto.MatchDto
+import com.example.cpen321application.core.data.model.MatchResult
 
 enum class ProfileTab {
     MATCH_HISTORY,
@@ -18,7 +18,7 @@ data class ProfileUiState(
     val selectedTab: ProfileTab = ProfileTab.FRIENDS,
     val friends: List<FriendDto> = emptyList(),
     val friendRequests: List<FriendRequestDto> = emptyList(),
-    val matchHistory: List<MatchDto> = emptyList(),
+    val matchHistory: List<MatchResult> = emptyList(),  // most recent first
     val equipment: List<EquipmentDto> = emptyList(),
     val isLoadingUserMe: Boolean = false,
     val isLoadingFriends: Boolean = false,

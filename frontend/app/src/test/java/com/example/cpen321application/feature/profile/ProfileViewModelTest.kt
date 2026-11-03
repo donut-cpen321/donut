@@ -2,6 +2,7 @@ package com.example.cpen321application.feature.profile
 
 import com.example.cpen321application.core.auth.AuthSession
 import com.example.cpen321application.core.auth.User
+import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.repository.EquipmentRepository
 import com.example.cpen321application.core.data.repository.FriendsRepository
 import com.example.cpen321application.core.network.ApiService
@@ -12,15 +13,16 @@ import com.example.cpen321application.core.network.dto.CreateEquipmentRequestDto
 import com.example.cpen321application.core.network.dto.CreateGameRequestDto
 import com.example.cpen321application.core.network.dto.EquipmentDto
 import com.example.cpen321application.core.network.dto.EquipmentType
+import com.example.cpen321application.core.network.dto.FcmTokenRequestDto
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
 import com.example.cpen321application.core.network.dto.JoinGameRequestDto
 import com.example.cpen321application.core.network.dto.JoinQueueRequestDto
 import com.example.cpen321application.core.network.dto.LeaveGameRequestDto
 import com.example.cpen321application.core.network.dto.LoginRequestDto
-import com.example.cpen321application.core.network.dto.MatchDto
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
 import com.example.cpen321application.core.network.dto.ReportScoreRequestDto
+import com.example.cpen321application.core.network.dto.SendFriendRequestDto
 import com.example.cpen321application.core.network.dto.UpdateEquipmentRequestDto
 import com.example.cpen321application.core.network.dto.UserMeDto
 import kotlinx.coroutines.Dispatchers
@@ -40,9 +42,8 @@ class FakeFriendsRepository : FriendsRepository {
     val requestsList = mutableListOf(
         FriendRequestDto("req1", "David")
     )
-    val matchesList = mutableListOf(
-        MatchDto("m1", "Bob", "WIN", "3-1", "2025-01-01", 15)
-    )
+    val matchesList = mutableListOf<Game>()
+    val sentRequests = mutableListOf<String>()
 
     override suspend fun getUserMe(session: AuthSession): Result<UserMeDto> {
         return Result.success(userMe)
@@ -70,7 +71,16 @@ class FakeFriendsRepository : FriendsRepository {
         return Result.success(Unit)
     }
 
-    override suspend fun getMatchHistory(session: AuthSession): Result<List<MatchDto>> {
+    override suspend fun getOutgoingFriendRequests(session: AuthSession): Result<List<FriendRequestDto>> {
+        return Result.success(emptyList())
+    }
+
+    override suspend fun sendFriendRequest(session: AuthSession, userId: String): Result<Unit> {
+        sentRequests.add(userId)
+        return Result.success(Unit)
+    }
+
+    override suspend fun getMatchHistory(session: AuthSession): Result<List<Game>> {
         return Result.success(matchesList)
     }
 }
@@ -204,6 +214,7 @@ class ProfileViewModelTest {
                 override suspend fun createEquipment(authorization: String, request: CreateEquipmentRequestDto) = TODO()
                 override suspend fun updateEquipment(authorization: String, id: Int, request: UpdateEquipmentRequestDto) = TODO()
                 override suspend fun deleteEquipment(authorization: String, id: Int) = TODO()
+                override suspend fun saveFcmToken(authorization: String, request: FcmTokenRequestDto) = TODO()
                 override suspend fun getQueueEntry(authorization: String) = TODO()
                 override suspend fun joinQueue(authorization: String, request: JoinQueueRequestDto) = TODO()
                 override suspend fun leaveQueue(authorization: String) = TODO()
@@ -211,7 +222,8 @@ class ProfileViewModelTest {
                 override suspend fun removeFriend(authorization: String, userId: String) = TODO()
                 override suspend fun getFriendRequests(authorization: String) = TODO()
                 override suspend fun acceptFriendRequest(authorization: String, request: AcceptFriendRequestDto) = TODO()
-                override suspend fun getMatchHistory(authorization: String) = TODO()
+                override suspend fun sendFriendRequest(authorization: String, request: SendFriendRequestDto) = TODO()
+                override suspend fun getGameHistory(authorization: String) = TODO()
                 override suspend fun getLeaderboard(authorization: String, limit: Int?) = TODO()
                 override suspend fun getGameFeed(authorization: String) = TODO()
                 override suspend fun getMyGames(authorization: String) = TODO()

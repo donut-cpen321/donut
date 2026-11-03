@@ -10,6 +10,8 @@
 | Nov 1, 2026 | 4.1, 4.2 | `POST /games/score` now updates ratings through the implemented `applyGameResult` and returns each player's rating change. Removed the leftover `sport` parameters from the Games, Matchmaking and Ranking interfaces. |
 | Nov 1, 2026 | 4.1, 4.2 | Added the implemented `GET /leaderboard` and `GET /user/me`, and an index for the leaderboard order. |
 | Nov 2, 2026 | 3.1, 3.2, 3.4, 4.1, 4.2, 4.3, 4.5 | Added tournaments (8-team single-elimination brackets in singles or doubles): the feature, its use cases, the new Tournaments component and tables, and the Games interface changes that keep tournament games off the feed and out of the join, leave and delete routes. |
+| Nov 3, 2026 | 4.1, 4.2 | Documented the implemented Friends component (friend requests and friends list) and its `friendships` table. |
+| Nov 3, 2026 | 4.1 | Added `GET /games/history` for the profile's match history, and each player in a `GameDetails` now has `ratingBefore` and `ratingAfter` for the match summary. |
 
 ---
 
@@ -357,28 +359,30 @@ Not included. The formal use cases describe each screen in enough detail for thi
         2. `GET /games/feed` → `{ games: FeedGame[] }` - E
             - **Purpose**: Returns the scheduled games that players can join: `OPEN` (not every spot filled) and not started, soonest first. Only games with `gameSource` `SCHEDULED` are listed, so tournament games never appear. A `FeedGame` is a `GameDetails` (see interface 3) with a `forecast` of `{ at, temperature, description, icon, precipitationChance }` for its court and start time, or `null` if the start time is more than 5 days away or OpenWeather cannot be reached.
         3. `GET /games` with a `gameId` query parameter → `{ game: GameDetails }` - E
-            - **Purpose**: Returns one game with its court (`{ id, name, latitude, longitude }`), its players (`{ id, username, name, rating, team, acceptedAt }`, by team), its rounds (`{ number, team1Score, team2Score }`, in order) and its `tournament` (`{ id, name, round }`, where round 1 is the quarterfinals, 2 the semifinals and 3 the final, or `null` for a game outside a tournament). `404` if the game does not exist.
+            - **Purpose**: Returns one game with its court (`{ id, name, latitude, longitude }`), its players (`{ id, username, name, rating, team, acceptedAt, ratingBefore, ratingAfter }`, by team, where `ratingBefore` and `ratingAfter` are `null` until the final score is reported), its rounds (`{ number, team1Score, team2Score }`, in order) and its `tournament` (`{ id, name, round }`, where round 1 is the quarterfinals, 2 the semifinals and 3 the final, or `null` for a game outside a tournament). `404` if the game does not exist.
         4. `GET /games/me` → `{ games: GameDetails[] }` - E
             - **Purpose**: Returns the caller's upcoming and current games for the Games tab, soonest first: every `BOOKED` game, and every `OPEN` game that has not started (a scheduled game still filling, or a matched game waiting for acceptance). The caller's tournament games are `BOOKED`, so they are included, labelled with their `tournament`.
-        5. `DELETE /games` with a `gameId` query parameter → `204` - E
+        5. `GET /games/history` → `{ games: GameDetails[] }` - E
+            - **Purpose**: Returns the caller's `COMPLETED` games for the profile's match history, most recent first, each with its final rounds and every player's `ratingBefore` and `ratingAfter`. The app opens a game's match summary from this list.
+        6. `DELETE /games` with a `gameId` query parameter → `204` - E
             - **Purpose**: Deletes a game. `404` if the game does not exist, `409` "Tournament games cannot be cancelled" for a tournament game (its bracket depends on it), and `403` if the caller is not in the game.
-        6. `POST /games/join` with `{ gameId, team: 1 | 2 }` → `204`, `POST /games/leave` with `{ gameId }` → `204` - E
+        7. `POST /games/join` with `{ gameId, team: 1 | 2 }` → `204`, `POST /games/leave` with `{ gameId }` → `204` - E
             - **Purpose**: Join or leave a scheduled game. Joining needs a scheduled game (so not a matched or tournament game) that is `OPEN` and has not started (`409` otherwise) and a free spot on the chosen team (1 per team in singles, 2 in doubles; `409` if the team is full). It is `409` if the caller is already in the game. The game becomes `BOOKED` when its last spot is filled, which takes it off the feed. Leaving is `409` for a tournament game ("Players cannot leave a tournament game"), once the game is completed or cancelled, or less than 30 minutes before the start, and `404` if the caller is not in the game. A `BOOKED` scheduled game goes back to `OPEN` when a player leaves. Both lock the game's row, so two players can't take the last spot at the same time.
-        7. `PATCH /games/time` with `{ gameId, startsAt }` → `{ game: Game }` - E
+        8. `PATCH /games/time` with `{ gameId, startsAt }` → `{ game: Game }` - E
             - **Purpose**: Moves a game to a new start time, which must be in the future. The caller must be in the game, and the game must not be completed or cancelled (`403` and `409` otherwise).
-        8. `PATCH /games/location` with `{ gameId, courtId }` → `{ game: Game }` - E
+        9. `PATCH /games/location` with `{ gameId, courtId }` → `{ game: Game }` - E
             - **Purpose**: Moves a game to a different court, with the same rules as `PATCH /games/time`. Returns `404` if the court does not exist.
-        9. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
+        10. `POST /games/:id/accept` → `Game`, `POST /games/:id/decline` → `204` - E
             - **Purpose**: Accept or decline a matched game.
-        10. `POST /games/:id/check-in` → `Game` - E
+        11. `POST /games/:id/check-in` → `Game` - E
             - **Purpose**: Confirms the player is at the court; starts the game when every player has confirmed.
-        11. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
+        12. `PUT /games/:id/rounds/:number` with `{ team1Score, team2Score }` → `GameRound` - E
             - **Purpose**: The owner saves one round's live score.
-        12. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
+        13. Socket.IO `join-game { gameId }` (client → server) and `game-update { gameId, rounds }` (server → client) - E
             - **Purpose**: Pushes each saved round to every player connected to the game.
-        13. `POST /games/score` with `{ gameId, rounds: [team1Score, team2Score][] }` → `{ game: Game, rounds: GameRound[], ratingChanges: RatingChange[] }` - E
+        14. `POST /games/score` with `{ gameId, rounds: [team1Score, team2Score][] }` → `{ game: Game, rounds: GameRound[], ratingChanges: RatingChange[] }` - E
             - **Purpose**: Ends the game with its final score. The rounds replace any saved during the game, and the game is marked as completed in the same transaction, so the score can only be reported once (`409` after that). Rejected with `400` if there are no rounds, a round score is not a non-negative whole number, a round is tied, or both teams won the same number of rounds. The caller must be in the game, and both teams must be full (`409` otherwise). `applyGameResult` updates every player's rating in the same transaction, so the score and ratings are saved together or not at all, and the response includes each player's rating before and after. For a tournament game, the same transaction also moves the winner on through the bracket (`advanceBracket`, see Tournaments). `409` "The score could not be saved, please try again" if Postgres aborts the transaction as a deadlock (Prisma `P2034`), for example when two games that share a player finish at the same moment; nothing is saved, so the score can be reported again.
-        14. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
+        15. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
             - **Purpose**: Used by Matchmaking to create a proposed game.
 3. **Matchmaking**
     - **Purpose**: Owns the matchmaking queue and the matching algorithm, run by a background job every 30 seconds.
@@ -428,10 +432,24 @@ Not included. The formal use cases describe each screen in enough detail for thi
             - **Purpose**: Called by Games inside the final-score transaction of a tournament game: records the match's winner and puts them into their next match. Once both teams of that match are known, it books its game at the start time plus 1 hour for a semifinal or plus 2 hours for the final, or now if that time has passed. After the final, it marks the tournament `COMPLETED` and sets `winningTeam` to the champion's seed. It locks the tournament's row first, so when both feeder matches are reported at once the second one sees the first one's winner and exactly one next-round game is booked. Does nothing for a game outside a bracket or a match that is already decided.
         10. `string[][] formTeams(entrants: Entrant[], format: Format)` - In
             - **Purpose**: The pure team draw used by `drawBracket`. Ranks the entrants by rating (the earlier registration, then the user ID, break ties). In singles each player is a team; in doubles it pairs the strongest player with the weakest, the second strongest with the second weakest, and so on, so the teams are balanced. Teams are seeded by average rating, top seed first. The quarterfinals are 1 v 8, 4 v 5, 3 v 6 and 2 v 7, so the top two seeds can only meet in the final. Throws if the entrants do not fill the bracket exactly.
+6. **Friends**
+    - **Purpose**: Owns friendships between players: sending, accepting and removing friend requests, and listing friends. Every route requires the signed-in player's `Authorization` header (`401` otherwise), and an invalid body or query is `400` with `details`.
+    - **Rationale**: Friendships only link two users and touch no game, rating or tournament data, so they get their own small component. One `friendships` row per pair, holding who sent the request and whether it was accepted, covers requests and friends without a second table. Alternative considered: separate request and friend tables. Rejected because accepting would move a row between tables, and keeping the pair unique across both would need extra checks.
+    - **Interfaces**:
+        1. `GET /friends` → `{ friends: Friend[] }` - E
+            - **Purpose**: Returns the caller's accepted friends, most recent first. A `Friend` is `{ id, username, name, rating, friendsSince }`.
+        2. `GET /friends/requests` → `{ incoming: FriendRequest[], outgoing: FriendRequest[] }` - E
+            - **Purpose**: Returns the pending requests the caller received and sent, most recent first. A `FriendRequest` is `{ id, username, name, rating, requestedAt }`, where the user is the other player.
+        3. `POST /friends/requests` with `{ userId }` → `201 { status: "PENDING" | "ACCEPTED" }` - E
+            - **Purpose**: Sends a friend request (`PENDING`). If the other player already sent one to the caller, it accepts theirs instead (`ACCEPTED`). The app's match summary uses it for its "Add friend" button. `400` "Cannot friend yourself", `409` "Already friends" or "Request already sent", `404` "User not found".
+        4. `POST /friends/requests/accept` with `{ userId }` → `204` - E
+            - **Purpose**: Accepts the pending request that `userId` sent to the caller. `404` "Friend request not found".
+        5. `DELETE /friends` with a `userId` query parameter → `204` - E
+            - **Purpose**: Removes a friend, or declines or cancels a pending request, in either direction. `404` "Friendship not found".
 
 ### **4.2. Databases**
 1. **PostgreSQL (`donut`)**
-    - **Purpose**: Stores users, ratings, courts, preferred courts, the matchmaking queue, games, game players (with each player's rating before and after a completed game), rounds and tournaments (`backend/prisma/schema.prisma`). A game's `gameSource` is `SCHEDULED`, `MATCHED` or `TOURNAMENT`. `tournaments` holds each tournament's name, format, status (`REGISTRATION`, `IN_PROGRESS`, `COMPLETED` or `CANCELLED`), court, start time, creator and the champion's seed, indexed by status and start time for the feed. `tournament_players` holds the registered players, each with their team's seed once the bracket is drawn. `tournament_matches` holds the bracket's 7 matches by round and position, with the seeds playing, the winner and the match's game once it is booked.
+    - **Purpose**: Stores users, ratings, courts, preferred courts, the matchmaking queue, games, game players (with each player's rating before and after a completed game), rounds and tournaments (`backend/prisma/schema.prisma`). A game's `gameSource` is `SCHEDULED`, `MATCHED` or `TOURNAMENT`. `tournaments` holds each tournament's name, format, status (`REGISTRATION`, `IN_PROGRESS`, `COMPLETED` or `CANCELLED`), court, start time, creator and the champion's seed, indexed by status and start time for the feed. `tournament_players` holds the registered players, each with their team's seed once the bracket is drawn. `tournament_matches` holds the bracket's 7 matches by round and position, with the seeds playing, the winner and the match's game once it is booked. `friendships` holds one row per pair of players, keyed by requester and addressee, with its status (`PENDING` or `ACCEPTED`).
     - **Rationale**: The data is relational: a match joins the queue with ratings and courts, and a game joins players and rounds. One relational database keeps those joins in single queries and lets a match or a final score (with the ratings and, for a tournament game, the bracket) be saved in one transaction. Alternative considered: MongoDB. Rejected because nothing here is document-shaped, and we would lose transactions across collections.
 
 ### **4.3. External Modules**

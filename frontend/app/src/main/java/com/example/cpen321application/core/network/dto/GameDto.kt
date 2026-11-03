@@ -11,7 +11,7 @@ import com.example.cpen321application.core.data.model.Player
 import com.example.cpen321application.core.data.model.Round
 import java.time.Instant
 
-// A game with its court, players and rounds, as GET /games, /games/feed and /games/me return it.
+// A game with its court, players and rounds, as GET /games, /games/feed, /games/me and /games/history return it.
 // Enums and dates stay strings here because Gson can't parse java.time or reject unknown enum values.
 data class GameDto(
     val id: String,
@@ -38,7 +38,9 @@ data class PlayerDto(
     val username: String,
     val name: String,
     val rating: Double,
-    val team: Int
+    val team: Int,
+    val ratingBefore: Double? = null,  // null until the game is completed
+    val ratingAfter: Double? = null
 )
 
 data class RoundDto(
@@ -66,7 +68,7 @@ fun GameDto.toGame(): Game = Game(
     source = GameSource.valueOf(gameSource),
     startsAt = Instant.parse(startsAt),
     court = court.toCourt(),
-    players = players.map { Player(it.id, it.username, it.name, it.rating, it.team) },
+    players = players.map { Player(it.id, it.username, it.name, it.rating, it.team, it.ratingBefore, it.ratingAfter) },
     rounds = rounds.map { it.toRound() },
     forecast = forecast?.toForecast(),
     tournament = tournament?.let { GameTournament(it.id, it.name, it.round) }

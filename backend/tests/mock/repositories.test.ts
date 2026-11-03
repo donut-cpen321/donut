@@ -12,6 +12,7 @@ import {
   fetchFeedGames,
   fetchGameDetails,
   fetchUserGames,
+  fetchUserHistory,
 } from "../../src/games/games.repository";
 import { applyGameResult } from "../../src/ranking/ranking.service";
 import { advanceBracket } from "../../src/tournaments/bracket.repository";
@@ -73,6 +74,8 @@ const gameRow = () => ({
     {
       team: 1,
       acceptedAt: new Date("2026-11-01T12:00:00Z"),
+      ratingBefore: null as number | null,
+      ratingAfter: null as number | null,
       user: { id: userId, username: "ace", name: "Ace Player", rating: 1520 },
     },
   ],
@@ -91,6 +94,8 @@ const flattenedPlayers = [
     rating: 1520,
     team: 1,
     acceptedAt: new Date("2026-11-01T12:00:00Z"),
+    ratingBefore: null,
+    ratingAfter: null,
   },
 ];
 
@@ -243,6 +248,39 @@ describe("Mocked: fetchUserGames", () => {
           ],
         },
         orderBy: { startsAt: "asc" },
+      }),
+    );
+  });
+});
+
+describe("Mocked: fetchUserHistory", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("Fetches the user's completed games, most recent first, with each player's rating change", async () => {
+    const row = gameRow();
+    db.game.findMany.mockResolvedValue([
+      {
+        ...row,
+        status: GameStatus.COMPLETED,
+        players: row.players.map((player) => ({ ...player, ratingBefore: 1500, ratingAfter: 1520 })),
+      },
+    ]);
+
+    const [game] = await fetchUserHistory(userId);
+
+    expect(game?.status).toBe(GameStatus.COMPLETED);
+    expect(game?.players).toEqual([
+      { ...flattenedPlayers[0], ratingBefore: 1500, ratingAfter: 1520 },
+    ]);
+    expect(db.game.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          players: { some: { userId } },
+          status: GameStatus.COMPLETED,
+        },
+        orderBy: { startsAt: "desc" },
       }),
     );
   });

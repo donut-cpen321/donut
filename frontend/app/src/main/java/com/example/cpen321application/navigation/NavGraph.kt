@@ -2,15 +2,22 @@ package com.example.cpen321application.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.cpen321application.core.auth.AuthSession
 import com.example.cpen321application.core.auth.AuthViewModel
 import com.example.cpen321application.core.auth.User
+import com.example.cpen321application.core.data.repository.FriendsRepositoryImpl
+import com.example.cpen321application.core.data.repository.GamesRepositoryImpl
 import com.example.cpen321application.feature.leaderboard.LeaderboardRoute
 import com.example.cpen321application.feature.login.LoginRoute
 import com.example.cpen321application.feature.matchmaking.MatchmakingRoute
+import com.example.cpen321application.feature.matchsummary.MatchSummaryRoute
+import com.example.cpen321application.feature.matchsummary.MatchSummaryViewModel
 import com.example.cpen321application.feature.profile.ProfileRoute
 
 sealed class Screen(val route: String) {
@@ -22,6 +29,9 @@ sealed class Screen(val route: String) {
     object CreateGame : Screen("create_game")
     object GameDetail : Screen("game/{gameId}") {
         fun createRoute(gameId: String) = "game/$gameId"
+    }
+    object MatchSummary : Screen("match/{gameId}") {
+        fun createRoute(gameId: String) = "match/$gameId"
     }
     object CreateTournament : Screen("create_tournament")
     object TournamentDetail : Screen("tournament/{tournamentId}") {
@@ -63,6 +73,25 @@ fun AppNavGraph(
             ProfileRoute(
                 authViewModel = args.authViewModel,
                 onSignOut = args.onSignOut,
+                onOpenMatch = { gameId -> navController.navigate(Screen.MatchSummary.createRoute(gameId)) },
+            )
+        }
+        composable(
+            route = Screen.MatchSummary.route,
+            arguments = listOf(navArgument("gameId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val gameId = backStackEntry.arguments?.getString("gameId").orEmpty()
+            MatchSummaryRoute(
+                viewModel = viewModel {
+                    MatchSummaryViewModel(
+                        gameId = gameId,
+                        gamesRepository = GamesRepositoryImpl(session),
+                        friendsRepository = FriendsRepositoryImpl(),
+                        session = session,
+                        currentUsername = currentUsername,
+                    )
+                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Screen.Matchmaking.route) {

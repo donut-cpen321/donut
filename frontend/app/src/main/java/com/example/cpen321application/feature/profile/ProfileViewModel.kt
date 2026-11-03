@@ -3,6 +3,7 @@ package com.example.cpen321application.feature.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cpen321application.core.auth.AuthSession
+import com.example.cpen321application.core.data.model.resultFor
 import com.example.cpen321application.core.data.repository.EquipmentRepository
 import com.example.cpen321application.core.data.repository.EquipmentRepositoryImpl
 import com.example.cpen321application.core.data.repository.FriendsRepository
@@ -120,10 +121,11 @@ class ProfileViewModel(
         viewModelScope.launch(ioDispatcher) {
             _uiState.update { it.copy(isLoadingMatches = true, errorMessage = null) }
             val result = repository.getMatchHistory(session)
-            result.onSuccess { matches ->
+            result.onSuccess { games ->
+                val username = session.user?.username
                 _uiState.update {
                     it.copy(
-                        matchHistory = matches,
+                        matchHistory = games.mapNotNull { game -> game.resultFor(username) },
                         isLoadingMatches = false,
                     )
                 }

@@ -61,11 +61,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.core.auth.AuthViewModel
+import com.example.cpen321application.core.data.model.MatchResult
 import com.example.cpen321application.core.network.dto.EquipmentDto
 import com.example.cpen321application.core.network.dto.EquipmentType
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
-import com.example.cpen321application.core.network.dto.MatchDto
+import com.example.cpen321application.core.ui.components.LossColor
+import com.example.cpen321application.core.ui.components.MatchOutcomeBadge
+import com.example.cpen321application.core.ui.components.WinColor
+import com.example.cpen321application.core.ui.formatStartsAt
+import com.example.cpen321application.core.ui.playerNames
+import com.example.cpen321application.core.ui.ratingChangeText
+import com.example.cpen321application.core.ui.scoresText
 
 private const val TENNIS_BALLS_NAME = "Tennis Balls"
 
@@ -82,12 +89,14 @@ data class ProfileActions(
     val onUpdateEquipmentInputs: (String, EquipmentType, Boolean) -> Unit = { _, _, _ -> },
     val onSaveEquipment: () -> Unit = {},
     val onDeleteEquipment: (Int) -> Unit = {},
+    val onOpenMatch: (gameId: String) -> Unit = {},
 )
 
 @Composable
 fun ProfileRoute(
     authViewModel: AuthViewModel,
     onSignOut: () -> Unit,
+    onOpenMatch: (gameId: String) -> Unit,
     viewModel: ProfileViewModel = viewModel(),
 ) {
     val session = authViewModel.session
@@ -112,6 +121,7 @@ fun ProfileRoute(
         },
         onSaveEquipment = { viewModel.saveEquipment(session) },
         onDeleteEquipment = { equipmentId -> viewModel.deleteEquipment(session, equipmentId) },
+        onOpenMatch = onOpenMatch,
     )
 
     ProfileScreen(uiState = uiState, actions = actions)
@@ -181,6 +191,7 @@ private fun ProfileTabBody(
                 matchHistory = uiState.matchHistory,
                 isLoading = uiState.isLoadingMatches,
                 onRefresh = actions.onRefresh,
+                onOpenMatch = actions.onOpenMatch,
             )
             ProfileTab.FRIENDS -> FriendsTabContent(
                 uiState = uiState,
@@ -423,9 +434,10 @@ private fun LoadingBox() {
 
 @Composable
 private fun MatchHistoryTabContent(
-    matchHistory: List<MatchDto>,
+    matchHistory: List<MatchResult>,
     isLoading: Boolean,
     onRefresh: () -> Unit,
+    onOpenMatch: (gameId: String) -> Unit,
 ) {
     if (isLoading) {
         LoadingBox()
@@ -438,8 +450,18 @@ private fun MatchHistoryTabContent(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(matchHistory, key = { it.id }) { match ->
-                MatchHistoryCard(match = match)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    IconButton(onClick = onRefresh) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh Match History")
+                    }
+                }
+            }
+            items(matchHistory, key = { it.game.id }) { match ->
+                MatchHistoryCard(match = match, onClick = { onOpenMatch(match.game.id) })
             }
         }
     }
@@ -483,8 +505,9 @@ private fun MatchHistoryEmptyView(onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun MatchHistoryCard(match: MatchDto) {
+private fun MatchHistoryCard(match: MatchResult, onClick: () -> Unit) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
@@ -495,51 +518,50 @@ private fun MatchHistoryCard(match: MatchDto) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "vs ${match.opponentUsername}",
+                    text = "vs ${playerNames(match.opponents)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
+                if (match.partners.isNotEmpty()) {
+                    Text(
+                        text = "with ${playerNames(match.partners)}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = match.date,
+                    text = formatStartsAt(match.game.startsAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = match.score,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = scoresText(match.myScores),
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                MatchResultBadge(result = match.result)
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(horizontalAlignment = Alignment.End) {
+                MatchOutcomeBadge(outcome = match.outcome)
+                match.ratingChange?.let { change ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = ratingChangeText(change),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            change > 0 -> WinColor
+                            change < 0 -> LossColor
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun MatchResultBadge(result: String) {
-    val isWin = result.equals("WIN", ignoreCase = true)
-    val resultColor = if (isWin) Color(0xFF2E7D32) else Color(0xFFC62828)
-    val resultContainer = if (isWin) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(resultContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    ) {
-        Text(
-            text = result.uppercase(),
-            color = resultColor,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-        )
     }
 }
 
