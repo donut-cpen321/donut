@@ -287,7 +287,7 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
         5. `GET /games/history` → `{ games }` - E
             - **Purpose**: The caller's `COMPLETED` games, most recent first, for the match history and summary.
         6. `DELETE /games` with `gameId` → `204` - E
-            - **Purpose**: Cancels a game for everyone. A scheduled game is deleted with its players, rounds and equipment in one transaction; a matched game is marked `CANCELLED` (this is how a match is declined). `403` if the caller isn't in it, `404` if not found, `409` for a tournament game or a matched game that is already closed.
+            - **Purpose**: Cancels a game for everyone. A scheduled game is deleted with its players, rounds and equipment in one transaction, under the game's row lock; a matched game is marked `CANCELLED` (this is how a match is declined). `403` if the caller isn't in it, `404` if not found, `409` for a tournament game or one already completed or cancelled (a completed game keeps its score and rating changes).
         7. `POST /games/join` with `{ gameId, team }` → `204`, `POST /games/leave` with `{ gameId }` → `204` - E
             - **Purpose**: Join or leave a scheduled game. Joining needs an `OPEN` scheduled game that hasn't started and a free spot on the team (`409` otherwise); filling the last spot books it. Leaving is `409` for tournament and matched games, closed games, or within 30 minutes of the start; a booked game reopens. Both lock the game's row, so two players can't take the last spot.
         8. `POST /games/accept` with `{ gameId }` → `204` - E
