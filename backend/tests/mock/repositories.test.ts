@@ -449,10 +449,10 @@ describe("Mocked: deleteGame", () => {
   // Expected output: resolves
   test("Deletes the game's players, rounds and equipment before the game", async () => {
     const order: string[] = [];
-    db.gameUser.deleteMany.mockImplementationOnce(async () => order.push("players"));
-    db.gameRound.deleteMany.mockImplementationOnce(async () => order.push("rounds"));
-    db.gameEquipment.deleteMany.mockImplementationOnce(async () => order.push("equipment"));
-    db.game.delete.mockImplementationOnce(async () => order.push("game"));
+    db.gameUser.deleteMany.mockImplementationOnce(() => Promise.resolve(order.push("players")));
+    db.gameRound.deleteMany.mockImplementationOnce(() => Promise.resolve(order.push("rounds")));
+    db.gameEquipment.deleteMany.mockImplementationOnce(() => Promise.resolve(order.push("equipment")));
+    db.game.delete.mockImplementationOnce(() => Promise.resolve(order.push("game")));
 
     await deleteGame(gameId);
 

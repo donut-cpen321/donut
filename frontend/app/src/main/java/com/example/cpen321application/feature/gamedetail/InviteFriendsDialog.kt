@@ -82,9 +82,8 @@ private fun InviteFriendsContent(
             items(friends, key = { it.userId }) { friend ->
                 FriendInviteRow(
                     friend = friend,
-                    notified = invite.invited[friend.userId],
-                    isInviting = invite.invitingUserId == friend.userId,
-                    canInvite = invite.invitingUserId == null,
+                    status = inviteStatus(invite, friend.userId),
+                    isAnotherInviteSending = invite.invitingUserId != null,
                     onInvite = { onInvite(friend.userId) }
                 )
             }
@@ -92,23 +91,26 @@ private fun InviteFriendsContent(
     }
 }
 
-/**
- * @param notified null until the friend is invited, then whether their device got the notification
- * @param isInviting this friend's invite has no answer yet
- * @param canInvite no other invite is waiting for an answer
- */
+private enum class InviteStatus { NOT_INVITED, SENDING, NOTIFIED, NOT_NOTIFIED }
+
+private fun inviteStatus(invite: InviteUiState, userId: String): InviteStatus = when {
+    invite.invitingUserId == userId -> InviteStatus.SENDING
+    invite.invited[userId] == true -> InviteStatus.NOTIFIED
+    invite.invited[userId] == false -> InviteStatus.NOT_NOTIFIED
+    else -> InviteStatus.NOT_INVITED
+}
+
 @Composable
 private fun FriendInviteRow(
     friend: FriendDto,
-    notified: Boolean?,
-    isInviting: Boolean,
-    canInvite: Boolean,
+    status: InviteStatus,
+    isAnotherInviteSending: Boolean,
     onInvite: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = friend.username, style = MaterialTheme.typography.bodyLarge)
-            if (notified == false) {
+            if (status == InviteStatus.NOT_NOTIFIED) {
                 Text(
                     text = "They have notifications off, so let them know yourself.",
                     style = MaterialTheme.typography.bodySmall,
@@ -116,14 +118,16 @@ private fun FriendInviteRow(
                 )
             }
         }
-        when {
-            isInviting -> CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            notified != null -> Text(
+        when (status) {
+            InviteStatus.SENDING -> CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            InviteStatus.NOTIFIED, InviteStatus.NOT_NOTIFIED -> Text(
                 text = "Invited",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )
-            else -> OutlinedButton(onClick = onInvite, enabled = canInvite) { Text("Invite") }
+            InviteStatus.NOT_INVITED -> OutlinedButton(onClick = onInvite, enabled = !isAnotherInviteSending) {
+                Text("Invite")
+            }
         }
     }
 }
