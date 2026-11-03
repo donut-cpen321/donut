@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { Game, Prisma } from "../generated/prisma/client";
 import { GameSource, GameStatus } from "../generated/prisma/enums";
 import { applyGameResult } from "../ranking/ranking.service";
+import { advanceBracket } from "../tournaments/bracket.repository";
 
 // The user fields that are safe to show to other players.
 const playerUserSelect = {
@@ -11,7 +12,7 @@ const playerUserSelect = {
   rating: true,
 } satisfies Prisma.UserSelect;
 
-// A game with its court, players and rounds, as shown on the game screen and the feed
+// A game with its court, players, rounds and tournament, as shown on the game screen and the feed
 const gameDetailsInclude = {
   court: { select: { id: true, name: true, latitude: true, longitude: true } },
   players: {
@@ -22,6 +23,9 @@ const gameDetailsInclude = {
     select: { number: true, team1Score: true, team2Score: true },
     orderBy: { number: "asc" },
   },
+  tournamentMatch: {
+    select: { round: true, tournament: { select: { id: true, name: true } } },
+  },
 } satisfies Prisma.GameInclude;
 
 type GameDetailsRow = Prisma.GameGetPayload<{
@@ -29,11 +33,12 @@ type GameDetailsRow = Prisma.GameGetPayload<{
 }>;
 
 /**
- * Flattens each player's user into the player, like the friends list does
+ * Flattens each player's user into the player, like the friends list does, and names the tournament a game is in
  * @param game a game fetched with gameDetailsInclude
- * @returns the game with players as { id, username, name, rating, team, acceptedAt }
+ * @returns the game with players as { id, username, name, rating, team, acceptedAt }, and its tournament as
+ * { id, name, round }, or null if it is not a tournament game
  */
-function toGameDetails({ players, ...game }: GameDetailsRow) {
+function toGameDetails({ players, tournamentMatch, ...game }: GameDetailsRow) {
   return {
     ...game,
     players: players.map(({ user, team, acceptedAt }) => ({
@@ -41,6 +46,10 @@ function toGameDetails({ players, ...game }: GameDetailsRow) {
       team,
       acceptedAt,
     })),
+    tournament:
+      tournamentMatch === null
+        ? null
+        : { ...tournamentMatch.tournament, round: tournamentMatch.round },
   };
 }
 
@@ -179,8 +188,8 @@ export async function updateGame(
 }
 
 /**
- * Saves the final rounds of a game, marks it as completed and updates every player's rating
- * in one transaction, replacing any rounds saved during the game
+ * Saves the final rounds of a game, marks it as completed, updates every player's rating and, for a tournament game,
+ * moves the winner on through the bracket, in one transaction, replacing any rounds saved during the game
  * @param gameId the game ID of the game to complete
  * @param rounds the [team 1 score, team 2 score] of each round, in order
  * @returns the completed game, its rounds and each player's rating change, or null if the game was already completed or cancelled
@@ -212,6 +221,10 @@ export async function completeGame(gameId: string, rounds: [number, number][]) {
     });
     const game = await tx.game.findUniqueOrThrow({ where: { id: gameId } });
     const ratingChanges = await applyGameResult(tx, gameId, game.format, rounds);
+
+    if (game.gameSource === GameSource.TOURNAMENT) {
+      await advanceBracket(tx, gameId, rounds, new Date());
+    }
 
     return { game, rounds: savedRounds, ratingChanges };
   });

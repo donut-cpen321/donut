@@ -4,21 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,13 +20,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.core.data.model.Court
 import com.example.cpen321application.core.data.model.Format
 import com.example.cpen321application.core.ui.components.BackHeader
 import com.example.cpen321application.core.ui.components.CourtPickerDialog
 import com.example.cpen321application.core.ui.components.DateTimePickerDialog
+import com.example.cpen321application.core.ui.components.PickerButton
+import com.example.cpen321application.core.ui.components.SubmitButton
 import com.example.cpen321application.core.ui.formatStartsAt
 import com.example.cpen321application.core.ui.label
 import java.time.Instant
@@ -156,49 +150,17 @@ private fun CreateGameForm(
             )
         }
 
-        SubmitButton(enabled = uiState.canSubmit, isSubmitting = uiState.isSubmitting, onClick = onSubmit)
+        SubmitButton(
+            label = "Schedule game",
+            enabled = uiState.canSubmit,
+            isSubmitting = uiState.isSubmitting,
+            onClick = onSubmit
+        )
 
         Text(
             text = "You'll be on team 1. The game shows on the feed until every spot is filled.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-private fun PickerButton(icon: ImageVector, text: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Icon(icon, contentDescription = null)
-        Text(
-            text = text,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 8.dp)
-        )
-    }
-}
-
-@Composable
-private fun SubmitButton(enabled: Boolean, isSubmitting: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-    ) {
-        if (isSubmitting) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                color = MaterialTheme.colorScheme.onPrimary,
-                strokeWidth = 2.dp
-            )
-        } else {
-            Text("Schedule game")
-        }
     }
 }

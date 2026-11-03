@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { Format, GameSource } from "../generated/prisma/enums";
 
-const startsAtSchema = z.iso
+export const startsAtSchema = z.iso
   .datetime({ offset: true })
   .transform((value: string) => new Date(value))
   .refine((date: Date) => date > new Date(), "must be in the future");
 
-const courtIdSchema = z.int32().positive();
+export const courtIdSchema = z.int32().positive();
 
 // [team 1 score, team 2 score] of one round (a set in tennis)
 const roundScoreSchema = z.tuple([
@@ -18,7 +18,8 @@ export const createGameSchema = z.strictObject({
   format: z.enum(Format),
   startsAt: startsAtSchema,
   courtId: courtIdSchema,
-  gameSource: z.enum(GameSource),
+  // Tournament games are only created by their tournament's bracket
+  gameSource: z.enum([GameSource.SCHEDULED, GameSource.MATCHED]),
 });
 
 export const gameIdSchema = z.uuid();

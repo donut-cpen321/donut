@@ -13,6 +13,8 @@ import {
 import { Prisma } from "../generated/prisma/client";
 import {
   cancelGame,
+  type CancelGameError,
+  cancelGameErrors,
   changeGameLocation,
   changeGameTime,
   type GameEditError,
@@ -47,8 +49,15 @@ const joinGameErrorStatus: Record<JoinGameError, number> = {
 
 const leaveGameErrorStatus: Record<LeaveGameError, number> = {
   [leaveGameErrors.NotFound]: 404,
+  [leaveGameErrors.TournamentGame]: 409,
   [leaveGameErrors.Closed]: 409,
   [leaveGameErrors.TooLate]: 409,
+};
+
+const cancelGameErrorStatus: Record<CancelGameError, number> = {
+  [cancelGameErrors.NotFound]: 404,
+  [cancelGameErrors.NotInGame]: 403,
+  [cancelGameErrors.TournamentGame]: 409,
 };
 
 gamesRouter.use(requireAuth);
@@ -144,16 +153,15 @@ gamesRouter.delete("/", async (req: Request, res: Response) => {
   }
 
   try {
-    const { success: cancelGameSuccess } = await cancelGame(
-      parsedGameId.data as string,
-      req.userId,
-    );
+    const result = await cancelGame(parsedGameId.data, req.userId);
 
-    if (cancelGameSuccess) {
-      res.sendStatus(204);
-    } else {
-      res.sendStatus(403);
+    if (!result.success) {
+      res
+        .status(cancelGameErrorStatus[result.error])
+        .json({ error: result.error });
+      return;
     }
+    res.sendStatus(204);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });
@@ -358,6 +366,16 @@ gamesRouter.post("/score", async (req: Request, res: Response) => {
       ratingChanges: result.ratingChanges,
     });
   } catch (e) {
+    // Two games sharing a player finished at the same moment and Postgres aborted one of them
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2034"
+    ) {
+      res
+        .status(409)
+        .json({ error: "The score could not be saved, please try again" });
+      return;
+    }
     console.error(e);
     res.status(500).json({ error: "Internal server error" });
   }

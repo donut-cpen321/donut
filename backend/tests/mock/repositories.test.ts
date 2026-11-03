@@ -6,12 +6,15 @@ import {
 } from "../../src/generated/prisma/enums";
 import {
   addPlayerToTeam,
+  completeGame,
   createGame,
   deleteGameUser,
   fetchFeedGames,
   fetchGameDetails,
   fetchUserGames,
 } from "../../src/games/games.repository";
+import { applyGameResult } from "../../src/ranking/ranking.service";
+import { advanceBracket } from "../../src/tournaments/bracket.repository";
 
 // A fake Prisma client: transactions run their callback with the same client.
 // Its mocks are plain properties rather than Prisma's methods, so they are safe to pass to expect()
@@ -22,11 +25,13 @@ function mockPrismaClient() {
       create: jest.fn(),
       count: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
     gameUser: { count: jest.fn(), create: jest.fn(), delete: jest.fn() },
+    gameRound: { deleteMany: jest.fn(), createManyAndReturn: jest.fn() },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
@@ -37,6 +42,17 @@ function mockPrismaClient() {
 }
 
 jest.mock("../../src/db", () => ({ prisma: mockPrismaClient() }));
+
+jest.mock("../../src/ranking/ranking.service", () => ({
+  applyGameResult: jest.fn(),
+}));
+
+jest.mock("../../src/tournaments/bracket.repository", () => ({
+  advanceBracket: jest.fn(),
+}));
+
+const mockedApplyGameResult = jest.mocked(applyGameResult);
+const mockedAdvanceBracket = jest.mocked(advanceBracket);
 
 const db = jest.requireMock<{ prisma: ReturnType<typeof mockPrismaClient> }>(
   "../../src/db",
@@ -61,6 +77,10 @@ const gameRow = () => ({
     },
   ],
   rounds: [{ number: 1, team1Score: 6, team2Score: 4 }],
+  tournamentMatch: null as {
+    round: number;
+    tournament: { id: string; name: string };
+  } | null,
 });
 
 const flattenedPlayers = [
@@ -73,6 +93,14 @@ const flattenedPlayers = [
     acceptedAt: new Date("2026-11-01T12:00:00Z"),
   },
 ];
+
+// The game details the repository returns for gameRow(): players flattened, and no tournament
+const expectedDetails = () => ({
+  ...gameRow(),
+  tournamentMatch: undefined,
+  players: flattenedPlayers,
+  tournament: null,
+});
 
 // The tagged template given to $queryRaw, as one string
 const lockQuery = () => {
@@ -116,7 +144,7 @@ describe("Mocked: fetchGameDetails", () => {
 
     const game = await fetchGameDetails(gameId);
 
-    expect(game).toEqual({ ...gameRow(), players: flattenedPlayers });
+    expect(game).toEqual(expectedDetails());
     const [args] = db.game.findUnique.mock.calls[0] as [Record<string, unknown>];
     expect(args).toMatchObject({
       where: { id: gameId },
@@ -124,8 +152,25 @@ describe("Mocked: fetchGameDetails", () => {
         court: expect.any(Object),
         players: expect.any(Object),
         rounds: { orderBy: { number: "asc" } },
+        tournamentMatch: {
+          select: { round: true, tournament: { select: { id: true, name: true } } },
+        },
       },
     });
+  });
+
+  test("Names the tournament and round of a tournament game", async () => {
+    const tournament = { id: "9b8c7d6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e", name: "Sunday Smash" };
+    db.game.findUnique.mockResolvedValue({
+      ...gameRow(),
+      gameSource: GameSource.TOURNAMENT,
+      tournamentMatch: { round: 2, tournament },
+    });
+
+    const game = await fetchGameDetails(gameId);
+
+    expect(game?.tournament).toEqual({ ...tournament, round: 2 });
+    expect(game).not.toHaveProperty("tournamentMatch");
   });
 
   test("Only selects the user fields that are safe to show other players", async () => {
@@ -161,7 +206,7 @@ describe("Mocked: fetchFeedGames", () => {
     db.game.findMany.mockResolvedValue([gameRow()]);
 
     await expect(fetchFeedGames(now)).resolves.toEqual([
-      { ...gameRow(), players: flattenedPlayers },
+      expectedDetails(),
     ]);
     expect(db.game.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -186,7 +231,7 @@ describe("Mocked: fetchUserGames", () => {
     db.game.findMany.mockResolvedValue([gameRow()]);
 
     await expect(fetchUserGames(userId, now)).resolves.toEqual([
-      { ...gameRow(), players: flattenedPlayers },
+      expectedDetails(),
     ]);
     expect(db.game.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -369,5 +414,48 @@ describe("Mocked: deleteGameUser", () => {
 
     await expect(deleteGameUser(gameId, userId)).rejects.toBe(error);
     expect(db.game.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("Mocked: completeGame", () => {
+  const rounds: [number, number][] = [
+    [6, 4],
+    [6, 3],
+  ];
+  const ratingChanges = [{ userId, ratingBefore: 1500, ratingAfter: 1512 }];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    db.game.updateMany.mockResolvedValue({ count: 1 });
+    db.gameRound.createManyAndReturn.mockResolvedValue([]);
+    mockedApplyGameResult.mockResolvedValue(ratingChanges);
+  });
+
+  test("Rates a tournament game and then moves its winner on in the same transaction", async () => {
+    const game = { ...gameRow(), gameSource: GameSource.TOURNAMENT, status: GameStatus.COMPLETED };
+    db.game.findUniqueOrThrow.mockResolvedValue(game);
+
+    const result = await completeGame(gameId, rounds);
+
+    expect(result).toEqual({ game, rounds: [], ratingChanges });
+    expect(mockedAdvanceBracket).toHaveBeenCalledWith(db, gameId, rounds, expect.any(Date));
+    expect(firstCallOrder(mockedApplyGameResult)).toBeLessThan(firstCallOrder(mockedAdvanceBracket));
+  });
+
+  test("Does not touch any bracket for a scheduled game", async () => {
+    db.game.findUniqueOrThrow.mockResolvedValue({ ...gameRow(), status: GameStatus.COMPLETED });
+
+    await completeGame(gameId, rounds);
+
+    expect(mockedApplyGameResult).toHaveBeenCalledWith(db, gameId, Format.DOUBLES, rounds);
+    expect(mockedAdvanceBracket).not.toHaveBeenCalled();
+  });
+
+  test("Returns null without rating or advancing when the game is already closed", async () => {
+    db.game.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(completeGame(gameId, rounds)).resolves.toBeNull();
+    expect(mockedApplyGameResult).not.toHaveBeenCalled();
+    expect(mockedAdvanceBracket).not.toHaveBeenCalled();
   });
 });
