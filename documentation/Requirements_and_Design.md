@@ -70,7 +70,7 @@ External services are connected with plain lines (no arrows) because they suppor
 
 - Use cases for feature 2: Live matchmaking
 3. **Initiate live match**: User picks a format and taps a button, and the server places the player into a queue to be matched. The user can cancel at any time, and the request is removed after 2 hours without a match.
-4. **Matchmaking**: Every 30 seconds, the system selects players who want a compatible format and have close ratings, books a game one hour later at a court from their preferred courts, then notifies all of them.
+4. **Matchmaking**: Every 10 seconds, the system selects players who want a compatible format and have close ratings, books a game one hour later at a court from their preferred courts, then notifies all of them.
 5. **Accept or decline a match**: Each notified player accepts or declines. The first player to accept becomes the game's owner. When all accept, the game is booked. If anyone declines, or has not accepted 30 minutes before the start, the match is cancelled for everyone, and the players who did accept go back into the queue.
 
 - Use cases for feature 3: Schedule match
@@ -114,7 +114,7 @@ External services are connected with plain lines (no arrows) because they suppor
 2. The system shows a form for format (singles, doubles or either).
 3. The user picks a format and submits the form.
 4. The system adds the user to the matchmaking queue and shows a "Searching" status.
-5. Every 30 seconds, the system looks for enough queued players (2 for singles, 4 for doubles) who want a compatible format ("either" fits both). It takes the longest-waiting player first and groups them with the closest-rated players. The ratings in a group must be within 200 points for singles and 400 points for doubles.
+5. Every 10 seconds, the system looks for enough queued players (2 for singles, 4 for doubles) who want a compatible format ("either" fits both). It takes the longest-waiting player first and groups them with the closest-rated players. The ratings in a group must be within 200 points for singles and 400 points for doubles.
 6. The system creates a proposed game that starts one hour from now, at a preferred court all the players share, or else at the court closest to all of their preferred courts. For doubles, it balances the teams: the highest- and lowest-rated players against the middle two. The players are taken out of the queue.
 7. The system sends a match notification to every player in the game through Firebase Cloud Messaging.
 8. The user opens the notification. The system shows the proposed game (format, court, start time, the other players' ratings) with Accept and Decline buttons.
@@ -129,7 +129,7 @@ External services are connected with plain lines (no arrows) because they suppor
     - 4b2. The user can retry the submission.
 
 - 5a. No compatible players are in the queue yet.
-    - 5a1. The user stays in the queue with the "Searching" status, and the system tries again every 30 seconds.
+    - 5a1. The user stays in the queue with the "Searching" status, and the system tries again every 10 seconds.
     - 5a2. If there is still no match after 2 hours, the system removes the request and notifies the user that no match was found. The user can join the queue again.
 
 - 5b. The user cancels the search before a match is found.
@@ -326,7 +326,7 @@ Not included. The formal use cases describe each screen in enough detail for thi
 
 3. **Match found latency**
     - **Description**: When compatible players are in the matchmaking queue, 95% of them are matched and notified within 60 seconds of the last compatible player joining.
-    - **Justification**: Live matchmaking is the core of the app: the players want to play within the hour, and they have only 30 minutes to accept. The matchmaking job runs every 30 seconds, so 60 seconds allows one missed run plus notification delivery.
+    - **Justification**: Live matchmaking is the core of the app: the players want to play within the hour, and they have only 30 minutes to accept. The matchmaking job runs every 10 seconds, so 60 seconds allows several missed runs plus notification delivery.
 
 ---
 
@@ -385,7 +385,7 @@ Not included. The formal use cases describe each screen in enough detail for thi
         15. `Game createMatchedGame(match: Match, startsAt: Date, courtId: number, teams: string[][])` - In
             - **Purpose**: Used by Matchmaking to create a proposed game.
 3. **Matchmaking**
-    - **Purpose**: Owns the matchmaking queue and the matching algorithm, run by a background job every 30 seconds.
+    - **Purpose**: Owns the matchmaking queue and the matching algorithm, run by a background job every 10 seconds.
     - **Rationale**: Matching creates games without any player asking at that moment, so it runs on a timer, outside the request path. Alternative considered: matching inside Games when a request arrives. Rejected because it would put a slow, scheduled job in the request-serving component and make join requests race each other.
     - **Interfaces**:
         1. `POST /matchmaking/requests` with `{ format }` → `201 MatchmakingRequest` - E
@@ -499,7 +499,7 @@ Libraries marked *(planned)* are part of the design but not in the code yet.
     - **Purpose**: Backend language and development runner.
     - **Reason**: Catches interface mismatches between components at compile time.
 4. **node-cron**
-    - **Purpose**: Runs the matchmaking job every 30 seconds and the deadline jobs.
+    - **Purpose**: Runs the matchmaking job every 10 seconds and the deadline jobs.
     - **Reason**: Small, in-process scheduler with a no-overlap option, so one run never starts while the last is still going.
 5. **google-auth-library**
     - **Purpose**: Verifies Google ID tokens on the backend.
@@ -565,4 +565,4 @@ An arrow from A to B means A calls B through at least one interface defined in B
 2. [**API response time**](#nfr2)
     - **Implementation**: The columns we filter on most (user, court, game) are indexed. The feed loads games, players and ratings in one query instead of one per game. Forecasts are cached per court and hour, so the feed rarely waits on OpenWeather. Matchmaking runs in a background job, outside the request path.
 3. [**Match found latency**](#nfr3)
-    - **Implementation**: The matchmaking job runs every 30 seconds with no overlap between runs. The greedy matcher sorts each format queue once, so a run takes milliseconds for our expected queue sizes. Each match is saved in its own transaction, and the notifications are sent right after it commits.
+    - **Implementation**: The matchmaking job runs every 10 seconds with no overlap between runs. The greedy matcher sorts each format queue once, so a run takes milliseconds for our expected queue sizes. Each match is saved in its own transaction, and the notifications are sent right after it commits.
