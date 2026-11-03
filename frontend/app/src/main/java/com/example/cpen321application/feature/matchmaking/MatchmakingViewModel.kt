@@ -1,21 +1,35 @@
 package com.example.cpen321application.feature.matchmaking
 
 import androidx.lifecycle.ViewModel
+import com.example.cpen321application.core.data.model.Game
+import com.example.cpen321application.core.data.model.GameSource
+import com.example.cpen321application.core.data.model.GameStatus
+import com.example.cpen321application.core.data.repository.GamesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import retrofit2.HttpException
+import java.net.HttpURLConnection
 
 const val PERMISSION_DENIED_MESSAGE = "Location permission denied. Enter an address instead."
 const val JOIN_FAILED_MESSAGE = "Could not join the queue. Check your connection and try again."
 const val LEAVE_FAILED_MESSAGE = "Could not leave the queue. Check your connection and try again."
+const val ACCEPT_FAILED_MESSAGE = "Could not accept the match. Check your connection and try again."
+const val ACCEPT_TOO_LATE_MESSAGE = "This match starts in less than 30 minutes, so it can't be accepted anymore."
+const val CANCEL_FAILED_MESSAGE = "Could not cancel the match. Check your connection and try again."
+const val ACTIVE_MATCH_MESSAGE = "You already have a match coming up. Play it or cancel it first."
 
 /**
- * Holds the location and format the user picked on the Matchmaking tab, and their place in the queue.
+ * Holds the location and format the user picked on the Matchmaking tab, their place in the queue,
+ * and the matched game waiting for their answer.
  * The screen fetches the location (GPS or Places) and reports the result here.
  * Queue calls are suspend functions the screen launches, so the screen also runs the 10-second check.
  */
-class MatchmakingViewModel(private val repository: MatchmakingRepository) : ViewModel() {
+class MatchmakingViewModel(
+    private val repository: MatchmakingRepository,
+    private val gamesRepository: GamesRepository
+) : ViewModel() {
     private val _uiState = MutableStateFlow(MatchmakingUiState())
     val uiState: StateFlow<MatchmakingUiState> = _uiState.asStateFlow()
 
@@ -76,12 +90,13 @@ class MatchmakingViewModel(private val repository: MatchmakingRepository) : View
         }
         _uiState.update { it.copy(isUpdatingQueue = true, errorMessage = null) }
 
-        val joined = repository.joinQueue(state.format, location).isSuccess
-        if (joined) {
+        val result = repository.joinQueue(state.format, location)
+        if (result.isSuccess) {
             _uiState.update { it.copy(isUpdatingQueue = false, isSearching = true) }
-        } else {
-            _uiState.update { it.copy(isUpdatingQueue = false, errorMessage = JOIN_FAILED_MESSAGE) }
+            return
         }
+        val message = if (result.exceptionOrNull() is ActiveMatchException) ACTIVE_MATCH_MESSAGE else JOIN_FAILED_MESSAGE
+        _uiState.update { it.copy(isUpdatingQueue = false, errorMessage = message) }
     }
 
     /**
@@ -103,8 +118,8 @@ class MatchmakingViewModel(private val repository: MatchmakingRepository) : View
     }
 
     /**
-     * Asks the backend whether the player is still waiting. Once they are not, matchmaking found them a game.
-     * A failed check changes nothing, the next one tries again.
+     * Asks the backend whether the player is still waiting. Once they are not, matchmaking found them a game,
+     * which the match pop-up shows. A failed check changes nothing, the next one tries again.
      */
     suspend fun checkQueue() {
         if (!_uiState.value.isSearching) {
@@ -116,7 +131,11 @@ class MatchmakingViewModel(private val repository: MatchmakingRepository) : View
         if (stillWaiting || !state.isSearching || state.isUpdatingQueue) {
             return
         }
-        _uiState.update { it.copy(isSearching = false, matchFound = true) }
+        val match = gamesRepository.getMyGames().getOrElse { return }.pendingMatch()
+        // No pending match means another player already cancelled it
+        _uiState.update {
+            it.copy(isSearching = false, match = match, matchFellThrough = match == null, errorMessage = null)
+        }
     }
 
     /**
@@ -127,7 +146,94 @@ class MatchmakingViewModel(private val repository: MatchmakingRepository) : View
         _uiState.update { it.copy(isSearching = true, format = format) }
     }
 
-    fun onMatchFoundSeen() {
-        _uiState.update { it.copy(matchFound = false) }
+    /**
+     * Shows the player's matched game that is still waiting for answers, e.g. after the app was closed
+     */
+    suspend fun loadMatch() {
+        val match = gamesRepository.getMyGames().getOrNull()?.pendingMatch() ?: return
+        _uiState.update { it.copy(match = match, errorMessage = null) }
     }
+
+    /**
+     * Accepts the match, then refreshes it to see whether everyone has
+     */
+    suspend fun onAccept() {
+        val state = _uiState.value
+        val match = state.match
+        if (match == null || state.isAnswering) {
+            return
+        }
+        _uiState.update { it.copy(isAnswering = true, errorMessage = null) }
+
+        val error = gamesRepository.acceptMatch(match.id).exceptionOrNull()
+        checkMatch()
+        // An accept refused because the match was cancelled already shows "Match fell through"
+        if (error != null && _uiState.value.match != null) {
+            _uiState.update { it.copy(isAnswering = false, errorMessage = acceptFailedMessage(error)) }
+            return
+        }
+        _uiState.update { it.copy(isAnswering = false) }
+    }
+
+    /**
+     * Cancels the match for every player
+     */
+    suspend fun onCancelMatch() {
+        val state = _uiState.value
+        val match = state.match
+        if (match == null || state.isAnswering) {
+            return
+        }
+        _uiState.update { it.copy(isAnswering = true, errorMessage = null) }
+
+        val cancelled = gamesRepository.cancelGame(match.id).isSuccess
+        if (cancelled) {
+            _uiState.update { it.copy(isAnswering = false, match = null) }
+            return
+        }
+        checkMatch()
+        // A cancel refused because the match was cancelled already shows "Match fell through"
+        if (_uiState.value.match != null) {
+            _uiState.update { it.copy(isAnswering = false, errorMessage = CANCEL_FAILED_MESSAGE) }
+            return
+        }
+        _uiState.update { it.copy(isAnswering = false) }
+    }
+
+    /**
+     * Refreshes the match while the pop-up is open, to see other players' answers.
+     * A failed check changes nothing, the next one tries again.
+     */
+    suspend fun checkMatch() {
+        val match = _uiState.value.match ?: return
+        val game = gamesRepository.getGame(match.id).getOrElse { return }
+        // The pop-up was closed while this check was on its way
+        if (_uiState.value.match?.id != game.id) {
+            return
+        }
+        if (game.status == GameStatus.CANCELLED) {
+            _uiState.update { it.copy(match = null, matchFellThrough = true, errorMessage = null) }
+            return
+        }
+        _uiState.update { it.copy(match = game) }
+    }
+
+    fun onGoToGame() {
+        _uiState.update { it.copy(match = null, errorMessage = null) }
+    }
+
+    fun onMatchFellThroughSeen() {
+        _uiState.update { it.copy(matchFellThrough = false) }
+    }
+}
+
+private fun List<Game>.pendingMatch(): Game? =
+    firstOrNull { it.source == GameSource.MATCHED && it.status == GameStatus.OPEN }
+
+// A refused match that isn't cancelled is past the cutoff: the deadline job cancels it within a minute
+private fun acceptFailedMessage(error: Throwable): String {
+    if (error is HttpException && error.code() == HttpURLConnection.HTTP_CONFLICT) {
+        return ACCEPT_TOO_LATE_MESSAGE
+    }
+    return ACCEPT_FAILED_MESSAGE
 }

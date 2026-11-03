@@ -18,6 +18,10 @@ data class LeaveGameRequestDto(
     val gameId: String
 )
 
+data class AcceptMatchRequestDto(
+    val gameId: String
+)
+
 data class ChangeGameTimeRequestDto(
     val gameId: String,
     val startsAt: String

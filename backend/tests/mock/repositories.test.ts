@@ -1,11 +1,17 @@
 import { fetchCourts } from "../../src/courts/courts.repository";
 import {
+  cancelMatchesStartingBefore,
+  hasActiveMatch,
+} from "../../src/matchmaking/matchmaking.repository";
+import {
   Format,
   GameSource,
   GameStatus,
 } from "../../src/generated/prisma/enums";
 import {
+  acceptMatch,
   addPlayerToTeam,
+  cancelMatchedGame,
   completeGame,
   createGame,
   deleteGameUser,
@@ -31,7 +37,7 @@ function mockPrismaClient() {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    gameUser: { count: jest.fn(), create: jest.fn(), delete: jest.fn() },
+    gameUser: { count: jest.fn(), create: jest.fn(), delete: jest.fn(), updateMany: jest.fn() },
     gameRound: { deleteMany: jest.fn(), createManyAndReturn: jest.fn() },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
@@ -495,5 +501,145 @@ describe("Mocked: completeGame", () => {
     await expect(completeGame(gameId, rounds)).resolves.toBeNull();
     expect(mockedApplyGameResult).not.toHaveBeenCalled();
     expect(mockedAdvanceBracket).not.toHaveBeenCalled();
+  });
+});
+
+describe("Mocked: acceptMatch", () => {
+  const now = new Date("2026-11-02T12:00:00Z");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // The game is still a matched game waiting for answers once locked
+    db.game.count.mockResolvedValue(1);
+  });
+
+  // Input: the locked game is not a matched open game starting more than 30 minutes from now
+  // Expected behavior: the game is locked and checked, nothing is written
+  // Expected output: "notPending"
+  test("Returns notPending when the game is not a matched open game before the cutoff", async () => {
+    db.game.count.mockResolvedValue(0);
+
+    await expect(acceptMatch(gameId, userId, now)).resolves.toBe("notPending");
+    expect(lockQuery()).toMatch(/SELECT id FROM games WHERE id = \?::uuid FOR UPDATE/);
+    expect(db.game.count).toHaveBeenCalledWith({
+      where: {
+        id: gameId,
+        gameSource: GameSource.MATCHED,
+        status: GameStatus.OPEN,
+        startsAt: { gt: new Date("2026-11-02T12:30:00Z") },
+      },
+    });
+    expect(db.gameUser.updateMany).not.toHaveBeenCalled();
+  });
+
+  // Input: another player still hasn't accepted
+  // Expected behavior: the player's acceptance is saved, the game stays open
+  // Expected output: "accepted"
+  test("Records the acceptance and keeps the game open while others haven't answered", async () => {
+    db.gameUser.count.mockResolvedValue(1);
+
+    await expect(acceptMatch(gameId, userId, now)).resolves.toBe("accepted");
+    expect(db.gameUser.updateMany).toHaveBeenCalledWith({
+      where: { gameId, userId, acceptedAt: null },
+      data: { acceptedAt: now },
+    });
+    expect(db.gameUser.count).toHaveBeenCalledWith({ where: { gameId, acceptedAt: null } });
+    expect(db.game.update).not.toHaveBeenCalled();
+  });
+
+  // Input: every other player already accepted
+  // Expected behavior: the game is booked
+  // Expected output: "booked"
+  test("Books the game when the last player accepts", async () => {
+    db.gameUser.count.mockResolvedValue(0);
+
+    await expect(acceptMatch(gameId, userId, now)).resolves.toBe("booked");
+    expect(db.game.update).toHaveBeenCalledWith({
+      where: { id: gameId },
+      data: { status: GameStatus.BOOKED },
+    });
+  });
+});
+
+describe("Mocked: cancelMatchedGame", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Input: a matched game that is open or booked
+  // Expected behavior: the game is marked cancelled, the row stays
+  // Expected output: true
+  test("Cancels an open or booked matched game", async () => {
+    db.game.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(cancelMatchedGame(gameId)).resolves.toBe(true);
+    expect(db.game.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: gameId,
+        gameSource: GameSource.MATCHED,
+        status: { in: [GameStatus.OPEN, GameStatus.BOOKED] },
+      },
+      data: { status: GameStatus.CANCELLED },
+    });
+  });
+
+  // Input: a matched game that is already completed or cancelled
+  // Expected behavior: nothing changes
+  // Expected output: false
+  test("Returns false when the game is already closed", async () => {
+    db.game.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(cancelMatchedGame(gameId)).resolves.toBe(false);
+  });
+});
+
+describe("Mocked: hasActiveMatch", () => {
+  const now = new Date("2026-11-02T12:00:00Z");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Input: the player is in a matched game that is open, or booked and not started
+  // Expected behavior: counts only those matched games of this player
+  // Expected output: true
+  test("Finds a matched game that is waiting for answers or booked and not started", async () => {
+    db.game.count.mockResolvedValue(1);
+
+    await expect(hasActiveMatch(userId, now)).resolves.toBe(true);
+    expect(db.game.count).toHaveBeenCalledWith({
+      where: {
+        gameSource: GameSource.MATCHED,
+        players: { some: { userId } },
+        OR: [
+          { status: GameStatus.OPEN },
+          { status: GameStatus.BOOKED, startsAt: { gt: now } },
+        ],
+      },
+    });
+  });
+});
+
+describe("Mocked: cancelMatchesStartingBefore", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Input: a cutoff time, two matched games still waiting for answers start before it
+  // Expected behavior: only open matched games starting at or before the cutoff are cancelled
+  // Expected output: 2
+  test("Cancels open matched games starting at or before the cutoff", async () => {
+    const cutoff = new Date("2026-11-02T12:30:00Z");
+    db.game.updateMany.mockResolvedValue({ count: 2 });
+
+    await expect(cancelMatchesStartingBefore(cutoff)).resolves.toBe(2);
+    expect(db.game.updateMany).toHaveBeenCalledWith({
+      where: {
+        gameSource: GameSource.MATCHED,
+        status: GameStatus.OPEN,
+        startsAt: { lte: cutoff },
+      },
+      data: { status: GameStatus.CANCELLED },
+    });
   });
 });

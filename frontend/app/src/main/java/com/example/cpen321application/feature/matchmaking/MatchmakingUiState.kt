@@ -1,5 +1,7 @@
 package com.example.cpen321application.feature.matchmaking
 
+import com.example.cpen321application.core.data.model.Game
+
 enum class LocationOption { CURRENT_LOCATION, ADDRESS }
 
 // Same values as the backend's FormatPreference
@@ -29,8 +31,12 @@ data class MatchmakingUiState(
     val isSearching: Boolean = false,
     // A join or leave request is on its way to the backend
     val isUpdatingQueue: Boolean = false,
-    // Matchmaking took the player out of the queue with a game; shows the dialog
-    val matchFound: Boolean = false
+    // The player's matched game waiting for answers; shows the match pop-up
+    val match: Game? = null,
+    // The match was cancelled while the player was waiting on it
+    val matchFellThrough: Boolean = false,
+    // An Accept or Cancel is on its way to the backend
+    val isAnswering: Boolean = false
 ) {
     val canFindMatch: Boolean
         get() = location != null && !isLoading && !isSearching && !isUpdatingQueue

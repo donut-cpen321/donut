@@ -6,6 +6,7 @@ import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.GameSource
 import com.example.cpen321application.core.network.ApiService
 import com.example.cpen321application.core.network.RetrofitClient
+import com.example.cpen321application.core.network.dto.AcceptMatchRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameLocationRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameTimeRequestDto
 import com.example.cpen321application.core.network.dto.CreateGameRequestDto
@@ -30,12 +31,15 @@ interface GamesRepository {
     // Creates a scheduled game with the signed-in user on team 1, and returns its ID
     suspend fun createGame(format: Format, startsAt: Instant, courtId: Int): Result<String>
 
-    // Deletes the game for every player
+    // Deletes the game for every player. A matched game is marked cancelled instead
     suspend fun cancelGame(gameId: String): Result<Unit>
 
     suspend fun joinGame(gameId: String, team: Int): Result<Unit>
 
     suspend fun leaveGame(gameId: String): Result<Unit>
+
+    // Accepts a matched game for the signed-in user. The game is booked once every player has
+    suspend fun acceptMatch(gameId: String): Result<Unit>
 
     suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit>
 
@@ -78,6 +82,9 @@ class GamesRepositoryImpl(
 
     override suspend fun leaveGame(gameId: String): Result<Unit> =
         request { apiService.leaveGame(it, LeaveGameRequestDto(gameId)) }
+
+    override suspend fun acceptMatch(gameId: String): Result<Unit> =
+        request { apiService.acceptMatch(it, AcceptMatchRequestDto(gameId)) }
 
     override suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit> =
         request { apiService.changeGameTime(it, ChangeGameTimeRequestDto(gameId, toIsoString(startsAt))) }

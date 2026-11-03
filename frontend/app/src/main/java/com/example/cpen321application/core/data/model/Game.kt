@@ -30,7 +30,9 @@ data class Player(
     val team: Int,
     // The player's rating before and after the game, null until its score is reported
     val ratingBefore: Double? = null,
-    val ratingAfter: Double? = null
+    val ratingAfter: Double? = null,
+    // Matched games only: null until the player accepts
+    val acceptedAt: Instant? = null
 )
 
 // One round of a game (a set in tennis)

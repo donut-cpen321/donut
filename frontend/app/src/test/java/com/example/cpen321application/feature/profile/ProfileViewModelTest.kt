@@ -7,6 +7,7 @@ import com.example.cpen321application.core.data.repository.EquipmentRepository
 import com.example.cpen321application.core.data.repository.FriendsRepository
 import com.example.cpen321application.core.network.ApiService
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
+import com.example.cpen321application.core.network.dto.AcceptMatchRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameLocationRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameTimeRequestDto
 import com.example.cpen321application.core.network.dto.CreateEquipmentRequestDto
@@ -235,6 +236,7 @@ class ProfileViewModelTest {
                 override suspend fun changeGameTime(authorization: String, request: ChangeGameTimeRequestDto) = TODO()
                 override suspend fun changeGameLocation(authorization: String, request: ChangeGameLocationRequestDto) = TODO()
                 override suspend fun reportScore(authorization: String, request: ReportScoreRequestDto) = TODO()
+                override suspend fun acceptMatch(authorization: String, request: AcceptMatchRequestDto) = TODO()
                 override suspend fun getCourts(authorization: String) = TODO()
             },
             initialUser = user,

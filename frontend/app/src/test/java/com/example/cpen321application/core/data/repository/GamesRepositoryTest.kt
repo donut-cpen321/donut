@@ -153,8 +153,8 @@ class GamesRepositoryTest {
         assertEquals(Court(3, "Kitsilano Beach", 49.27, -123.15), game.court)
         assertEquals(
             listOf(
-                Player("u1", "alice", "Alice A", 1512.5, 1),
-                Player("u2", "bob", "Bob B", 1490.0, 2)
+                Player("u1", "alice", "Alice A", 1512.5, 1, acceptedAt = Instant.parse("2026-11-01T10:00:00Z")),
+                Player("u2", "bob", "Bob B", 1490.0, 2, acceptedAt = Instant.parse("2026-11-01T11:00:00Z"))
             ),
             game.players
         )
@@ -257,6 +257,38 @@ class GamesRepositoryTest {
         val body = request.jsonBody()
         assertEquals(gameId, body.getString("gameId"))
         assertEquals(2, body.getInt("team"))
+        assertTrue(result.isSuccess)
+    }
+
+    // Input: GET /games returns a matched game where one player hasn't accepted yet
+    // Expected output: that player's acceptedAt is null
+    @Test
+    fun getGameParsesAPlayerWhoHasNotAccepted() = runBlocking {
+        val matchedGameJson = completedGameJson.replace(
+            "\"players\": []",
+            "\"players\": [{ \"id\": \"u2\", \"username\": \"bob\", \"name\": \"Bob B\", \"rating\": 1490, \"team\": 2, \"acceptedAt\": null }]"
+        )
+        respond(200, """{ "game": $matchedGameJson }""")
+
+        val game = repository().getGame(gameId).getOrThrow()
+
+        assertNull(game.players.single().acceptedAt)
+    }
+
+    // Input: POST /games/accept answers 204 No Content
+    // Expected behavior: POST with the game ID in the body and the access token
+    // Expected output: success
+    @Test
+    fun acceptMatchSendsTheGameId() = runBlocking {
+        respond(204)
+
+        val result = repository().acceptMatch(gameId)
+
+        val request = takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/games/accept", request.path)
+        assertEquals("Bearer access", request.getHeader("Authorization"))
+        assertEquals(gameId, request.jsonBody().getString("gameId"))
         assertTrue(result.isSuccess)
     }
 

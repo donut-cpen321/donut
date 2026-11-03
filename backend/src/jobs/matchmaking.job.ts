@@ -2,15 +2,15 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { runMatchmaking } from '../matchmaking/matchmaking.service';
 
-const EVERY_30_SECONDS = '*/30 * * * * *';
+const EVERY_10_SECONDS = '*/10 * * * * *';
 
 /**
- * Starts the matchmaking job to find new matches every 30 seconds.
+ * Starts the matchmaking job to find new matches every 10 seconds.
  * @returns Scheduled task for the matchmaking job.
  */
 export function startMatchmakingJob(): ScheduledTask {
   return cron.schedule(
-    EVERY_30_SECONDS,
+    EVERY_10_SECONDS,
     async () => {
       try {
         const matches = await runMatchmaking();

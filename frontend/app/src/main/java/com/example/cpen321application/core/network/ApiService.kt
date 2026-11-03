@@ -1,6 +1,7 @@
 package com.example.cpen321application.core.network
 
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
+import com.example.cpen321application.core.network.dto.AcceptMatchRequestDto
 import com.example.cpen321application.core.network.dto.FcmTokenRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameLocationRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameTimeRequestDto
@@ -161,6 +162,12 @@ interface ApiService {
     suspend fun leaveGame(
         @Header("Authorization") authorization: String,
         @Body request: LeaveGameRequestDto
+    )
+
+    @POST("games/accept")
+    suspend fun acceptMatch(
+        @Header("Authorization") authorization: String,
+        @Body request: AcceptMatchRequestDto
     )
 
     @PATCH("games/time")

@@ -56,8 +56,8 @@ class GameDetailViewModel(
         sendAction(onSuccess = onReported) { gamesRepository.reportScore(gameId, rounds) }
 
     /**
-     * Deletes the game for every player
-     * @param onCancelled called once the game is deleted, to leave its screen
+     * Cancels the game for every player
+     * @param onCancelled called once the game is cancelled, to leave its screen
      */
     fun cancel(onCancelled: () -> Unit) {
         viewModelScope.launch {

@@ -394,7 +394,7 @@ private fun GameDialogContent(
         )
         GameDialog.CANCEL -> ConfirmDialog(
             title = "Cancel this game?",
-            text = "The game is deleted for every player.",
+            text = "The game is cancelled for every player.",
             confirmLabel = "Cancel game",
             onDismiss = onDismiss,
             onConfirm = {

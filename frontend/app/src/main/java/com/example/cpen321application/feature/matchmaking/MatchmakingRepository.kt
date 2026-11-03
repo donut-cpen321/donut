@@ -8,12 +8,16 @@ import retrofit2.HttpException
 import java.io.IOException
 import java.net.HttpURLConnection
 
+// The player has a matched game waiting for answers, or booked and not started, so they can't queue again
+class ActiveMatchException : Exception()
+
 /**
  * The player's place in the matchmaking queue on the backend
  */
 interface MatchmakingRepository {
     /**
      * Joins the queue. Succeeds if the player was already waiting.
+     * Fails with ActiveMatchException if the player already has a match coming up.
      */
     suspend fun joinQueue(format: MatchFormat, location: MatchLocation): Result<Unit>
 
@@ -36,6 +40,9 @@ class MatchmakingRepositoryImpl(
         // Already waiting, e.g. joined before the app restarted
         if (result.httpCode() == HttpURLConnection.HTTP_CONFLICT) {
             return Result.success(Unit)
+        }
+        if (result.httpCode() == HttpURLConnection.HTTP_FORBIDDEN) {
+            return Result.failure(ActiveMatchException())
         }
         return result.map { }
     }

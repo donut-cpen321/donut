@@ -97,7 +97,7 @@ fun AppNavGraph(
         composable(Screen.Matchmaking.route) {
             MatchmakingRoute(
                 session = args.session,
-                onGoToGames = { navController.navigateToTab(Screen.ScheduledGame.route) }
+                onGoToGame = { gameId -> navController.navigate(Screen.GameDetail.createRoute(gameId)) }
             )
         }
         composable(Screen.Leaderboard.route) {

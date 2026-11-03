@@ -1,12 +1,23 @@
 package com.example.cpen321application.feature.matchmaking
 
+import com.example.cpen321application.core.data.model.Court
+import com.example.cpen321application.core.data.model.Format
+import com.example.cpen321application.core.data.model.Game
+import com.example.cpen321application.core.data.model.GameSource
+import com.example.cpen321application.core.data.model.GameStatus
+import com.example.cpen321application.core.data.model.Player
+import com.example.cpen321application.core.data.repository.GamesRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.HttpException
+import retrofit2.Response
 import java.io.IOException
+import java.time.Instant
 
 /**
  * Stands in for the backend: returns whatever each test sets and records what was sent
@@ -31,11 +42,72 @@ private class FakeMatchmakingRepository : MatchmakingRepository {
     override suspend fun queuedFormat(): Result<MatchFormat?> = queuedResult
 }
 
+/**
+ * Stands in for the games backend: only the calls the Matchmaking screen makes return anything
+ */
+private class FakeGamesRepository : GamesRepository {
+    var myGamesResult: Result<List<Game>> = Result.success(emptyList())
+    var gameResult: Result<Game> = Result.failure(IOException("not set"))
+    var acceptResult: Result<Unit> = Result.success(Unit)
+    var cancelResult: Result<Unit> = Result.success(Unit)
+    val accepted = mutableListOf<String>()
+    val cancelled = mutableListOf<String>()
+
+    override suspend fun getMyGames(): Result<List<Game>> = myGamesResult
+
+    override suspend fun getGame(gameId: String): Result<Game> = gameResult
+
+    override suspend fun acceptMatch(gameId: String): Result<Unit> {
+        accepted.add(gameId)
+        return acceptResult
+    }
+
+    override suspend fun cancelGame(gameId: String): Result<Unit> {
+        cancelled.add(gameId)
+        return cancelResult
+    }
+
+    override suspend fun getFeed(): Result<List<Game>> = error("unused")
+    override suspend fun createGame(format: Format, startsAt: Instant, courtId: Int): Result<String> = error("unused")
+    override suspend fun joinGame(gameId: String, team: Int): Result<Unit> = error("unused")
+    override suspend fun leaveGame(gameId: String): Result<Unit> = error("unused")
+    override suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit> = error("unused")
+    override suspend fun changeGameLocation(gameId: String, courtId: Int): Result<Unit> = error("unused")
+    override suspend fun reportScore(gameId: String, rounds: List<Pair<Int, Int>>): Result<Unit> = error("unused")
+}
+
 class MatchmakingViewModelTest {
     private val ubc = MatchLocation("UBC Tennis Centre", 49.2606, -123.2460)
     private val repository = FakeMatchmakingRepository()
+    private val games = FakeGamesRepository()
 
-    private fun newViewModel() = MatchmakingViewModel(repository)
+    private fun newViewModel() = MatchmakingViewModel(repository, games)
+
+    // A singles match between alice (the signed-in user) and bob, still waiting for answers
+    private fun match(
+        status: GameStatus = GameStatus.OPEN,
+        aliceAcceptedAt: Instant? = null
+    ) = Game(
+        id = "game-1",
+        format = Format.SINGLES,
+        status = status,
+        source = GameSource.MATCHED,
+        startsAt = Instant.parse("2026-11-02T13:00:00Z"),
+        court = Court(1, "UBC Tennis Centre", 49.26, -123.25),
+        players = listOf(
+            Player("u1", "alice", "Alice A", 1500.0, 1, acceptedAt = aliceAcceptedAt),
+            Player("u2", "bob", "Bob B", 1540.0, 2)
+        ),
+        rounds = emptyList()
+    )
+
+    // A view model showing the pending match
+    private fun matchedViewModel(): MatchmakingViewModel {
+        games.myGamesResult = Result.success(listOf(match()))
+        val viewModel = newViewModel()
+        runBlocking { viewModel.loadMatch() }
+        return viewModel
+    }
 
     // A view model already waiting in the queue near UBC
     private fun queuedViewModel(): MatchmakingViewModel {
@@ -321,20 +393,50 @@ class MatchmakingViewModelTest {
         viewModel.checkQueue()
 
         assertTrue(viewModel.uiState.value.isSearching)
-        assertFalse(viewModel.uiState.value.matchFound)
+        assertNull(viewModel.uiState.value.match)
     }
 
-    // Input: the check after matchmaking took the player out of the queue
-    // Expected output: not searching, the match found dialog shows
+    // Input: the check after matchmaking took the player out of the queue with a game
+    // Expected output: not searching, the match pop-up shows that game
     @Test
-    fun checkQueueAfterMatchShowsMatchFound() = runBlocking {
+    fun checkQueueShowsTheMatch() = runBlocking {
         val viewModel = queuedViewModel()
         repository.queuedResult = Result.success(null)
+        games.myGamesResult = Result.success(listOf(match()))
 
         viewModel.checkQueue()
 
         assertFalse(viewModel.uiState.value.isSearching)
-        assertTrue(viewModel.uiState.value.matchFound)
+        assertEquals(match(), viewModel.uiState.value.match)
+    }
+
+    // Input: out of the queue, but the games lookup fails
+    // Expected output: still searching, so the next check looks again
+    @Test
+    fun checkQueueKeepsSearchingWhenTheLookupFails() = runBlocking {
+        val viewModel = queuedViewModel()
+        repository.queuedResult = Result.success(null)
+        games.myGamesResult = Result.failure(IOException("offline"))
+
+        viewModel.checkQueue()
+
+        assertTrue(viewModel.uiState.value.isSearching)
+        assertNull(viewModel.uiState.value.match)
+    }
+
+    // Input: out of the queue, but the match was already cancelled by another player
+    // Expected output: not searching, "Match fell through" shows
+    @Test
+    fun checkQueueWithoutAPendingMatchShowsFellThrough() = runBlocking {
+        val viewModel = queuedViewModel()
+        repository.queuedResult = Result.success(null)
+        games.myGamesResult = Result.success(emptyList())
+
+        viewModel.checkQueue()
+
+        assertFalse(viewModel.uiState.value.isSearching)
+        assertNull(viewModel.uiState.value.match)
+        assertTrue(viewModel.uiState.value.matchFellThrough)
     }
 
     // Input: the check fails because the backend is unreachable
@@ -347,7 +449,7 @@ class MatchmakingViewModelTest {
         viewModel.checkQueue()
 
         assertTrue(viewModel.uiState.value.isSearching)
-        assertFalse(viewModel.uiState.value.matchFound)
+        assertNull(viewModel.uiState.value.match)
     }
 
     // Input: the check answers "not in the queue" after the player already left
@@ -360,7 +462,8 @@ class MatchmakingViewModelTest {
 
         viewModel.checkQueue()
 
-        assertFalse(viewModel.uiState.value.matchFound)
+        assertNull(viewModel.uiState.value.match)
+        assertFalse(viewModel.uiState.value.matchFellThrough)
     }
 
     // Input: the screen opens while the player is already waiting for doubles (e.g. after an app restart)
@@ -387,16 +490,215 @@ class MatchmakingViewModelTest {
         assertFalse(viewModel.uiState.value.isSearching)
     }
 
-    // Input: the match found dialog was shown, then closed
+    // Input: the screen opens while the player has a match they haven't answered (e.g. after an app restart)
+    // Expected output: the match pop-up shows it again
+    @Test
+    fun loadMatchShowsThePendingMatch() = runBlocking {
+        val booked = match(status = GameStatus.BOOKED).copy(id = "game-0")
+        games.myGamesResult = Result.success(listOf(booked, match()))
+        val viewModel = newViewModel()
+
+        viewModel.loadMatch()
+
+        assertEquals(match(), viewModel.uiState.value.match)
+    }
+
+    // Input: Accept tapped; the backend accepts and bob hasn't answered yet
+    // Expected output: the acceptance is sent and the pop-up shows the refreshed game
+    @Test
+    fun acceptRefreshesTheMatch() = runBlocking {
+        val viewModel = matchedViewModel()
+        val refreshed = match(aliceAcceptedAt = Instant.parse("2026-11-02T12:05:00Z"))
+        games.gameResult = Result.success(refreshed)
+
+        viewModel.onAccept()
+
+        assertEquals(listOf("game-1"), games.accepted)
+        assertEquals(refreshed, viewModel.uiState.value.match)
+        assertFalse(viewModel.uiState.value.isAnswering)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    // Input: Accept tapped; the backend is unreachable and the game is still open
+    // Expected output: the pop-up stays with an error
+    @Test
+    fun acceptFailureKeepsTheMatchAndShowsAnError() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.acceptResult = Result.failure(IOException("offline"))
+        games.gameResult = Result.success(match())
+
+        viewModel.onAccept()
+
+        assertEquals(match(), viewModel.uiState.value.match)
+        assertEquals(ACCEPT_FAILED_MESSAGE, viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isAnswering)
+    }
+
+    // Input: Accept tapped inside the 30-minute cutoff; the backend refuses with 409 and the deadline job
+    // hasn't cancelled the game yet
+    // Expected output: the pop-up stays and says it's too late, not that the connection failed
+    @Test
+    fun acceptInsideTheCutoffSaysItIsTooLate() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.acceptResult = Result.failure(HttpException(Response.error<Unit>(409, "".toResponseBody())))
+        games.gameResult = Result.success(match())
+
+        viewModel.onAccept()
+
+        assertEquals(match(), viewModel.uiState.value.match)
+        assertEquals(ACCEPT_TOO_LATE_MESSAGE, viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isAnswering)
+    }
+
+    // Input: Accept tapped after the other player or the deadline cancelled the game
+    // Expected output: "Match fell through" instead of an error
+    @Test
+    fun acceptOnACancelledGameShowsFellThrough() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.acceptResult = Result.failure(IOException("409"))
+        games.gameResult = Result.success(match(status = GameStatus.CANCELLED))
+
+        viewModel.onAccept()
+
+        assertNull(viewModel.uiState.value.match)
+        assertTrue(viewModel.uiState.value.matchFellThrough)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    // Input: Cancel tapped; the backend cancels the game
+    // Expected output: the pop-up closes, nothing else shows
+    @Test
+    fun cancelClearsTheMatch() = runBlocking {
+        val viewModel = matchedViewModel()
+
+        viewModel.onCancelMatch()
+
+        assertEquals(listOf("game-1"), games.cancelled)
+        assertNull(viewModel.uiState.value.match)
+        assertFalse(viewModel.uiState.value.matchFellThrough)
+    }
+
+    // Input: Cancel tapped; the backend is unreachable
+    // Expected output: the pop-up stays with an error
+    @Test
+    fun cancelFailureShowsAnError() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.cancelResult = Result.failure(IOException("offline"))
+
+        viewModel.onCancelMatch()
+
+        assertEquals(match(), viewModel.uiState.value.match)
+        assertEquals(CANCEL_FAILED_MESSAGE, viewModel.uiState.value.errorMessage)
+    }
+
+    // Input: the 10-second check while the pop-up is open; the other player cancelled
+    // Expected output: the pop-up turns into "Match fell through"
+    @Test
+    fun checkMatchShowsFellThroughWhenCancelled() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.gameResult = Result.success(match(status = GameStatus.CANCELLED))
+
+        viewModel.checkMatch()
+
+        assertNull(viewModel.uiState.value.match)
+        assertTrue(viewModel.uiState.value.matchFellThrough)
+    }
+
+    // Input: the 10-second check fails because the backend is unreachable
+    // Expected output: the pop-up keeps the match it had
+    @Test
+    fun checkMatchFailureKeepsTheMatch() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.gameResult = Result.failure(IOException("offline"))
+
+        viewModel.checkMatch()
+
+        assertEquals(match(), viewModel.uiState.value.match)
+    }
+
+    // Input: "Match fell through" was shown, then OK tapped
     // Expected output: the dialog is gone
     @Test
-    fun matchFoundSeenClosesTheDialog() = runBlocking {
-        val viewModel = queuedViewModel()
-        repository.queuedResult = Result.success(null)
-        viewModel.checkQueue()
+    fun matchFellThroughSeenClosesTheDialog() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.gameResult = Result.success(match(status = GameStatus.CANCELLED))
+        viewModel.checkMatch()
 
-        viewModel.onMatchFoundSeen()
+        viewModel.onMatchFellThroughSeen()
 
-        assertFalse(viewModel.uiState.value.matchFound)
+        assertFalse(viewModel.uiState.value.matchFellThrough)
+    }
+
+    // Input: Find a match tapped while a match is already coming up
+    // Expected output: not searching, the error says why
+    @Test
+    fun findMatchWithAnActiveMatchExplainsWhy() = runBlocking {
+        repository.joinResult = Result.failure(ActiveMatchException())
+        val viewModel = newViewModel()
+        viewModel.onLocationFound(ubc)
+
+        viewModel.onFindMatch()
+
+        assertFalse(viewModel.uiState.value.isSearching)
+        assertEquals(ACTIVE_MATCH_MESSAGE, viewModel.uiState.value.errorMessage)
+    }
+
+    // Input: the player has a scheduled game coming up before their matched game
+    // Expected output: the pop-up shows the matched game, not the scheduled one
+    @Test
+    fun loadMatchSkipsScheduledGames() = runBlocking {
+        val scheduled = match().copy(id = "game-0", source = GameSource.SCHEDULED)
+        games.myGamesResult = Result.success(listOf(scheduled, match()))
+        val viewModel = newViewModel()
+
+        viewModel.loadMatch()
+
+        assertEquals(match(), viewModel.uiState.value.match)
+    }
+
+    // Input: a failed Find a match left an error, then the screen finds a pending match
+    // Expected output: the pop-up shows without the old error
+    @Test
+    fun loadMatchClearsAStaleError() = runBlocking {
+        repository.joinResult = Result.failure(IOException("offline"))
+        val viewModel = newViewModel()
+        viewModel.onLocationFound(ubc)
+        viewModel.onFindMatch()
+        games.myGamesResult = Result.success(listOf(match()))
+
+        viewModel.loadMatch()
+
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    // Input: an accept failed (error shown), then the next check finds the game cancelled
+    // Expected output: "Match fell through" without the old accept error
+    @Test
+    fun checkMatchFellThroughClearsTheError() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.acceptResult = Result.failure(IOException("offline"))
+        games.gameResult = Result.success(match())
+        viewModel.onAccept()
+        games.gameResult = Result.success(match(status = GameStatus.CANCELLED))
+
+        viewModel.checkMatch()
+
+        assertTrue(viewModel.uiState.value.matchFellThrough)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    // Input: Cancel tapped after the other player or the deadline already cancelled the game
+    // Expected output: "Match fell through" instead of a connection error
+    @Test
+    fun cancelOnACancelledGameShowsFellThrough() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.cancelResult = Result.failure(IOException("409"))
+        games.gameResult = Result.success(match(status = GameStatus.CANCELLED))
+
+        viewModel.onCancelMatch()
+
+        assertNull(viewModel.uiState.value.match)
+        assertTrue(viewModel.uiState.value.matchFellThrough)
+        assertNull(viewModel.uiState.value.errorMessage)
     }
 }

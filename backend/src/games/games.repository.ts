@@ -4,6 +4,8 @@ import { GameSource, GameStatus } from "../generated/prisma/enums";
 import { applyGameResult } from "../ranking/ranking.service";
 import { advanceBracket } from "../tournaments/bracket.repository";
 
+export const MATCH_ANSWER_DEADLINE_MS = 30 * 60 * 1000;
+
 // The user fields that are safe to show to other players.
 const playerUserSelect = {
   id: true,
@@ -202,6 +204,23 @@ export async function deleteGame(gameId: string): Promise<void> {
 }
 
 /**
+ * Marks a matched game as cancelled. The row stays, so its other players can see the match fell through
+ * @param gameId the game ID of the matched game
+ * @returns true if the game was open or booked and is now cancelled, false if it was already closed
+ */
+export async function cancelMatchedGame(gameId: string): Promise<boolean> {
+  const { count } = await prisma.game.updateMany({
+    where: {
+      id: gameId,
+      gameSource: GameSource.MATCHED,
+      status: { in: [GameStatus.OPEN, GameStatus.BOOKED] },
+    },
+    data: { status: GameStatus.CANCELLED },
+  });
+  return count > 0;
+}
+
+/**
  * Updates the given fields of a game with the given game ID
  * @param gameId the game ID of the game to update
  * @param data the fields to change
@@ -319,6 +338,54 @@ export async function addPlayerToTeam(
     }
 
     return "added";
+  });
+}
+
+export type AcceptMatchResult = "accepted" | "booked" | "notPending";
+
+/**
+ * Records that a player accepted a matched game, and books the game once every player has
+ * @param gameId the game ID of the matched game
+ * @param userId the player accepting, who must be in the game
+ * @param now the current time
+ * @returns "accepted", "booked" if this was the last answer, or "notPending" if the game is no longer waiting for answers
+ */
+export async function acceptMatch(
+  gameId: string,
+  userId: string,
+  now: Date,
+): Promise<AcceptMatchResult> {
+  return await prisma.$transaction(async (tx) => {
+    // Without the lock, two last answers could both miss booking the game, or race a cancel
+    await lockGame(tx, gameId);
+
+    const pending = await tx.game.count({
+      where: {
+        id: gameId,
+        gameSource: GameSource.MATCHED,
+        status: GameStatus.OPEN,
+        startsAt: { gt: new Date(now.getTime() + MATCH_ANSWER_DEADLINE_MS) },
+      },
+    });
+    if (pending === 0) {
+      return "notPending";
+    }
+
+    await tx.gameUser.updateMany({
+      where: { gameId, userId, acceptedAt: null },
+      data: { acceptedAt: now },
+    });
+
+    const unanswered = await tx.gameUser.count({ where: { gameId, acceptedAt: null } });
+    if (unanswered > 0) {
+      return "accepted";
+    }
+
+    await tx.game.update({
+      where: { id: gameId },
+      data: { status: GameStatus.BOOKED },
+    });
+    return "booked";
   });
 }
 
