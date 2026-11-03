@@ -14,6 +14,7 @@ import {
   cancelMatchedGame,
   completeGame,
   createGame,
+  deleteGame,
   deleteGameUser,
   fetchFeedGames,
   fetchGameDetails,
@@ -36,9 +37,17 @@ function mockPrismaClient() {
       findMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      delete: jest.fn(),
     },
-    gameUser: { count: jest.fn(), create: jest.fn(), delete: jest.fn(), updateMany: jest.fn() },
+    gameUser: {
+      count: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
     gameRound: { deleteMany: jest.fn(), createManyAndReturn: jest.fn() },
+    gameEquipment: { deleteMany: jest.fn() },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
@@ -427,6 +436,32 @@ describe("Mocked: addPlayerToTeam", () => {
     await expect(addPlayerToTeam(gameId, userId, 1, 2, now)).resolves.toBe("teamFull");
     expect(db.gameUser.create).not.toHaveBeenCalled();
     expect(db.game.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("Mocked: deleteGame", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Input: a game with players (and possibly rounds or equipment)
+  // Expected behavior: its rows in the tables that point at it are deleted before the game, in one transaction
+  // Expected output: resolves
+  test("Deletes the game's players, rounds and equipment before the game", async () => {
+    const order: string[] = [];
+    db.gameUser.deleteMany.mockImplementationOnce(async () => order.push("players"));
+    db.gameRound.deleteMany.mockImplementationOnce(async () => order.push("rounds"));
+    db.gameEquipment.deleteMany.mockImplementationOnce(async () => order.push("equipment"));
+    db.game.delete.mockImplementationOnce(async () => order.push("game"));
+
+    await deleteGame(gameId);
+
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.gameUser.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
+    expect(db.gameRound.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
+    expect(db.gameEquipment.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
+    expect(db.game.delete).toHaveBeenCalledWith({ where: { id: gameId } });
+    expect(order).toEqual(["players", "rounds", "equipment", "game"]);
   });
 });
 
