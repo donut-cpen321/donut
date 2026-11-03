@@ -7,13 +7,16 @@ import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
 import com.example.cpen321application.core.network.dto.MatchDto
+import com.example.cpen321application.core.network.dto.UserMeDto
 import com.google.gson.Gson
 import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import retrofit2.HttpException
 import java.io.IOException
 
 interface FriendsRepository {
+    suspend fun getUserMe(session: AuthSession): Result<UserMeDto>
     suspend fun getFriends(session: AuthSession): Result<List<FriendDto>>
     suspend fun removeFriend(session: AuthSession, userId: String): Result<Unit>
     suspend fun getFriendRequests(session: AuthSession): Result<List<FriendRequestDto>>
@@ -25,6 +28,24 @@ class FriendsRepositoryImpl(
     private val apiService: ApiService = RetrofitClient.apiService,
     private val gson: Gson = Gson()
 ) : FriendsRepository {
+
+    override suspend fun getUserMe(session: AuthSession): Result<UserMeDto> {
+        return try {
+            val jsonElement = session.authorized { auth ->
+                apiService.getUserMe(auth)
+            }
+            val userMe = parseUserMe(jsonElement)
+            if (userMe != null) {
+                Result.success(userMe)
+            } else {
+                Result.failure(Exception("Failed to parse user profile"))
+            }
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
 
     override suspend fun getFriends(session: AuthSession): Result<List<FriendDto>> {
         return try {
@@ -104,6 +125,63 @@ class FriendsRepositoryImpl(
         } catch (e: IOException) {
             Result.failure(e)
         }
+    }
+
+    private fun parseUserMe(jsonElement: JsonElement?): UserMeDto? {
+        if (jsonElement == null || jsonElement.isJsonNull) return null
+
+        if (jsonElement.isJsonObject) {
+            val obj = jsonElement.asJsonObject
+
+            val targetObj = when {
+                obj.has("user") && obj.get("user").isJsonObject -> obj.getAsJsonObject("user")
+                obj.has("me") && obj.get("me").isJsonObject -> obj.getAsJsonObject("me")
+                obj.has("data") && obj.get("data").isJsonObject -> obj.getAsJsonObject("data")
+                else -> obj
+            }
+
+            val directDto = try {
+                gson.fromJson(targetObj, UserMeDto::class.java)
+            } catch (_: Exception) {
+                null
+            }
+
+            val eloVal = directDto?.elo ?: extractElo(targetObj)
+            val idVal = directDto?.id ?: listOf("id", "userId", "_id").firstNotNullOfOrNull { key ->
+                if (targetObj.has(key) && !targetObj.get(key).isJsonNull) targetObj.get(key).asString else null
+            }
+            val usernameVal = directDto?.username ?: listOf("username", "name").firstNotNullOfOrNull { key ->
+                if (targetObj.has(key) && !targetObj.get(key).isJsonNull) targetObj.get(key).asString else null
+            }
+            val emailVal = directDto?.email ?: if (targetObj.has("email") && !targetObj.get("email").isJsonNull) targetObj.get("email").asString else null
+
+            return UserMeDto(id = idVal, username = usernameVal, email = emailVal, elo = eloVal)
+        }
+
+        return null
+    }
+
+    private fun extractElo(obj: JsonObject): Int? {
+        val candidateKeys = listOf("elo", "rating", "eloRating", "rankRating")
+        for (key in candidateKeys) {
+            if (obj.has(key) && !obj.get(key).isJsonNull) {
+                val elem = obj.get(key)
+                return try {
+                    elem.asInt
+                } catch (_: Exception) {
+                    try {
+                        elem.asDouble.toInt()
+                    } catch (_: Exception) {
+                        try {
+                            elem.asString.toDoubleOrNull()?.toInt()
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                }
+            }
+        }
+        return null
     }
 
     private inline fun <reified T> parseFlexibleList(

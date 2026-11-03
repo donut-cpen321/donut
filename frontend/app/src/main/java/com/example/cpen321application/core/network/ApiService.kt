@@ -4,6 +4,7 @@ import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameLocationRequestDto
 import com.example.cpen321application.core.network.dto.ChangeGameTimeRequestDto
 import com.example.cpen321application.core.network.dto.CourtsResponseDto
+import com.example.cpen321application.core.network.dto.CreateEquipmentRequestDto
 import com.example.cpen321application.core.network.dto.CreateGameRequestDto
 import com.example.cpen321application.core.network.dto.CreatedGameResponseDto
 import com.example.cpen321application.core.network.dto.GameResponseDto
@@ -17,6 +18,7 @@ import com.example.cpen321application.core.network.dto.QueueEntryResponseDto
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
 import com.example.cpen321application.core.network.dto.ReportScoreRequestDto
 import com.example.cpen321application.core.network.dto.TokensResponseDto
+import com.example.cpen321application.core.network.dto.UpdateEquipmentRequestDto
 import com.example.cpen321application.core.network.dto.UserResponseDto
 import com.google.gson.JsonElement
 import okhttp3.ResponseBody
@@ -39,6 +41,31 @@ interface ApiService {
 
     @POST("user/logout")
     suspend fun logout(@Body request: RefreshRequestDto): Response<Unit>
+
+    @GET("user/me")
+    suspend fun getUserMe(@Header("Authorization") authorization: String): JsonElement
+
+    @GET("user/equipment")
+    suspend fun getEquipment(@Header("Authorization") authorization: String): JsonElement
+
+    @POST("user/equipment")
+    suspend fun createEquipment(
+        @Header("Authorization") authorization: String,
+        @Body request: CreateEquipmentRequestDto,
+    ): JsonElement
+
+    @PATCH("user/equipment/{id}")
+    suspend fun updateEquipment(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int,
+        @Body request: UpdateEquipmentRequestDto,
+    ): JsonElement
+
+    @DELETE("user/equipment/{id}")
+    suspend fun deleteEquipment(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int,
+    ): Response<ResponseBody>
 
     @GET("matchmaking")
     suspend fun getQueueEntry(@Header("Authorization") authorization: String): QueueEntryResponseDto
