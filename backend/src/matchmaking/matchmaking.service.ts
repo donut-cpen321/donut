@@ -1,5 +1,6 @@
 import { GameSource, GameStatus, type Format, type FormatPreference } from '../generated/prisma/enums';
 import {
+  cancelMatchesStartingBefore,
   claimMatch,
   createRequest,
   deleteRequest,
@@ -7,11 +8,13 @@ import {
   getCandidates,
   getCourts,
   getMatchedPlayers,
+  hasActiveMatch,
 } from './matchmaking.repository';
 import type { JoinQueueInput } from './matchmaking.schemas';
 import { distanceKm, midpoint, type Location } from './geo';
 import { sendPush } from '../external/fcm';
 import { clearFcmTokens, getFcmTokens } from '../users/users.repository';
+import { MATCH_ANSWER_DEADLINE_MS } from '../games/games.repository';
 
 const MATCH_START_DELAY_MS = 60 * 60 * 1000;
 export const MAX_DISTANCE_KM = 10;
@@ -53,6 +56,8 @@ export interface MatchedPlayer {
   rating: number;
   preferredCourts: CourtLocation[];
 }
+
+export class ActiveMatchError extends Error {}
 
 const FORMAT_RULES: FormatRule[] = [
   { format: 'SINGLES', size: 2, maxRatingSpread: 200 },
@@ -251,14 +256,26 @@ async function notifyMatch(match: Match, game: ClaimedGame): Promise<void> {
 }
 
 /**
+ * Cancels the matches whose players didn't all accept by 30 minutes before the start.
+ *
+ * @param now - The current time.
+ * @returns The number of matches cancelled.
+ */
+export async function cancelUnansweredMatches(now = new Date()): Promise<number> {
+  return await cancelMatchesStartingBefore(new Date(now.getTime() + MATCH_ANSWER_DEADLINE_MS));
+}
+
+/**
  * Puts a player in the queue to be matched by the next matchmaking run.
  *
  * @param userId - The player joining.
  * @param input - The format and where they want to play.
  * @returns The new queue entry.
  * @throws Prisma P2002 if the player is already in the queue; they have to leave first.
+ * @throws ActiveMatchError if the player has a matched game waiting for answers, or booked and not started.
  */
 export async function joinQueue(userId: string, input: JoinQueueInput): Promise<QueueEntry> {
+  if (await hasActiveMatch(userId, new Date())) throw new ActiveMatchError();
   return await createRequest(userId, input);
 }
 
