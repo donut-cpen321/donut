@@ -1,5 +1,5 @@
+/* global process */
 import 'dotenv/config';
-import process from 'node:process';
 import { defineConfig } from 'prisma/config';
 
 export default defineConfig({
