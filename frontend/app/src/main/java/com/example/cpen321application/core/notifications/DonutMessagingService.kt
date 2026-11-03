@@ -29,8 +29,10 @@ class DonutMessagingService : FirebaseMessagingService() {
 
         val openApp = Intent(this, MainActivity::class.java)
             .putExtra(EXTRA_GAME_ID, message.data[EXTRA_GAME_ID])
+            .putExtra(EXTRA_NOTIFICATION_TYPE, message.data[EXTRA_NOTIFICATION_TYPE])
+        // A request code per message, so a second notification doesn't replace the first one's extras
         val onTap = PendingIntent.getActivity(
-            this, 0, openApp, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            this, message.messageId.hashCode(), openApp, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val notification = NotificationCompat.Builder(this, getString(R.string.match_channel_id))
             .setSmallIcon(R.drawable.ic_launcher_foreground)

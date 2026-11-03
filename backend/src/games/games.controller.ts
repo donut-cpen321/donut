@@ -7,6 +7,7 @@ import {
   changeGameTimeSchema,
   createGameSchema,
   gameIdSchema,
+  inviteFriendSchema,
   joinGameSchema,
   leaveGameSchema,
   reportScoreSchema,
@@ -27,6 +28,9 @@ import {
   getGame,
   getUserGames,
   getUserHistory,
+  inviteFriend,
+  type InviteFriendError,
+  inviteFriendErrors,
   joinGame,
   type JoinGameError,
   joinGameErrors,
@@ -72,6 +76,14 @@ const acceptMatchErrorStatus: Record<AcceptMatchError, number> = {
   [acceptMatchErrors.NotFound]: 404,
   [acceptMatchErrors.NotInGame]: 403,
   [acceptMatchErrors.NotPending]: 409,
+};
+
+const inviteFriendErrorStatus: Record<InviteFriendError, number> = {
+  [inviteFriendErrors.NotFound]: 404,
+  [inviteFriendErrors.NotInGame]: 403,
+  [inviteFriendErrors.NotJoinable]: 409,
+  [inviteFriendErrors.NotFriends]: 403,
+  [inviteFriendErrors.AlreadyInGame]: 409,
 };
 
 gamesRouter.use(requireAuth);
@@ -306,6 +318,39 @@ gamesRouter.post("/accept", async (req: Request, res: Response) => {
       return;
     }
     res.sendStatus(204);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+gamesRouter.post("/invite", async (req: Request, res: Response) => {
+  const parsed = inviteFriendSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid request body",
+      details: z.flattenError(parsed.error),
+    });
+    return;
+  }
+
+  if (!req.userId) {
+    res.sendStatus(401);
+    return;
+  }
+
+  try {
+    const { gameId, userId } = parsed.data;
+    const result = await inviteFriend(gameId, req.userId, userId);
+
+    if (!result.success) {
+      res
+        .status(inviteFriendErrorStatus[result.error])
+        .json({ error: result.error });
+      return;
+    }
+    res.status(200).json({ notified: result.notified });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });

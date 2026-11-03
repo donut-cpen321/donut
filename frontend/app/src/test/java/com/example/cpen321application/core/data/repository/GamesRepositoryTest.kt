@@ -292,6 +292,27 @@ class GamesRepositoryTest {
         assertTrue(result.isSuccess)
     }
 
+    // Input: POST /games/invite answers 200 { notified: true }, then 200 { notified: false }
+    // Expected behavior: POST with the game ID and the friend's user ID
+    // Expected output: whether the friend's device was notified
+    @Test
+    fun inviteFriendSendsTheGameAndFriend() = runBlocking {
+        respond(200, """{ "notified": true }""")
+        respond(200, """{ "notified": false }""")
+
+        val notified = repository().inviteFriend(gameId, "u2")
+        val notNotified = repository().inviteFriend(gameId, "u3")
+
+        val request = takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/games/invite", request.path)
+        val body = request.jsonBody()
+        assertEquals(gameId, body.getString("gameId"))
+        assertEquals("u2", body.getString("userId"))
+        assertEquals(true, notified.getOrNull())
+        assertEquals(false, notNotified.getOrNull())
+    }
+
     // Input: POST /games/leave answers 204 No Content
     // Expected output: success, with only the game ID in the body
     @Test

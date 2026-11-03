@@ -71,6 +71,7 @@ private class FakeGamesRepository : GamesRepository {
     override suspend fun createGame(format: Format, startsAt: Instant, courtId: Int): Result<String> = error("unused")
     override suspend fun joinGame(gameId: String, team: Int): Result<Unit> = error("unused")
     override suspend fun leaveGame(gameId: String): Result<Unit> = error("unused")
+    override suspend fun inviteFriend(gameId: String, userId: String): Result<Boolean> = error("unused")
     override suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit> = error("unused")
     override suspend fun changeGameLocation(gameId: String, courtId: Int): Result<Unit> = error("unused")
     override suspend fun reportScore(gameId: String, rounds: List<Pair<Int, Int>>): Result<Unit> = error("unused")

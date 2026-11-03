@@ -1,6 +1,14 @@
+import { isPushEnabled, sendPush } from "../external/fcm";
 import { getForecast } from "../external/weather";
-import { Format, GameSource, GameStatus } from "../generated/prisma/enums";
+import { fetchFriendship } from "../friends/friends.repository";
+import {
+  Format,
+  FriendshipStatus,
+  GameSource,
+  GameStatus,
+} from "../generated/prisma/enums";
 import { IncompleteTeamsError } from "../ranking/ranking.service";
+import { clearFcmTokens, getFcmTokens } from "../users/users.repository";
 import {
   acceptMatch as recordAcceptance,
   addPlayerToTeam,
@@ -72,6 +80,17 @@ export const cancelGameErrors = {
 
 export type CancelGameError =
   (typeof cancelGameErrors)[keyof typeof cancelGameErrors];
+
+export const inviteFriendErrors = {
+  NotFound: "Game not found",
+  NotInGame: "User not in game",
+  NotJoinable: "Game is not open to join",
+  NotFriends: "Users are not friends",
+  AlreadyInGame: "User already in game",
+} as const;
+
+export type InviteFriendError =
+  (typeof inviteFriendErrors)[keyof typeof inviteFriendErrors];
 
 const teamSize: Record<Format, number> = {
   [Format.SINGLES]: 1,
@@ -208,6 +227,70 @@ export async function joinGame(gameId: string, userId: string, team: number) {
   }
 
   return { success: true } as const;
+}
+
+/**
+ * Invites a friend to a scheduled game that can still be joined, by sending them a push notification.
+ * The friend joins the game the usual way, so nothing is saved
+ * @param gameId the game ID of the game to invite to
+ * @param inviterId the user inviting, who must be in the game
+ * @param friendId the friend being invited, who must not be in the game
+ * @returns whether the friend's device was notified, or the reason the friend cannot be invited
+ */
+export async function inviteFriend(
+  gameId: string,
+  inviterId: string,
+  friendId: string,
+) {
+  const game = await fetchGameDetails(gameId);
+  if (game === null) {
+    return { success: false, error: inviteFriendErrors.NotFound } as const;
+  }
+
+  const inviter = game.players.find((player) => player.id === inviterId);
+  if (inviter === undefined) {
+    return { success: false, error: inviteFriendErrors.NotInGame } as const;
+  }
+
+  // Only games the friend could join from the feed: matched and tournament games pick their own players
+  if (
+    game.gameSource !== GameSource.SCHEDULED ||
+    game.status !== GameStatus.OPEN ||
+    game.startsAt <= new Date()
+  ) {
+    return { success: false, error: inviteFriendErrors.NotJoinable } as const;
+  }
+
+  if (game.players.some((player) => player.id === friendId)) {
+    return { success: false, error: inviteFriendErrors.AlreadyInGame } as const;
+  }
+
+  const friendship = await fetchFriendship(inviterId, friendId);
+  if (friendship?.status !== FriendshipStatus.ACCEPTED) {
+    return { success: false, error: inviteFriendErrors.NotFriends } as const;
+  }
+
+  // Without Firebase credentials sendPush skips every token, which would look like a delivered push
+  if (!isPushEnabled()) {
+    console.warn("FIREBASE_* not set, the game invite was not sent");
+    return { success: true, notified: false } as const;
+  }
+
+  const tokens = await getFcmTokens([friendId]);
+  if (tokens.length === 0) {
+    return { success: true, notified: false } as const;
+  }
+
+  const deadTokens = await sendPush(tokens, {
+    title: "Game invite",
+    body: `${inviter.name} invited you to a ${game.format.toLowerCase()} game at ${game.court.name}.`,
+    data: { gameId, type: "gameInvite" },
+  });
+  if (deadTokens.length > 0) {
+    await clearFcmTokens(deadTokens);
+  }
+
+  return { success: true, notified: deadTokens.length < tokens.length } as const;
 }
 
 /**

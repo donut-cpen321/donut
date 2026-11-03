@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.cpen321application.core.auth.AuthSession
 import com.example.cpen321application.core.data.repository.CourtsRepositoryImpl
+import com.example.cpen321application.core.data.repository.FriendsRepositoryImpl
 import com.example.cpen321application.core.data.repository.GamesRepositoryImpl
 import com.example.cpen321application.core.data.repository.TournamentsRepositoryImpl
 import com.example.cpen321application.feature.creategame.CreateGameRoute
@@ -96,7 +97,9 @@ private fun NavGraphBuilder.gameDetailDestination(
                     gameId = gameId,
                     gamesRepository = GamesRepositoryImpl(session),
                     courtsRepository = CourtsRepositoryImpl(session),
-                    currentUsername = currentUsername
+                    currentUsername = currentUsername,
+                    friendsRepository = FriendsRepositoryImpl(),
+                    session = session
                 )
             },
             onBack = { navController.popBackStack() },

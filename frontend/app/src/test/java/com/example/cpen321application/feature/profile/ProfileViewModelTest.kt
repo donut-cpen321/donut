@@ -17,6 +17,7 @@ import com.example.cpen321application.core.network.dto.EquipmentType
 import com.example.cpen321application.core.network.dto.FcmTokenRequestDto
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
+import com.example.cpen321application.core.network.dto.InviteFriendRequestDto
 import com.example.cpen321application.core.network.dto.JoinGameRequestDto
 import com.example.cpen321application.core.network.dto.JoinQueueRequestDto
 import com.example.cpen321application.core.network.dto.LeaveGameRequestDto
@@ -237,6 +238,7 @@ class ProfileViewModelTest {
                 override suspend fun changeGameLocation(authorization: String, request: ChangeGameLocationRequestDto) = TODO()
                 override suspend fun reportScore(authorization: String, request: ReportScoreRequestDto) = TODO()
                 override suspend fun acceptMatch(authorization: String, request: AcceptMatchRequestDto) = TODO()
+                override suspend fun inviteToGame(authorization: String, request: InviteFriendRequestDto) = TODO()
                 override suspend fun getCourts(authorization: String) = TODO()
             },
             initialUser = user,

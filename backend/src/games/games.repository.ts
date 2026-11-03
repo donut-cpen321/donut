@@ -196,11 +196,18 @@ export async function fetchUserHistory(userId: string): Promise<GameDetails[]> {
 }
 
 /**
- * Deletes a game from the database with the given game ID
+ * Deletes a game from the database with the given game ID, along with its players, rounds and equipment.
+ * Their foreign keys don't cascade, so they are deleted first, in the same transaction
  * @param gameId the game ID of the game to be deleted
+ * @throws Prisma P2025 if the game does not exist; nothing is deleted
  */
 export async function deleteGame(gameId: string): Promise<void> {
-  await prisma.game.delete({ where: { id: gameId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.gameUser.deleteMany({ where: { gameId } });
+    await tx.gameRound.deleteMany({ where: { gameId } });
+    await tx.gameEquipment.deleteMany({ where: { gameId } });
+    await tx.game.delete({ where: { id: gameId } });
+  });
 }
 
 /**

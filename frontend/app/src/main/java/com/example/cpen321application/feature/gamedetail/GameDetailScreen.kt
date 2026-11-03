@@ -73,6 +73,8 @@ private const val MAX_SETS = 5
  * @property onReportScore reports the final score, then calls onReported if the backend accepted it
  * @property onCancelGame cancels the game for every player
  * @property onOpenTournament opens the bracket of the tournament with this id, for a tournament game
+ * @property onOpenInvite loads the friends who can be invited
+ * @property onInvite invites the friend with this user id
  */
 data class GameDetailCallbacks(
     val onJoin: (team: Int) -> Unit,
@@ -82,11 +84,13 @@ data class GameDetailCallbacks(
     val onChangeCourt: (courtId: Int) -> Unit,
     val onReportScore: (rounds: List<Pair<Int, Int>>, onReported: () -> Unit) -> Unit,
     val onCancelGame: () -> Unit,
-    val onOpenTournament: (tournamentId: String) -> Unit
+    val onOpenTournament: (tournamentId: String) -> Unit,
+    val onOpenInvite: () -> Unit,
+    val onInvite: (userId: String) -> Unit
 )
 
 // The dialogs the game screen opens, at most one at a time
-private enum class GameDialog { TIME, COURT, SCORE, LEAVE, CANCEL }
+private enum class GameDialog { TIME, COURT, SCORE, LEAVE, CANCEL, INVITE }
 
 @Composable
 fun GameDetailRoute(
@@ -104,7 +108,9 @@ fun GameDetailRoute(
             onChangeCourt = viewModel::changeCourt,
             onReportScore = viewModel::reportScore,
             onCancelGame = { viewModel.cancel(onCancelled = onBack) },
-            onOpenTournament = onOpenTournament
+            onOpenTournament = onOpenTournament,
+            onOpenInvite = viewModel::loadFriends,
+            onInvite = viewModel::invite
         )
     }
 
@@ -203,8 +209,10 @@ private fun GameDetails(
                 actions = actions,
                 isSaving = uiState.isSaving,
                 onOpenDialog = { dialog ->
-                    if (dialog == GameDialog.COURT) {
-                        callbacks.onOpenCourtPicker()
+                    when (dialog) {
+                        GameDialog.COURT -> callbacks.onOpenCourtPicker()
+                        GameDialog.INVITE -> callbacks.onOpenInvite()
+                        else -> Unit
                     }
                     openDialog = dialog
                 }
@@ -212,8 +220,16 @@ private fun GameDetails(
         }
     }
 
-    openDialog?.let { dialog ->
-        GameDialogContent(
+    when (val dialog = openDialog) {
+        null -> Unit
+        GameDialog.INVITE -> InviteFriendsDialog(
+            friends = uiState.invite.friends?.let { invitableFriends(it, game) },
+            invite = uiState.invite,
+            onRetry = callbacks.onOpenInvite,
+            onInvite = callbacks.onInvite,
+            onDismiss = { openDialog = null }
+        )
+        else -> GameDialogContent(
             dialog = dialog,
             game = game,
             uiState = uiState,
@@ -279,6 +295,16 @@ private fun PlayerActions(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         HorizontalDivider()
+
+        if (actions.canInvite) {
+            Button(
+                onClick = { onOpenDialog(GameDialog.INVITE) },
+                enabled = !isSaving,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Invite friends")
+            }
+        }
 
         if (actions.canReportScore) {
             Button(
@@ -402,6 +428,8 @@ private fun GameDialogContent(
                 callbacks.onCancelGame()
             }
         )
+        // Shown by GameDetails, since it needs the friends list
+        GameDialog.INVITE -> Unit
     }
 }
 

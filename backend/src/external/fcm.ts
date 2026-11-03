@@ -28,6 +28,13 @@ function getClient(): Messaging | undefined {
 }
 
 /**
+ * @returns whether the FIREBASE_* credentials are set, so pushes are actually sent
+ */
+export function isPushEnabled(): boolean {
+  return env.firebase !== undefined;
+}
+
+/**
  * Sends one push notification to every token. The Firebase SDK retries brief FCM outages on its own.
  *
  * @param tokens - The devices' FCM tokens.

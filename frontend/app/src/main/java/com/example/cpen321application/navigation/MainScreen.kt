@@ -13,6 +13,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.cpen321application.core.auth.AuthViewModel
 
+// "game/", the start of every game screen's route
+private val GAME_ROUTE_PREFIX = Screen.GameDetail.route.substringBefore("{")
+
 @Composable
 fun MainScreen(
     serverClientId: String,
@@ -52,7 +55,13 @@ fun MainScreen(
     // A tapped push notification opens its screen, only for a signed-in user
     LaunchedEffect(notificationRoute) {
         if (notificationRoute != null && isSignedIn) {
-            navController.navigateToTab(notificationRoute)
+            if (notificationRoute.startsWith(GAME_ROUTE_PREFIX)) {
+                // A game opens over the Games tab, so back goes to the games list
+                navController.navigateToTab(Screen.ScheduledGame.route)
+                navController.navigate(notificationRoute)
+            } else {
+                navController.navigateToTab(notificationRoute)
+            }
         }
         if (notificationRoute != null) {
             onNotificationHandled()

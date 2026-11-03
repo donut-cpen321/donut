@@ -22,6 +22,12 @@ data class AcceptMatchRequestDto(
     val gameId: String
 )
 
+// userId is the friend to invite
+data class InviteFriendRequestDto(
+    val gameId: String,
+    val userId: String
+)
+
 data class ChangeGameTimeRequestDto(
     val gameId: String,
     val startsAt: String

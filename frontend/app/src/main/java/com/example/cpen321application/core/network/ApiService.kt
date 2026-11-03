@@ -11,6 +11,8 @@ import com.example.cpen321application.core.network.dto.CreateGameRequestDto
 import com.example.cpen321application.core.network.dto.CreatedGameResponseDto
 import com.example.cpen321application.core.network.dto.GameResponseDto
 import com.example.cpen321application.core.network.dto.GamesResponseDto
+import com.example.cpen321application.core.network.dto.InviteFriendRequestDto
+import com.example.cpen321application.core.network.dto.InviteFriendResponseDto
 import com.example.cpen321application.core.network.dto.JoinGameRequestDto
 import com.example.cpen321application.core.network.dto.JoinQueueRequestDto
 import com.example.cpen321application.core.network.dto.LeaderboardResponseDto
@@ -169,6 +171,13 @@ interface ApiService {
         @Header("Authorization") authorization: String,
         @Body request: AcceptMatchRequestDto
     )
+
+    // Sends a friend a push notification inviting them to the game
+    @POST("games/invite")
+    suspend fun inviteToGame(
+        @Header("Authorization") authorization: String,
+        @Body request: InviteFriendRequestDto
+    ): InviteFriendResponseDto
 
     @PATCH("games/time")
     suspend fun changeGameTime(

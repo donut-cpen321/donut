@@ -2,7 +2,9 @@ package com.example.cpen321application.feature.gamedetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.cpen321application.core.auth.AuthSession
 import com.example.cpen321application.core.data.repository.CourtsRepository
+import com.example.cpen321application.core.data.repository.FriendsRepository
 import com.example.cpen321application.core.data.repository.GamesRepository
 import com.example.cpen321application.core.network.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,12 +20,16 @@ import java.time.Instant
  * @param gamesRepository the /games routes
  * @param courtsRepository the /courts route, for changing the court
  * @param currentUsername the signed-in user's username, null if signed out
+ * @param friendsRepository the /friends routes, for the friends to invite
+ * @param session sends the friends requests as the signed-in user
  */
 class GameDetailViewModel(
     private val gameId: String,
     private val gamesRepository: GamesRepository,
     private val courtsRepository: CourtsRepository,
-    private val currentUsername: () -> String?
+    private val currentUsername: () -> String?,
+    private val friendsRepository: FriendsRepository,
+    private val session: AuthSession
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(GameDetailUiState())
     val uiState: StateFlow<GameDetailUiState> = _uiState.asStateFlow()
@@ -91,6 +97,52 @@ class GameDetailViewModel(
                     _uiState.update { it.copy(isLoadingCourts = false, courtsErrorMessage = error.toUserMessage()) }
                 }
         }
+    }
+
+    /**
+     * Loads the friends for the invite dialog, unless they already loaded
+     */
+    fun loadFriends() {
+        val invite = _uiState.value.invite
+        if (invite.friends != null || invite.isLoadingFriends) {
+            return
+        }
+
+        viewModelScope.launch {
+            updateInvite { it.copy(isLoadingFriends = true, friendsErrorMessage = null) }
+            friendsRepository.getFriends(session)
+                .onSuccess { friends ->
+                    updateInvite { it.copy(isLoadingFriends = false, friends = friends) }
+                }
+                .onFailure { error ->
+                    updateInvite { it.copy(isLoadingFriends = false, friendsErrorMessage = error.toUserMessage()) }
+                }
+        }
+    }
+
+    /**
+     * Sends a friend a push notification inviting them to the game
+     * @param userId the friend's user ID
+     */
+    fun invite(userId: String) {
+        if (_uiState.value.invite.invitingUserId != null) {
+            return
+        }
+
+        viewModelScope.launch {
+            updateInvite { it.copy(invitingUserId = userId, errorMessage = null) }
+            gamesRepository.inviteFriend(gameId, userId)
+                .onSuccess { notified ->
+                    updateInvite { it.copy(invitingUserId = null, invited = it.invited + (userId to notified)) }
+                }
+                .onFailure { error ->
+                    updateInvite { it.copy(invitingUserId = null, errorMessage = error.toUserMessage()) }
+                }
+        }
+    }
+
+    private fun updateInvite(change: (InviteUiState) -> InviteUiState) {
+        _uiState.update { it.copy(invite = change(it.invite)) }
     }
 
     // Sends an action, then reloads the game so the screen shows what the backend saved
