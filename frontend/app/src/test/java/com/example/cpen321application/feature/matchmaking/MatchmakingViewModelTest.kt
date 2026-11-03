@@ -13,6 +13,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.HttpException
+import retrofit2.Response
 import java.io.IOException
 import java.time.Instant
 
@@ -528,6 +531,22 @@ class MatchmakingViewModelTest {
 
         assertEquals(match(), viewModel.uiState.value.match)
         assertEquals(ACCEPT_FAILED_MESSAGE, viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isAnswering)
+    }
+
+    // Input: Accept tapped inside the 30-minute cutoff; the backend refuses with 409 and the deadline job
+    // hasn't cancelled the game yet
+    // Expected output: the pop-up stays and says it's too late, not that the connection failed
+    @Test
+    fun acceptInsideTheCutoffSaysItIsTooLate() = runBlocking {
+        val viewModel = matchedViewModel()
+        games.acceptResult = Result.failure(HttpException(Response.error<Unit>(409, "".toResponseBody())))
+        games.gameResult = Result.success(match())
+
+        viewModel.onAccept()
+
+        assertEquals(match(), viewModel.uiState.value.match)
+        assertEquals(ACCEPT_TOO_LATE_MESSAGE, viewModel.uiState.value.errorMessage)
         assertFalse(viewModel.uiState.value.isAnswering)
     }
 

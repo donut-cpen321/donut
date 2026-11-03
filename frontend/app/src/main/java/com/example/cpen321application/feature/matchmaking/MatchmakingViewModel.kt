@@ -9,11 +9,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import retrofit2.HttpException
+import java.net.HttpURLConnection
 
 const val PERMISSION_DENIED_MESSAGE = "Location permission denied. Enter an address instead."
 const val JOIN_FAILED_MESSAGE = "Could not join the queue. Check your connection and try again."
 const val LEAVE_FAILED_MESSAGE = "Could not leave the queue. Check your connection and try again."
 const val ACCEPT_FAILED_MESSAGE = "Could not accept the match. Check your connection and try again."
+const val ACCEPT_TOO_LATE_MESSAGE = "This match starts in less than 30 minutes, so it can't be accepted anymore."
 const val CANCEL_FAILED_MESSAGE = "Could not cancel the match. Check your connection and try again."
 const val ACTIVE_MATCH_MESSAGE = "You already have a match coming up. Play it or cancel it first."
 
@@ -162,11 +165,11 @@ class MatchmakingViewModel(
         }
         _uiState.update { it.copy(isAnswering = true, errorMessage = null) }
 
-        val accepted = gamesRepository.acceptMatch(match.id).isSuccess
+        val error = gamesRepository.acceptMatch(match.id).exceptionOrNull()
         checkMatch()
         // An accept refused because the match was cancelled already shows "Match fell through"
-        if (!accepted && _uiState.value.match != null) {
-            _uiState.update { it.copy(isAnswering = false, errorMessage = ACCEPT_FAILED_MESSAGE) }
+        if (error != null && _uiState.value.match != null) {
+            _uiState.update { it.copy(isAnswering = false, errorMessage = acceptFailedMessage(error)) }
             return
         }
         _uiState.update { it.copy(isAnswering = false) }
@@ -226,3 +229,11 @@ class MatchmakingViewModel(
 
 private fun List<Game>.pendingMatch(): Game? =
     firstOrNull { it.source == GameSource.MATCHED && it.status == GameStatus.OPEN }
+
+// A refused match that isn't cancelled is past the cutoff: the deadline job cancels it within a minute
+private fun acceptFailedMessage(error: Throwable): String {
+    if (error is HttpException && error.code() == HttpURLConnection.HTTP_CONFLICT) {
+        return ACCEPT_TOO_LATE_MESSAGE
+    }
+    return ACCEPT_FAILED_MESSAGE
+}
