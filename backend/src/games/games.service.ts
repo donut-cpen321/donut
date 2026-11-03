@@ -11,6 +11,7 @@ import {
   fetchGame,
   fetchGameDetails,
   fetchUserGames,
+  fetchUserHistory,
   isUserInGame,
   updateGame,
 } from "./games.repository";
@@ -111,6 +112,15 @@ export async function getFeed() {
  */
 export async function getUserGames(userId: string) {
   return await fetchUserGames(userId, new Date());
+}
+
+/**
+ * Gets a user's match history
+ * @param userId the user whose match history is requested
+ * @returns the user's completed games with their scores and rating changes, most recent first
+ */
+export async function getUserHistory(userId: string) {
+  return await fetchUserHistory(userId);
 }
 
 /**

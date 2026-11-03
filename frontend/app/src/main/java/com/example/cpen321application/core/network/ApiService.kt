@@ -18,6 +18,7 @@ import com.example.cpen321application.core.network.dto.LoginRequestDto
 import com.example.cpen321application.core.network.dto.QueueEntryResponseDto
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
 import com.example.cpen321application.core.network.dto.ReportScoreRequestDto
+import com.example.cpen321application.core.network.dto.SendFriendRequestDto
 import com.example.cpen321application.core.network.dto.TokensResponseDto
 import com.example.cpen321application.core.network.dto.UpdateEquipmentRequestDto
 import com.example.cpen321application.core.network.dto.UserResponseDto
@@ -90,10 +91,11 @@ interface ApiService {
     @GET("friends")
     suspend fun getFriends(@Header("Authorization") authorization: String): JsonElement
 
-    @DELETE("friends/{userId}")
+    // Removes a friend, or declines or cancels a pending request
+    @DELETE("friends")
     suspend fun removeFriend(
         @Header("Authorization") authorization: String,
-        @Path("userId") userId: String,
+        @Query("userId") userId: String,
     ): Response<ResponseBody>
 
     @GET("friends/requests")
@@ -105,9 +107,16 @@ interface ApiService {
         @Body request: AcceptFriendRequestDto,
     ): Response<ResponseBody>
 
-    // TODO: Implement getMatchHistory (prob games/smth)
-    @GET("matches/history")
-    suspend fun getMatchHistory(@Header("Authorization") authorization: String): JsonElement
+    // Sends a friend request, or accepts the other user's pending request to this user
+    @POST("friends/requests")
+    suspend fun sendFriendRequest(
+        @Header("Authorization") authorization: String,
+        @Body request: SendFriendRequestDto,
+    ): Response<ResponseBody>
+
+    // The signed-in user's completed games, most recent first
+    @GET("games/history")
+    suspend fun getGameHistory(@Header("Authorization") authorization: String): GamesResponseDto
 
     @GET("leaderboard")
     suspend fun getLeaderboard(

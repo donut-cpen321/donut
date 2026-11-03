@@ -22,6 +22,7 @@ import {
   getFeed,
   getGame,
   getUserGames,
+  getUserHistory,
   joinGame,
   type JoinGameError,
   joinGameErrors,
@@ -129,6 +130,21 @@ gamesRouter.get("/me", async (req: Request, res: Response) => {
 
   try {
     const games = await getUserGames(req.userId);
+    res.status(200).json({ games });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+gamesRouter.get("/history", async (req: Request, res: Response) => {
+  if (!req.userId) {
+    res.sendStatus(401);
+    return;
+  }
+
+  try {
+    const games = await getUserHistory(req.userId);
     res.status(200).json({ games });
   } catch (e) {
     console.error(e);

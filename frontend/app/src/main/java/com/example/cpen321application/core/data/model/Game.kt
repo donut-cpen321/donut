@@ -27,7 +27,10 @@ data class Player(
     val username: String,
     val name: String,
     val rating: Double,
-    val team: Int
+    val team: Int,
+    // The player's rating before and after the game, null until its score is reported
+    val ratingBefore: Double? = null,
+    val ratingAfter: Double? = null
 )
 
 // One round of a game (a set in tennis)
@@ -79,6 +82,21 @@ val Format.teamSize: Int
  * @return the players on the given team, 1 or 2
  */
 fun Game.playersOnTeam(team: Int): List<Player> = players.filter { it.team == team }
+
+/**
+ * The team that won more rounds, or null if the game has no score yet or its rounds are split evenly
+ */
+val Game.winningTeam: Int?
+    get() {
+        if (rounds.isEmpty()) return null
+        val team1Wins = rounds.count { it.team1Score > it.team2Score }
+        val team2Wins = rounds.count { it.team2Score > it.team1Score }
+        return when {
+            team1Wins > team2Wins -> 1
+            team2Wins > team1Wins -> 2
+            else -> null
+        }
+    }
 
 /**
  * A completed or cancelled game can no longer be joined, left or changed

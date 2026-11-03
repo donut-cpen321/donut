@@ -16,6 +16,7 @@ import {
   fetchGame,
   fetchGameDetails,
   fetchUserGames,
+  fetchUserHistory,
   type GameDetails,
   isUserInGame,
   updateGame,
@@ -29,6 +30,7 @@ import {
   getFeed,
   getGame,
   getUserGames,
+  getUserHistory,
   joinGame,
   joinGameErrors,
   leaveGame,
@@ -56,6 +58,7 @@ jest.mock("../../src/games/games.repository", () => ({
   fetchGameDetails: jest.fn(),
   fetchFeedGames: jest.fn(),
   fetchUserGames: jest.fn(),
+  fetchUserHistory: jest.fn(),
   addPlayerToTeam: jest.fn(),
 }));
 
@@ -68,6 +71,7 @@ const mockedFetchGame = jest.mocked(fetchGame);
 const mockedFetchGameDetails = jest.mocked(fetchGameDetails);
 const mockedFetchFeedGames = jest.mocked(fetchFeedGames);
 const mockedFetchUserGames = jest.mocked(fetchUserGames);
+const mockedFetchUserHistory = jest.mocked(fetchUserHistory);
 const mockedAddPlayerToTeam = jest.mocked(addPlayerToTeam);
 const mockedGetForecast = jest.mocked(getForecast);
 const mockedDeleteGame = jest.mocked(deleteGame);
@@ -103,6 +107,8 @@ const gameDetails = (overrides: Partial<GameDetails> = {}): GameDetails => ({
       rating: 1500,
       team: 1,
       acceptedAt: new Date(),
+      ratingBefore: null,
+      ratingAfter: null,
     },
   ],
   rounds: [],
@@ -129,6 +135,7 @@ describe("Mocked: /games requireAuth", () => {
       ],
       ["GET /games/feed", () => request(createApp()).get("/games/feed")],
       ["GET /games/me", () => request(createApp()).get("/games/me")],
+      ["GET /games/history", () => request(createApp()).get("/games/history")],
       [
         "DELETE /games",
         () => request(createApp()).delete("/games").query({ gameId }),
@@ -545,6 +552,86 @@ describe("Mocked: GET /games/me", () => {
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: "Internal server error" });
     consoleError.mockRestore();
+  });
+});
+
+describe("Mocked: GET /games/history", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("Returns the authenticated user's completed games with rating changes", async () => {
+    const game = gameDetails({
+      status: GameStatus.COMPLETED,
+      rounds: [{ number: 1, team1Score: 6, team2Score: 4 }],
+      players: [
+        {
+          id: userId,
+          username: "ace",
+          name: "Ace Player",
+          rating: 1516,
+          team: 1,
+          acceptedAt: new Date(),
+          ratingBefore: 1500,
+          ratingAfter: 1516,
+        },
+      ],
+    });
+    mockedFetchUserHistory.mockResolvedValue([game]);
+
+    const response = await request(createApp())
+      .get("/games/history")
+      .set("Authorization", authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body.games).toHaveLength(1);
+    expect(response.body.games[0]).toMatchObject({
+      id: game.id,
+      status: GameStatus.COMPLETED,
+      players: [{ id: userId, team: 1, ratingBefore: 1500, ratingAfter: 1516 }],
+      rounds: [{ number: 1, team1Score: 6, team2Score: 4 }],
+    });
+    expect(mockedFetchUserHistory).toHaveBeenCalledWith(userId);
+  });
+
+  test("Returns an empty list when the user has no completed games", async () => {
+    mockedFetchUserHistory.mockResolvedValue([]);
+
+    const response = await request(createApp())
+      .get("/games/history")
+      .set("Authorization", authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ games: [] });
+  });
+
+  test("Returns 500 when the repository throws unexpectedly", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedFetchUserHistory.mockRejectedValue(new Error("Database unavailable"));
+
+    const response = await request(createApp())
+      .get("/games/history")
+      .set("Authorization", authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Internal server error" });
+    consoleError.mockRestore();
+  });
+});
+
+describe("Mocked: getUserHistory", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("Fetches the user's completed games", async () => {
+    const games = [gameDetails({ status: GameStatus.COMPLETED })];
+    mockedFetchUserHistory.mockResolvedValue(games);
+
+    await expect(getUserHistory(userId)).resolves.toBe(games);
+    expect(mockedFetchUserHistory).toHaveBeenCalledWith(userId);
   });
 });
 

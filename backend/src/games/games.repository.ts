@@ -16,7 +16,13 @@ const playerUserSelect = {
 const gameDetailsInclude = {
   court: { select: { id: true, name: true, latitude: true, longitude: true } },
   players: {
-    select: { team: true, acceptedAt: true, user: { select: playerUserSelect } },
+    select: {
+      team: true,
+      acceptedAt: true,
+      ratingBefore: true,
+      ratingAfter: true,
+      user: { select: playerUserSelect },
+    },
     orderBy: { team: "asc" },
   },
   rounds: {
@@ -35,16 +41,19 @@ type GameDetailsRow = Prisma.GameGetPayload<{
 /**
  * Flattens each player's user into the player, like the friends list does, and names the tournament a game is in
  * @param game a game fetched with gameDetailsInclude
- * @returns the game with players as { id, username, name, rating, team, acceptedAt }, and its tournament as
- * { id, name, round }, or null if it is not a tournament game
+ * @returns the game with players as { id, username, name, rating, team, acceptedAt, ratingBefore, ratingAfter },
+ * and its tournament as { id, name, round }, or null if it is not a tournament game.
+ * ratingBefore and ratingAfter are null until the game is completed
  */
 function toGameDetails({ players, tournamentMatch, ...game }: GameDetailsRow) {
   return {
     ...game,
-    players: players.map(({ user, team, acceptedAt }) => ({
+    players: players.map(({ user, team, acceptedAt, ratingBefore, ratingAfter }) => ({
       ...user,
       team,
       acceptedAt,
+      ratingBefore,
+      ratingAfter,
     })),
     tournament:
       tournamentMatch === null
@@ -161,6 +170,24 @@ export async function fetchUserGames(
     },
     include: gameDetailsInclude,
     orderBy: { startsAt: "asc" },
+  });
+
+  return games.map(toGameDetails);
+}
+
+/**
+ * Fetches a user's completed games, most recent first
+ * @param userId the user whose match history is requested
+ * @returns the game details of the user's completed games, with each player's rating before and after
+ */
+export async function fetchUserHistory(userId: string): Promise<GameDetails[]> {
+  const games = await prisma.game.findMany({
+    where: {
+      players: { some: { userId } },
+      status: GameStatus.COMPLETED,
+    },
+    include: gameDetailsInclude,
+    orderBy: { startsAt: "desc" },
   });
 
   return games.map(toGameDetails);

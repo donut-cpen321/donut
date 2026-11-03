@@ -1,13 +1,15 @@
 package com.example.cpen321application.core.data.repository
 
 import com.example.cpen321application.core.auth.AuthSession
+import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.network.ApiService
 import com.example.cpen321application.core.network.RetrofitClient
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
-import com.example.cpen321application.core.network.dto.MatchDto
+import com.example.cpen321application.core.network.dto.SendFriendRequestDto
 import com.example.cpen321application.core.network.dto.UserMeDto
+import com.example.cpen321application.core.network.dto.toGame
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -21,7 +23,15 @@ interface FriendsRepository {
     suspend fun removeFriend(session: AuthSession, userId: String): Result<Unit>
     suspend fun getFriendRequests(session: AuthSession): Result<List<FriendRequestDto>>
     suspend fun acceptFriendRequest(session: AuthSession, userId: String): Result<Unit>
-    suspend fun getMatchHistory(session: AuthSession): Result<List<MatchDto>>
+
+    // The requests the signed-in user sent that are still pending
+    suspend fun getOutgoingFriendRequests(session: AuthSession): Result<List<FriendRequestDto>>
+
+    // Sends a friend request. If the other user already sent one, the backend accepts theirs instead
+    suspend fun sendFriendRequest(session: AuthSession, userId: String): Result<Unit>
+
+    // The signed-in user's completed games, most recent first
+    suspend fun getMatchHistory(session: AuthSession): Result<List<Game>>
 }
 
 class FriendsRepositoryImpl(
@@ -85,7 +95,8 @@ class FriendsRepositoryImpl(
             val jsonElement = session.authorized { auth ->
                 apiService.getFriendRequests(auth)
             }
-            val requests = parseFlexibleList<FriendRequestDto>(jsonElement, "requests", "friendRequests")
+            // The backend sends { incoming, outgoing }; this list is the requests to accept
+            val requests = parseFlexibleList<FriendRequestDto>(jsonElement, "incoming", "requests", "friendRequests")
             Result.success(requests)
         } catch (e: HttpException) {
             Result.failure(e)
@@ -113,13 +124,58 @@ class FriendsRepositoryImpl(
         }
     }
 
-    override suspend fun getMatchHistory(session: AuthSession): Result<List<MatchDto>> {
+    override suspend fun getOutgoingFriendRequests(session: AuthSession): Result<List<FriendRequestDto>> {
         return try {
             val jsonElement = session.authorized { auth ->
-                apiService.getMatchHistory(auth)
+                apiService.getFriendRequests(auth)
             }
-            val matches = parseFlexibleList<MatchDto>(jsonElement, "matches", "matchHistory", "history")
-            Result.success(matches)
+            val outgoing = jsonElement
+                ?.takeIf { it.isJsonObject }
+                ?.asJsonObject
+                ?.get("outgoing")
+                ?.takeIf { it.isJsonArray }
+            val requests: List<FriendRequestDto> = if (outgoing == null) {
+                emptyList()
+            } else {
+                gson.fromJson(outgoing, object : TypeToken<List<FriendRequestDto>>() {}.type)
+            }
+            Result.success(requests)
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun sendFriendRequest(session: AuthSession, userId: String): Result<Unit> {
+        return try {
+            val response = session.authorized { auth ->
+                apiService.sendFriendRequest(auth, SendFriendRequestDto(userId))
+            }
+            if (response != null && response.isSuccessful) {
+                Result.success(Unit)
+            } else if (response != null) {
+                Result.failure(HttpException(response))
+            } else {
+                Result.failure(Exception("Not authenticated"))
+            }
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getMatchHistory(session: AuthSession): Result<List<Game>> {
+        return try {
+            val response = session.authorized { auth ->
+                apiService.getGameHistory(auth)
+            }
+            if (response == null) {
+                Result.failure(Exception("Not authenticated"))
+            } else {
+                Result.success(response.games.map { it.toGame() })
+            }
         } catch (e: HttpException) {
             Result.failure(e)
         } catch (e: IOException) {
