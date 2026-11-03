@@ -7,23 +7,15 @@ import com.example.cpen321application.core.data.repository.EquipmentRepository
 import com.example.cpen321application.core.data.repository.FriendsRepository
 import com.example.cpen321application.core.network.ApiService
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
-import com.example.cpen321application.core.network.dto.AcceptMatchRequestDto
-import com.example.cpen321application.core.network.dto.ChangeGameLocationRequestDto
-import com.example.cpen321application.core.network.dto.ChangeGameTimeRequestDto
 import com.example.cpen321application.core.network.dto.CreateEquipmentRequestDto
-import com.example.cpen321application.core.network.dto.CreateGameRequestDto
 import com.example.cpen321application.core.network.dto.EquipmentDto
 import com.example.cpen321application.core.network.dto.EquipmentType
 import com.example.cpen321application.core.network.dto.FcmTokenRequestDto
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
-import com.example.cpen321application.core.network.dto.InviteFriendRequestDto
-import com.example.cpen321application.core.network.dto.JoinGameRequestDto
 import com.example.cpen321application.core.network.dto.JoinQueueRequestDto
-import com.example.cpen321application.core.network.dto.LeaveGameRequestDto
 import com.example.cpen321application.core.network.dto.LoginRequestDto
 import com.example.cpen321application.core.network.dto.RefreshRequestDto
-import com.example.cpen321application.core.network.dto.ReportScoreRequestDto
 import com.example.cpen321application.core.network.dto.SendFriendRequestDto
 import com.example.cpen321application.core.network.dto.UpdateEquipmentRequestDto
 import com.example.cpen321application.core.network.dto.UserMeDto
@@ -225,20 +217,7 @@ class ProfileViewModelTest {
                 override suspend fun getFriendRequests(authorization: String) = TODO()
                 override suspend fun acceptFriendRequest(authorization: String, request: AcceptFriendRequestDto) = TODO()
                 override suspend fun sendFriendRequest(authorization: String, request: SendFriendRequestDto) = TODO()
-                override suspend fun getGameHistory(authorization: String) = TODO()
                 override suspend fun getLeaderboard(authorization: String, limit: Int?) = TODO()
-                override suspend fun getGameFeed(authorization: String) = TODO()
-                override suspend fun getMyGames(authorization: String) = TODO()
-                override suspend fun getGame(authorization: String, gameId: String) = TODO()
-                override suspend fun createGame(authorization: String, request: CreateGameRequestDto) = TODO()
-                override suspend fun cancelGame(authorization: String, gameId: String) = TODO()
-                override suspend fun joinGame(authorization: String, request: JoinGameRequestDto) = TODO()
-                override suspend fun leaveGame(authorization: String, request: LeaveGameRequestDto) = TODO()
-                override suspend fun changeGameTime(authorization: String, request: ChangeGameTimeRequestDto) = TODO()
-                override suspend fun changeGameLocation(authorization: String, request: ChangeGameLocationRequestDto) = TODO()
-                override suspend fun reportScore(authorization: String, request: ReportScoreRequestDto) = TODO()
-                override suspend fun acceptMatch(authorization: String, request: AcceptMatchRequestDto) = TODO()
-                override suspend fun inviteToGame(authorization: String, request: InviteFriendRequestDto) = TODO()
                 override suspend fun getCourts(authorization: String) = TODO()
             },
             initialUser = user,

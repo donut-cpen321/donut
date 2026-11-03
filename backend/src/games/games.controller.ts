@@ -125,7 +125,7 @@ gamesRouter.get("/", async (req: Request, res: Response) => {
   }
 
   try {
-    const game = await getGame(parsedGameId.data as string);
+    const game = await getGame(parsedGameId.data);
     if (game === null) {
       res.status(404).json({ error: "Game not found" });
       return;

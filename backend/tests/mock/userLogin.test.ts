@@ -1,5 +1,5 @@
 import request from 'supertest';
-import type { TokenPayload } from 'google-auth-library';
+import type { GoogleProfile } from '../../src/users/helpers/validateToken';
 import { createApp } from '../../src/app';
 import { createRefreshToken } from '../../src/auth/auth.repository';
 import { hashRefreshToken, verifyAccessToken } from '../../src/auth/tokens';
@@ -96,12 +96,8 @@ describe('Mocked: POST /user/login', () => {
     ['blank name', { email: 'new.user@example.com', name: '   ' }],
   ])('Rejects a Google profile with %s', async (_description, fields) => {
     mockedValidateToken.mockResolvedValue({
-      iss: 'https://accounts.google.com',
-      aud: 'test-google-client-id',
       sub: 'google-sub-123',
       ...fields,
-      iat: 1_766_000_000,
-      exp: 1_766_003_600,
     });
     mockedGetUserByGoogleSub.mockResolvedValue(null);
 
@@ -127,13 +123,9 @@ describe('Mocked: POST /user/login', () => {
 
   test('Returns a server error when looking up the user fails', async () => {
     mockedValidateToken.mockResolvedValue({
-      iss: 'https://accounts.google.com',
-      aud: 'test-google-client-id',
       sub: 'google-sub-123',
       email: 'new.user@example.com',
       name: 'New User',
-      iat: 1_766_000_000,
-      exp: 1_766_003_600,
     });
     mockedGetUserByGoogleSub.mockRejectedValue(new Error('Database unavailable'));
 
@@ -147,13 +139,9 @@ describe('Mocked: POST /user/login', () => {
 
   test('Returns a server error when creating a user fails', async () => {
     mockedValidateToken.mockResolvedValue({
-      iss: 'https://accounts.google.com',
-      aud: 'test-google-client-id',
       sub: 'google-sub-123',
       email: 'new.user@example.com',
       name: 'New User',
-      iat: 1_766_000_000,
-      exp: 1_766_003_600,
     });
     mockedGetUserByGoogleSub.mockResolvedValue(null);
     mockedCreateUser.mockRejectedValue(new Error('Database unavailable'));
@@ -168,13 +156,9 @@ describe('Mocked: POST /user/login', () => {
 
   test('Handles a duplicate-user race during creation as a server error', async () => {
     mockedValidateToken.mockResolvedValue({
-      iss: 'https://accounts.google.com',
-      aud: 'test-google-client-id',
       sub: 'google-sub-123',
       email: 'new.user@example.com',
       name: 'New User',
-      iat: 1_766_000_000,
-      exp: 1_766_003_600,
     });
     mockedGetUserByGoogleSub.mockResolvedValue(null);
     mockedCreateUser.mockRejectedValue(new Error('Unique constraint failed'));
@@ -188,14 +172,10 @@ describe('Mocked: POST /user/login', () => {
   });
 
   test('Creates a user with the validated Google profile', async () => {
-    const googleProfile: TokenPayload = {
-      iss: 'https://accounts.google.com',
-      aud: 'test-google-client-id',
+    const googleProfile: GoogleProfile = {
       sub: 'google-sub-123',
       email: 'new.user@example.com',
       name: 'New User',
-      iat: 1_766_000_000,
-      exp: 1_766_003_600,
     };
 
     mockedValidateToken.mockResolvedValue(googleProfile);
@@ -232,14 +212,10 @@ describe('Mocked: POST /user/login', () => {
   });
 
   test('Gets existing user with valid google profile', async () => {
-    const googleProfile: TokenPayload = {
-      iss: 'https://accounts.google.com',
-      aud: 'test-google-client-id',
+    const googleProfile: GoogleProfile = {
       sub: 'google-sub-123',
       email: 'new.user@example.com',
       name: 'New User',
-      iat: 1_766_000_000,
-      exp: 1_766_003_600,
     };
 
     mockedValidateToken.mockResolvedValue(googleProfile);

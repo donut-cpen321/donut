@@ -220,21 +220,40 @@ private fun GameDetails(
         }
     }
 
-    when (val dialog = openDialog) {
-        null -> Unit
-        GameDialog.INVITE -> InviteFriendsDialog(
-            friends = uiState.invite.friends?.let { invitableFriends(it, game) },
-            invite = uiState.invite,
-            onRetry = callbacks.onOpenInvite,
-            onInvite = callbacks.onInvite,
-            onDismiss = { openDialog = null }
-        )
-        else -> GameDialogContent(
+    openDialog?.let { dialog ->
+        OpenGameDialog(
             dialog = dialog,
             game = game,
             uiState = uiState,
             callbacks = callbacks,
             onDismiss = { openDialog = null }
+        )
+    }
+}
+
+@Composable
+private fun OpenGameDialog(
+    dialog: GameDialog,
+    game: Game,
+    uiState: GameDetailUiState,
+    callbacks: GameDetailCallbacks,
+    onDismiss: () -> Unit
+) {
+    if (dialog == GameDialog.INVITE) {
+        InviteFriendsDialog(
+            friends = uiState.invite.friends?.let { invitableFriends(it, game) },
+            invite = uiState.invite,
+            onRetry = callbacks.onOpenInvite,
+            onInvite = callbacks.onInvite,
+            onDismiss = onDismiss
+        )
+    } else {
+        GameDialogContent(
+            dialog = dialog,
+            game = game,
+            uiState = uiState,
+            callbacks = callbacks,
+            onDismiss = onDismiss
         )
     }
 }

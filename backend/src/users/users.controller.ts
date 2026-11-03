@@ -27,7 +27,6 @@ export const usersRouter = Router();
 const loginErrorStatus: Record<LoginError, number> = {
     [loginErrors.InvalidToken]: 401,
     [loginErrors.InvalidProfile]: 400,
-    [loginErrors.UserCreationFailed]: 500,
 };
 
 usersRouter.post('/login', async (req: Request, res: Response) => {

@@ -3,6 +3,7 @@ package com.example.cpen321application.core.data.repository
 import com.example.cpen321application.core.auth.AuthSession
 import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.network.ApiService
+import com.example.cpen321application.core.network.GamesApi
 import com.example.cpen321application.core.network.RetrofitClient
 import com.example.cpen321application.core.network.dto.AcceptFriendRequestDto
 import com.example.cpen321application.core.network.dto.FriendDto
@@ -36,6 +37,7 @@ interface FriendsRepository {
 
 class FriendsRepositoryImpl(
     private val apiService: ApiService = RetrofitClient.apiService,
+    private val gamesApi: GamesApi = RetrofitClient.gamesApi,
     private val gson: Gson = Gson()
 ) : FriendsRepository {
 
@@ -169,7 +171,7 @@ class FriendsRepositoryImpl(
     override suspend fun getMatchHistory(session: AuthSession): Result<List<Game>> {
         return try {
             val response = session.authorized { auth ->
-                apiService.getGameHistory(auth)
+                gamesApi.getGameHistory(auth)
             }
             if (response == null) {
                 Result.failure(Exception("Not authenticated"))

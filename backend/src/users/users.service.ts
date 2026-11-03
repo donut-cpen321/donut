@@ -15,7 +15,6 @@ import type { CreateEquipmentInput, UpdateEquipmentInput } from './users.schemas
 export const loginErrors = {
   InvalidToken: 'Invalid Google ID token',
   InvalidProfile: 'Google profile must include name and email',
-  UserCreationFailed: 'Something went wrong, please try again later. (Database update failed)',
 } as const;
 
 export type LoginError = (typeof loginErrors)[keyof typeof loginErrors];
@@ -38,7 +37,7 @@ export type LoginResult =
 export async function login(idToken: string): Promise<LoginResult> {
   const payload = await validateToken(idToken);
  
-  if (!payload || !payload.sub) {
+  if (!payload?.sub) {
     return { success: false, error: loginErrors.InvalidToken };
   } 
 
@@ -76,10 +75,6 @@ export async function login(idToken: string): Promise<LoginResult> {
     name,
     email,
   });
-
-  if (!newUser) {
-    return { success: false, error: loginErrors.UserCreationFailed };
-  }
 
   const tokens = await issueTokens(newUser.id);
   return {
