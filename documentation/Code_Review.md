@@ -13,7 +13,7 @@
 
 ### 2.1. Commit Hash Where Codacy Ran
 
-[`cd0a4830f23cb24296116edc303799dfb070cb74`](https://github.com/donut-cpen321/donut/commit/cd0a4830f23cb24296116edc303799dfb070cb74) (`main`, merge of PR #85).
+[`6c68f9a392be5417f0e9752761d51fca83be3d1e`](https://github.com/donut-cpen321/donut/commit/6c68f9a392be5417f0e9752761d51fca83be3d1e)
 
 ### 2.2. Unfixed Issues per Codacy Category
 
