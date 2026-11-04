@@ -30,7 +30,7 @@ The creator picks:
 
 - Format: **singles or doubles**
 - Date and time
-- Court, on a map
+- Court, picked from a list
 
 Any player in a game can move it to another time or court, leave it (until 30 minutes before the start) or cancel it, and report its final score ([§6](#6-scoring)). There is no owner role.
 
@@ -146,7 +146,7 @@ We will likely move to **Glicko** (the system chess.com uses). It adds a rating 
 | Service | Use |
 | --- | --- |
 | Google Sign-In | Signing in |
-| Google Maps Platform (Maps and Places) | Picking a game's court on a map, and the address to be matched near |
+| Google Maps Platform (Maps and Places) | Showing a matched game's court on a map, and the address to be matched near |
 | OpenWeather | Forecasts in the feed |
 | Firebase Cloud Messaging | Push notifications for matches and game invites |
 | Google Calendar API (planned) | Adding games to the user's calendar |

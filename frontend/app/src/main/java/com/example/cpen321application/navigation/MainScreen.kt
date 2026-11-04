@@ -98,6 +98,10 @@ fun MainScreen(
  * @return Profile for a signed-in user on Login, Login for a signed-out user anywhere else, null to stay
  */
 fun authRedirect(isSignedIn: Boolean, currentRoute: String?): String? {
+    // No screen yet: the NavHost hasn't set its graph, and its start route already matches the user
+    if (currentRoute == null) {
+        return null
+    }
     // Signed in but stuck on Login → go to Profile
     if (isSignedIn && currentRoute == Screen.Login.route) {
         return Screen.Profile.route

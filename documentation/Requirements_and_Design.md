@@ -14,6 +14,7 @@
 | Nov 3, 2026 | 4.1 | Added `GET /games/history` and each player's `ratingBefore` and `ratingAfter`. |
 | Nov 3, 2026 | 4.1 | Added `POST /games/invite`, and updated `DELETE /games` for matched games. |
 | Nov 3, 2026 | All | Shortened the document and matched it to the code: token auth (`/user/refresh`, `/user/logout`), equipment, location-based matchmaking (`/matchmaking`, `POST /games/accept`, the deadline job), no game owner, and the libraries in use. Unbuilt parts are marked *(planned)*. |
+| Nov 3, 2026 | 3.1, 3.3, 3.5 (Use Case 4), 4.3 | A scheduled game's court is picked from a list; the map shows a matched game's court. |
 
 ---
 
@@ -34,7 +35,7 @@ Users sign in with Google. The backend then issues its own access and refresh to
 Users pick a format (singles, doubles or either) and where they want to play. The system matches nearby players with similar ratings, books a game one hour later at a nearby court and notifies everyone. The game is booked once every player accepts.
 
 #### **Schedule match**
-Users schedule a game for a future time at a court they pick on a map. It shows in the feed with the weather forecast, and others can join it or be invited by a friend. Adding it to Google Calendar is *(planned)*.
+Users schedule a game for a future time at a court they pick from a list. It shows in the feed with the weather forecast, and others can join it or be invited by a friend. Adding it to Google Calendar is *(planned)*.
 
 #### **Live game info update** *(planned)*
 During a game, a player updates the score, and it syncs live to every other player's device.
@@ -60,7 +61,7 @@ External services are drawn with plain lines because they support use cases but 
 ### **3.3. Actors Description**
 1. **User**: a tennis player who signs in with Google, joins or is matched into games, and reports scores. Every player in a game has the same permissions on it.
 2. **Google Sign-In**: authenticates players.
-3. **Google Maps Platform**: shows courts on a map, and Places looks up where a player wants to play.
+3. **Google Maps Platform**: shows a matched game's court on a map, and Places looks up where a player wants to play.
 4. **Firebase Cloud Messaging**: delivers match notifications and game invites.
 5. **OpenWeather**: supplies forecasts for the feed.
 6. **Google Calendar** *(planned)*: stores booked games in the player's calendar.
@@ -178,7 +179,7 @@ External services are drawn with plain lines because they support use cases but 
 <a name="uc4"></a>
 
 #### Use Case 4: Create a scheduled match
-**Description**: The user creates a game for a future time at a court they pick on a map. It appears in the feed for others to join.
+**Description**: The user creates a game for a future time at a court they pick from a list. It appears in the feed for others to join.
 
 **Primary actor(s)**: User
 
@@ -189,7 +190,7 @@ External services are drawn with plain lines because they support use cases but 
 **Main success scenario**:
 1. The user opens the Games tab, taps "Schedule" and picks "Game".
 2. The user picks the format and the start date and time.
-3. The user opens the court picker and taps a court on the map.
+3. The user opens the court picker and taps a court in the list.
 4. The user submits the form.
 5. The system validates the game and creates it with the user on team 1.
 6. The app shows the new game, and it appears in the feed with its forecast.
@@ -364,7 +365,7 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
         1. `verifyIdToken({ idToken, audience })` (google-auth-library) - called by Users
         2. `CredentialManager.getCredential(GetGoogleIdOption)` - called by the front-end
 2. **Google Maps Platform (Maps SDK and Places)**
-    - **Purpose**: Shows courts on a map for picking a game's court, and looks up the address a player wants to be matched near.
+    - **Purpose**: Shows a matched game's court on a map, and looks up the address a player wants to be matched near.
     - **Rationale**: Players recognise courts by location. The courts themselves are stored in our database.
     - **Interfaces we call**:
         1. `GoogleMap(...)` with `Marker`s (Maps Compose) - called by the front-end

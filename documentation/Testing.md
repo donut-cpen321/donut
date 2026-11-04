@@ -10,6 +10,7 @@
 | 11-03-2026        | 2.1.1                 | Added tests for `GET /games/history`, and listed the existing tests of the friends routes |
 | 11-03-2026        | 2.1.1                 | Added tests for `POST /games/invite`, and for `deleteGame` removing a game's players, rounds and equipment |
 | 11-03-2026        | 2.1, 3, 4             | Listed the existing tests of the user, matchmaking, accept and leaderboard routes, the deadline job and `requireAuth`; set the commit and clone URL; replaced the template examples in 3 and 4 with what exists |
+| 11-03-2026        | 4.2                   | Added the end-to-end test of Use Case 4 (create a scheduled match), with its steps and log |
 
 ---
 
@@ -121,12 +122,39 @@ To be added with the tests.
 
 ### 4.2. Tests
 
-The use-case tests (end-to-end flows) are not written yet. The screen tests that exist:
+#### 4.2.1. Use Case 4: Create a scheduled match (end-to-end)
+
+[`e2e/ScheduleGameE2ETest.kt`](#) runs the whole app against the real backend at `API_BASE_URL` (default `http://10.0.2.2:3000`, the host from the emulator), with no mocks. It creates a game, finds it under My games, then cancels it, so a passing run leaves nothing behind.
+
+**Before running it:**
+1. Start the backend and its database: `docker compose up -d` in the repository root.
+2. Add a Google account to the device (Settings → Passwords & accounts). Running the tests reinstalls the app, which clears any saved session, so the test taps "Sign in with Google" itself. Google signs in on its own when the device has one account that used the app before; otherwise the test taps the first account in Google's account sheet with UiAutomator.
+3. Run it from Android Studio, or with `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.cpen321application.e2e.ScheduleGameE2ETest` in `frontend/`.
+
+| **Scenario Steps** | **Test Case Steps** |
+| ------------------ | ------------------- |
+| 1. The user opens the Games tab, taps "Schedule" and picks "Game". | Signs in if the login screen shows. Taps the "Games" tab, then "Schedule", then "Game". Checks the "Schedule a game" form opens. |
+| 2. The user picks the format and the start date and time. | Taps "Singles". Taps "Pick a date and time", then "Next" and "OK" to keep the default, one hour from now. Reads the start time the button now shows. |
+| 3. The user opens the court picker and taps a court. | Taps "Pick a court", waits for the courts to load from the backend, taps the first one and checks its name shows on the button. |
+| 4. The user submits the form. | Taps "Schedule game". |
+| 5. The system validates the game and creates it with the user on team 1. | The backend creates the game (`POST /games`); the test checks the result in the next step. |
+| 6. The app shows the new game. | Checks the game screen opens with the start time, the court and "Singles". Goes back, opens "My games", refreshes and checks a game with that start time is listed. |
+| *(cleanup, Manage scheduled match)* | Opens the game, taps "Cancel game" and confirms in the "Cancel this game?" dialog. Back on the list, refreshes "My games" and checks the game is gone (`DELETE /games`). |
+
+- **Test Logs** (Pixel 9 emulator, Android 16):
+  ```
+  $ adb shell am instrument -w -e class com.example.cpen321application.e2e.ScheduleGameE2ETest com.example.cpen321application.test/androidx.test.runner.AndroidJUnitRunner
+  com.example.cpen321application.e2e.ScheduleGameE2ETest:.
+
+  Time: 7.066
+
+  OK (1 test)
+  ```
+
+#### 4.2.2. Screen tests
+
+These render one screen with injected data, with no backend or signed-in account:
 
 - **Leaderboard screen** ([`feature/leaderboard/LeaderboardScreenTest.kt`](#)): shows each player's rank, username and rounded rating; marks the signed-in player once when they are in the top list, and pins them at the bottom when they aren't or are scrolled out of view; handles long names, an empty list, loading, and an error with a retry.
 - **Tournament detail screen** ([`feature/tournamentdetail/TournamentDetailScreenTest.kt`](#)): during registration shows the registrants and a Join button, or Cancel for the creator; in progress shows the bracket columns with team names, and tapping a played match opens its game; when completed shows the champion banner.
 
-  - **Test Logs:**
-    ```
-    [Placeholder for Espresso test execution logs]
-    ```
