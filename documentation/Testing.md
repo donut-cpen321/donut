@@ -9,6 +9,7 @@
 | 11-02-2026        | 2.1.1, 2.1.3, 2.2     | Added tests for the tournament routes, the tournament and bracket repositories and the bracket rules, updated the rows of the games routes that tournaments changed, and noted that the no-mock tests need a migrated Postgres database |
 | 11-03-2026        | 2.1.1                 | Added tests for `GET /games/history`, and listed the existing tests of the friends routes |
 | 11-03-2026        | 2.1.1                 | Added tests for `POST /games/invite`, and for `deleteGame` removing a game's players, rounds and equipment |
+| 11-03-2026        | 2.1, 3, 4             | Listed the existing tests of the user, matchmaking, accept and leaderboard routes, the deadline job and `requireAuth`; set the commit and clone URL; replaced the template examples in 3 and 4 with what exists |
 
 ---
 
@@ -21,7 +22,15 @@
 | **Interface**                 | **Describe Group Location, No Mocks**                | **Describe Group Location, With Mocks**            | **Mocked Components**              |
 | ----------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ---------------------------------- |
 | **POST /user/login**          | ...                                                  | [`tests/mock/userLogin.test.ts`](#)                | Google Authentication API, User DB |
+| **POST /user/refresh**        | ...                                                  | [`tests/mock/userRefresh.test.ts`](#)              | Refresh token DB                   |
+| **POST /user/logout**         | ...                                                  | [`tests/mock/userLogout.test.ts`](#)               | Refresh token DB                   |
+| **GET /user/me**              | ...                                                  | [`tests/mock/userMe.test.ts`](#)                   | User DB                            |
+| **PUT /user/me/fcm-token**    | ...                                                  | [`tests/mock/userFcmToken.test.ts`](#)             | User DB                            |
+| **GET, POST /user/equipment**, **PATCH, DELETE /user/equipment/:equipmentId** | ... | [`tests/mock/userEquipment.test.ts`](#)  | Equipment DB                       |
+| **POST, GET, DELETE /matchmaking** | ...                                             | [`tests/mock/matchmaking.test.ts`](#)              | Matchmaking DB                     |
 | **Matchmaking**               | ...                                                  | [`tests/mock/matchmaking.job.test.ts`](#)          | Task Scheduler                     |
+| **Match deadline job**        | ...                                                  | [`tests/mock/matchDeadline.job.test.ts`](#)        | Task Scheduler                     |
+| **GET /leaderboard**          | ...                                                  | [`tests/mock/leaderboard.test.ts`](#)              | User DB                            |
 | **GET /courts**               | ...                                                  | [`tests/mock/courts.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Court DB                 |
 | **POST /games**               | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
 | **GET /games**                | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                   |
@@ -31,6 +40,7 @@
 | **DELETE /games**             | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
 | **POST /games/join**          | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
 | **POST /games/leave**         | [`tests/no-mock/tournaments.test.ts`](#)             | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
+| **POST /games/accept**        | ...                                                  | [`tests/mock/games.test.ts`](#), [`tests/mock/repositories.test.ts`](#) | Game DB                            |
 | **POST /games/invite**        | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB, Friendship DB, User DB, Firebase Cloud Messaging |
 | **PATCH /games/time**         | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
 | **PATCH /games/location**     | ...                                                  | [`tests/mock/games.test.ts`](#)                    | Game DB                            |
@@ -48,11 +58,11 @@
 | **POST /friends/requests/accept** | ...                                              | [`tests/mock/friends.test.ts`](#)                  | Friendship DB                      |
 | **DELETE /friends**           | ...                                                  | [`tests/mock/friends.test.ts`](#)                  | Friendship DB                      |
 
-The rows that cite `tests/no-mock/tournaments.test.ts` run in its `Unmocked: tournament flow` describe group, against a real, migrated Postgres database (see 2.1.3). The pure bracket rules (`formTeams`, the bracket's slots, where a winner plays next and when each round starts) are unit tested in `tests/unit/bracket.test.ts`.
+The rows that cite `tests/no-mock/tournaments.test.ts` run in its `Unmocked: tournament flow` describe group, against a real, migrated Postgres database (see 2.1.3). `tests/no-mock/requireAuth.test.ts` checks the `Authorization` header that every route except login, refresh and logout requires, and `tests/no-mock/health.test.ts` checks `GET /health` and unknown routes. Pure logic is unit tested in `tests/unit/`: the bracket rules (`bracket.test.ts`), ELO (`elo.test.ts`), distances (`geo.test.ts`), matching (`matchmaking.service.test.ts`) and tokens (`tokens.test.ts`).
 
 #### 2.1.2. Commit Hash Where Tests Run
 
-`[Insert Commit SHA here]`
+[`e9776ef4e0094294ac146ad60a029ef802cf1bb7`](https://github.com/donut-cpen321/donut/commit/e9776ef4e0094294ac146ad60a029ef802cf1bb7)
 
 #### 2.1.3. Explanation on How to Run the Tests
 
@@ -60,7 +70,7 @@ The rows that cite `tests/no-mock/tournaments.test.ts` run in its `Unmocked: tou
 
    - Open your terminal and run:
      ```
-     git clone https://github.com/example/your-project.git
+     git clone https://github.com/donut-cpen321/donut.git
      ```
 
 2. **Start a database for the no-mock tests**:
@@ -89,27 +99,17 @@ _(Placeholder for Jest coverage screenshot without mocks)_
 
 ### 3.1. Test Locations in Git
 
-| **Non-Functional Requirement**  | **Location in Git**                              |
-| ------------------------------- | ------------------------------------------------ |
-| **Performance (Response Time)** | [`backend/tests/nfr/response_time.test.js`](#) |
-| **Chat Data Security**          | [`backend/tests/nfr/chat_security.test.js`](#) |
+Not written yet. `backend/tests/nfr/` is reserved for them.
+
+| **Non-Functional Requirement** | **Location in Git** |
+| ------------------------------ | ------------------- |
+| **API response time** (95% of requests within 500 ms with 50 concurrent users) | `backend/tests/nfr/` *(planned)* |
+| **Match found latency** (95% of compatible players matched within 60 seconds) | `backend/tests/nfr/` *(planned)* |
+| **Live score sync latency** | Waits for the live score feature *(planned)* |
 
 ### 3.2. Test Verification and Logs
 
-- **Performance (Response Time)**
-
-  - **Verification:** This test suite simulates multiple concurrent API calls using Jest along with a load-testing utility to mimic real-world user behavior. The focus is on key endpoints such as user login and study group search to ensure that each call completes within the target response time of 2 seconds under normal load. The test logs capture metrics such as average response time, maximum response time, and error rates. These logs are then analyzed to identify any performance bottlenecks, ensuring the system can handle expected traffic without degradation in user experience.
-  - **Log Output**
-    ```
-    [Placeholder for response time test logs]
-    ```
-
-- **Chat Data Security**
-  - **Verification:** ...
-  - **Log Output**
-    ```
-    [Placeholder for chat security test logs]
-    ```
+To be added with the tests.
 
 ---
 
@@ -117,40 +117,16 @@ _(Placeholder for Jest coverage screenshot without mocks)_
 
 ### 4.1. Location in Git of Front-end Test Suite:
 
-`frontend/src/androidTest/java/com/studygroupfinder/`
+`frontend/app/src/androidTest/java/com/example/cpen321application/` (Compose UI tests), and `frontend/app/src/test/java/com/example/cpen321application/` for unit tests of view models, repositories and screen logic.
 
 ### 4.2. Tests
 
-- **Use Case: Login**
+The use-case tests (end-to-end flows) are not written yet. The screen tests that exist:
 
-  - **Expected Behaviors:**
-    | **Scenario Steps** | **Test Case Steps** |
-    | ------------------ | ------------------- |
-    | 1. The user opens "Add Todo Items" screen. | Open "Add Todo Items" screen. |
-    | 2. The app shows an input text field and an "Add" button. The add button is disabled. | Check that the text field is present on screen.<br>Check that the button labelled "Add" is present on screen.<br>Check that the "Add" button is disabled. |
-    | 3a. The user inputs an ill-formatted string. | Input "_^_^^OQ#$" in the text field. |
-    | 3a1. The app displays an error message prompting the user for the expected format. | Check that a dialog is opened with the text: "Please use only alphanumeric characters ". |
-    | 3. The user inputs a new item for the list and the add button becomes enabled. | Input "buy milk" in the text field.<br>Check that the button labelled "add" is enabled. |
-    | 4. The user presses the "Add" button. | Click the button labelled "add ". |
-    | 5. The screen refreshes and the new item is at the bottom of the todo list. | Check that a text box with the text "buy milk" is present on screen.<br>Input "buy chocolate" in the text field.<br>Click the button labelled "add".<br>Check that two text boxes are present on the screen with "buy milk" on top and "buy chocolate" at the bottom. |
-    | 5a. The list exceeds the maximum todo-list size. | Repeat steps 3 to 5 ten times.<br>Check that a dialog is opened with the text: "You have too many items, try completing one first". |
+- **Leaderboard screen** ([`feature/leaderboard/LeaderboardScreenTest.kt`](#)): shows each player's rank, username and rounded rating; marks the signed-in player once when they are in the top list, and pins them at the bottom when they aren't or are scrolled out of view; handles long names, an empty list, loading, and an error with a retry.
+- **Tournament detail screen** ([`feature/tournamentdetail/TournamentDetailScreenTest.kt`](#)): during registration shows the registrants and a Join button, or Cancel for the creator; in progress shows the bracket columns with team names, and tapping a played match opens its game; when completed shows the champion banner.
 
   - **Test Logs:**
     ```
     [Placeholder for Espresso test execution logs]
     ```
-
-- **Use Case: ...**
-
-  - **Expected Behaviors:**
-
-    | **Scenario Steps** | **Test Case Steps** |
-    | ------------------ | ------------------- |
-    | ...                | ...                 |
-
-  - **Test Logs:**
-    ```
-    [Placeholder for Espresso test execution logs]
-    ```
-
-- **...**

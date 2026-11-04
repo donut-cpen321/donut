@@ -8,89 +8,72 @@ The first version supports **tennis only**, in **singles (1v1)** and **doubles (
 
 ## 2. Navigation
 
-The app has three tabs.
+The app has four tabs.
 
 | Tab | Purpose |
 | --- | --- |
-| **Discover** | Browse games: a feed of upcoming games and a calendar of all games. |
-| **Play** | Create a game, post availability, see your current game and enter its score. |
+| **Profile** | Rating, match history (with a summary per game), friends and equipment. |
+| **Matchmaking** | Find a match now ([§5](#5-matchmaking)). |
+| **Leaderboard** | Players ranked by rating, with your own rank. |
+| **Games** | The feed of games and tournaments to join, your upcoming games, and scheduling a game or tournament. |
 
-## 3. Discover tab
+## 3. Feed
 
-### 3.1. Feed
+- Lists the scheduled games with open spots and the tournaments open for registration that haven't started, soonest first, with the weather forecast.
+- Users join a game or register for a tournament from the feed. A game's players can also invite friends to it.
 
-- Shows games happening **now or in the next 24 hours**.
-- Users can join a game from the feed if it has open spots.
+The feed is for finding games by hand. Matchmaking ([§5](#5-matchmaking)) is the other way to get a game.
 
-The feed exists for discovery and joining games by hand. Automatic matchmaking ([§5](#5-matchmaking)) is the other way to get a game.
-
-### 3.2. Calendar
-
-- Week-by-week view of all games, including games created further in the future than the feed shows.
-- No recurring games.
-
-## 4. Play tab
-
-### 4.1. Create a game
+## 4. Scheduling a game
 
 The creator picks:
 
 - Format: **singles or doubles**
 - Date and time
-- Court
+- Court, on a map
 
-When a game is created, players whose availability fits it ([§5.1](#51-availability)) get a live notification and can join.
+Any player in a game can move it to another time or court, leave it (until 30 minutes before the start) or cancel it, and report its final score ([§6](#6-scoring)). There is no owner role.
 
-### 4.2. Current game
-
-While a player is in a game, the Play tab shows that game, its live score, and lets them enter the score ([§6](#6-scoring)).
+Planned: a calendar view of all games, adding games to Google Calendar, checking in at the court, and a live score during the game.
 
 ## 5. Matchmaking
 
-Players can be matched without anyone creating a game, by posting when they are free. The system tries to match players as soon as possible.
+Players ask for a game now instead of creating one. The system matches them as soon as it can.
 
-### 5.1. Availability
+### 5.1. Joining the queue
 
-A player posts availability with:
+A player picks:
 
 - Format: **singles, doubles, or either**
-- Time, as one of:
-  - a **weekly pattern** (e.g. every Tuesday 6–8pm), or
-  - a **specific date** (e.g. Tue Oct 7, 6–8pm).
-- Preferred location
+- Where they want to play: their current location, or an address
 
-Weekly patterns are expanded into specific dates before matching, so the matcher only ever deals with concrete date ranges.
+They stay in the queue until they are matched or leave it.
 
-### 5.2. Preferred courts
+### 5.2. Match criteria
 
-Each player saves a few preferred courts, picked on Google Maps. This is how the system decides where a matched game is played.
-
-### 5.3. Match criteria
-
-Players are matched when they share all of:
+Every 10 seconds, players are matched when they share all of:
 
 - Format (a player who chose "either" fits singles and doubles)
-- An overlapping time slot
-- A preferred court
-- A similar rating ([§7](#7-rating))
+- Location: every player is within **10 km** of the others
+- A similar rating ([§7](#7-rating)): within **200 points** in singles and **400** in doubles
 
-Open decision: How close the ratings between two players must be to match? 
+The longest-waiting player is matched first, with the closest-rated players near them. Singles needs 2 players; doubles needs 4, so doubles matches are found less often. That is accepted for now.
 
-Singles needs 2 players who fit; doubles needs 4. Doubles matches will therefore be found less often. That is accepted for now.
+### 5.3. The proposed game
+
+- It starts **one hour** after the match is found.
+- The court is the one most of the players prefer within 10 km of all of them, or else the court nearest the middle of them. (Picking preferred courts is planned; until then it is always the nearest court.)
+- In doubles, the highest- and lowest-rated players play against the middle two, so the teams are balanced.
 
 ### 5.4. Accepting a match
 
-1. The system finds a match and notifies every player in it.
+1. The system notifies every matched player.
 2. Each player accepts or declines.
 3. The game is booked once **all** players have accepted.
 
-Open decision: when 4 players are matched, how they are split into teams (just based on rating or they should be able to choose?)
-
-**Deadline:** players can accept until **30 minutes before the game starts**.
-
-- If any player has not accepted by then, the match is cancelled for everyone. That player can no longer join it.
-- The players who did accept go back into the matching pool.
-- The system does not create matches for games starting in less than 30 minutes, since there would be no time left to accept.
+- If anyone declines, the match is cancelled for everyone.
+- Players can accept until **30 minutes before the game starts**. A match not accepted by everyone by then is cancelled.
+- After a cancelled match, players join the queue again themselves.
 
 ## 6. Scoring
 
@@ -162,10 +145,11 @@ We will likely move to **Glicko** (the system chess.com uses). It adds a rating 
 
 | Service | Use |
 | --- | --- |
-| Google Maps Platform | Picking courts, showing game locations |
-| OpenWeather | Weather for outdoor games |
-| Google Calendar API (Optional) | Adding games to the user's calendar |
-| Firebase Cloud Messaging | Push notifications for matches and new games|
+| Google Sign-In | Signing in |
+| Google Maps Platform (Maps and Places) | Picking a game's court on a map, and the address to be matched near |
+| OpenWeather | Forecasts in the feed |
+| Firebase Cloud Messaging | Push notifications for matches and game invites |
+| Google Calendar API (planned) | Adding games to the user's calendar |
 
 ## 9. Out of scope for now
 
