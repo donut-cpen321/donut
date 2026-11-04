@@ -46,7 +46,7 @@ class ScheduleGameE2ETest {
     @Test
     fun scheduleGame_thenCancelIt() {
         openGamesTab()
-        val (startsAt, court) = scheduleGame()
+        val (startsAt, court) = scheduleSinglesGameInOneHourAtFirstCourt()
 
         // Created: the app opens the new game
         waitForText("Cancel game")
@@ -71,19 +71,16 @@ class ScheduleGameE2ETest {
         val signedOut = hasText("Sign in with Google")
         composeRule.waitUntil(TIMEOUT_MS) { count(signedIn) > 0 || count(signedOut) > 0 }
         if (count(signedOut) > 0) {
-            signIn(signedIn)
+            signInWithDeviceGoogleAccount(signedIn)
         }
         composeRule.onNode(signedIn).performClick()
         waitForText("Schedule")
     }
 
-    /**
-     * Taps Sign in with Google. Google signs in on its own when the device has one account that used
-     * the app before; otherwise it shows its account sheet, outside the app, where UiAutomator taps
-     * the first account.
-     */
-    private fun signIn(signedIn: SemanticsMatcher) {
+    private fun signInWithDeviceGoogleAccount(signedIn: SemanticsMatcher) {
         composeRule.onNodeWithText("Sign in with Google").performClick()
+        // Google signs in on its own when the device has one account that used the app before.
+        // Otherwise it shows its account sheet, outside the app, where UiAutomator taps the first account.
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         val deadline = System.currentTimeMillis() + SIGN_IN_TIMEOUT_MS
         while (count(signedIn) == 0) {
@@ -97,17 +94,14 @@ class ScheduleGameE2ETest {
         }
     }
 
-    /**
-     * Fills in the Schedule a game form with the default time (one hour from now) and the first court
-     * @return the start time and the court name as the app shows them
-     */
-    private fun scheduleGame(): Pair<String, String> {
+    private fun scheduleSinglesGameInOneHourAtFirstCourt(): ScheduledGame {
         composeRule.onNodeWithText("Schedule").performClick()
         composeRule.onNodeWithText("Game").performClick()
         waitForText("Schedule a game")
 
         composeRule.onNodeWithText("Singles").performClick()
 
+        // Keeps the picker's default, one hour from now
         composeRule.onNodeWithText("Pick a date and time").performClick()
         composeRule.onNodeWithText("Next").performClick()
         composeRule.onNodeWithText("OK").performClick()
@@ -122,8 +116,11 @@ class ScheduleGameE2ETest {
 
         composeRule.onNodeWithText(court).assertIsDisplayed()  // shown on the court button
         composeRule.onNode(hasText("Schedule game") and hasClickAction()).performClick()
-        return startsAt to court
+        return ScheduledGame(startsAt, court)
     }
+
+    // The start time and court name as the app shows them
+    private data class ScheduledGame(val startsAt: String, val court: String)
 
     private fun cancelGame(startsAt: String) {
         composeRule.onNodeWithText(startsAt, useUnmergedTree = true).performClick()
