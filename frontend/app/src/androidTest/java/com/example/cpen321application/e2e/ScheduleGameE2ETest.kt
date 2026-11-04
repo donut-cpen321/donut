@@ -88,7 +88,7 @@ class ScheduleGameE2ETest {
         val deadline = System.currentTimeMillis() + SIGN_IN_TIMEOUT_MS
         while (count(signedIn) == 0) {
             if (System.currentTimeMillis() > deadline) {
-                fail("Not signed in: add a Google account to the device, or sign in to the app once by hand")
+                fail("Not signed in after 30 s: add a Google account to the device (Settings → Passwords & accounts)")
             }
             val account = device.findObject(By.textContains("@").pkg(Pattern.compile("^(?!$APP_PACKAGE$).*")))
                 ?: device.findObject(By.text(Pattern.compile("Continue|Continue as .*")))
