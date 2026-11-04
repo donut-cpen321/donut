@@ -5,6 +5,7 @@
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
 | 11-03-2026        | 2                     | Added the Codacy results for `main` at `e9776ef` |
+| 11-04-2026        | 2                     | Updated to `cd0a483`, where Codacy reports 0 unfixed issues |
 
 ---
 
@@ -12,13 +13,15 @@
 
 ### 2.1. Commit Hash Where Codacy Ran
 
-[`e9776ef4e0094294ac146ad60a029ef802cf1bb7`](https://github.com/donut-cpen321/donut/commit/e9776ef4e0094294ac146ad60a029ef802cf1bb7) (`main`, merge of PR #84). Codacy reported 0 new issues and 6 fixed for this commit, and it passes the repository's quality gate.
+[`cd0a4830f23cb24296116edc303799dfb070cb74`](https://github.com/donut-cpen321/donut/commit/cd0a4830f23cb24296116edc303799dfb070cb74) (`main`, merge of PR #85).
 
 ### 2.2. Unfixed Issues per Codacy Category
 
+Codacy reports 0 unfixed issues in every category.
+
 | **Category**  | **Unfixed issues** |
 | ------------- | ------------------ |
-| Error Prone   | 1                  |
+| Error Prone   | 0                  |
 | Security      | 0                  |
 | Code Style    | 0                  |
 | Complexity    | 0                  |
@@ -27,22 +30,15 @@
 | Unused Code   | 0                  |
 | Compatibility | 0                  |
 | Documentation | 0                  |
-| **Total**     | **1**              |
+| **Total**     | **0**              |
 
 ### 2.3. Unfixed Issues per Codacy Code Pattern
 
-| **Code pattern**                   | **Tool** | **Severity** | **Unfixed issues** |
-| ---------------------------------- | -------- | ------------ | ------------------ |
-| `no-undef` (Disallow undeclared variables) | ESLint   | High         | 1                  |
+None.
 
 ### 2.4. Justifications for Unfixed Issues
 
-- **Code Pattern: [`no-undef`](https://eslint.org/docs/latest/rules/no-undef)**
-
-  1. **`'process' is not defined.`**
-
-     - **Location in Git:** [`backend/prisma.config.ts#L8`](https://github.com/donut-cpen321/donut/blob/e9776ef4e0094294ac146ad60a029ef802cf1bb7/backend/prisma.config.ts#L8)
-     - **Justification:** False positive. `prisma.config.ts` is only loaded by the Prisma CLI, which runs in Node, where `process` is always a global. The repository's `.eslintrc.json` enables the `node` environment, and the file declares the global with `/* global process */`, which is the fix the rule's documentation gives. With either of these, ESLint's `no-undef` passes on the file (checked locally with the rule alone, while the version without the comment fails), but Codacy's ESLint run still reports it, and the issue still points at line 7 of the file before the comment was added. The only other way to avoid the identifier is Prisma's `env()` helper, but it throws (`PrismaConfigEnvError`) when `DATABASE_URL` is unset, which breaks `npx prisma generate` in the backend's Docker build, where no database URL is set.
+None: there are no unfixed issues.
 
 ---
 
