@@ -27,4 +27,12 @@ class AuthRedirectTest {
         assertNull(authRedirect(isSignedIn = true, currentRoute = Screen.Profile.route))
         assertNull(authRedirect(isSignedIn = false, currentRoute = Screen.Login.route))
     }
+
+    // Input: app just launched, the NavHost hasn't shown its start screen yet
+    // Expected output: null, since navigating before the graph is set crashes
+    @Test
+    fun staysBeforeFirstScreen() {
+        assertNull(authRedirect(isSignedIn = false, currentRoute = null))
+        assertNull(authRedirect(isSignedIn = true, currentRoute = null))
+    }
 }
