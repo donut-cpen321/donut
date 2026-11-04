@@ -691,7 +691,7 @@ describe("Mocked: DELETE /games", () => {
   const gameId = "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b";
 
   test("Deletes the game with the given ID", async () => {
-    mockedDeleteGame.mockResolvedValue();
+    mockedDeleteGame.mockResolvedValue(true);
 
     const response = await request(createApp())
       .delete("/games")
@@ -702,6 +702,23 @@ describe("Mocked: DELETE /games", () => {
     expect(mockedIsUserInGame).toHaveBeenCalledWith(userId, gameId);
     expect(mockedDeleteGame).toHaveBeenCalledTimes(1);
     expect(mockedDeleteGame).toHaveBeenCalledWith(gameId);
+  });
+
+  // Input: a scheduled game that is already completed (or cancelled)
+  // Expected status code: 409
+  // Expected behavior: the game, its score and its rating changes are kept
+  // Expected output: { error: "Game is already completed or cancelled" }
+  test("Returns 409 and keeps a completed scheduled game", async () => {
+    mockedFetchGame.mockResolvedValue(existingGame({ status: GameStatus.COMPLETED }));
+    mockedDeleteGame.mockResolvedValue(false);
+
+    const response = await request(createApp())
+      .delete("/games")
+      .set("Authorization", authHeader)
+      .query({ gameId });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: cancelGameErrors.Closed });
   });
 
   test("Returns 403 and keeps the game when the user is not in it", async () => {
@@ -867,13 +884,24 @@ describe("Mocked: cancelGame", () => {
   test("Deletes the game when the user is in it", async () => {
     mockedIsUserInGame.mockResolvedValue(true);
     mockedFetchGame.mockResolvedValue(existingGame({ id: gameId }));
-    mockedDeleteGame.mockResolvedValue();
+    mockedDeleteGame.mockResolvedValue(true);
 
     await expect(cancelGame(gameId, userId)).resolves.toEqual({
       success: true,
     });
     expect(mockedIsUserInGame).toHaveBeenCalledWith(userId, gameId);
     expect(mockedDeleteGame).toHaveBeenCalledWith(gameId);
+  });
+
+  test("Returns Closed when the scheduled game is already completed or cancelled", async () => {
+    mockedIsUserInGame.mockResolvedValue(true);
+    mockedFetchGame.mockResolvedValue(existingGame({ id: gameId, status: GameStatus.COMPLETED }));
+    mockedDeleteGame.mockResolvedValue(false);
+
+    await expect(cancelGame(gameId, userId)).resolves.toEqual({
+      success: false,
+      error: cancelGameErrors.Closed,
+    });
   });
 
   test("Does not delete the game when the user is not in it", async () => {

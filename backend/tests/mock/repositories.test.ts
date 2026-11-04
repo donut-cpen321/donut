@@ -444,24 +444,44 @@ describe("Mocked: deleteGame", () => {
     jest.clearAllMocks();
   });
 
-  // Input: a game with players (and possibly rounds or equipment)
-  // Expected behavior: its rows in the tables that point at it are deleted before the game, in one transaction
-  // Expected output: resolves
+  // Input: an open or booked game with players (and possibly rounds or equipment)
+  // Expected behavior: the game is locked, then its rows in the tables that point at it are deleted before the game,
+  // in one transaction
+  // Expected output: true
   test("Deletes the game's players, rounds and equipment before the game", async () => {
     const order: string[] = [];
+    db.game.count.mockResolvedValueOnce(1);
     db.gameUser.deleteMany.mockImplementationOnce(() => Promise.resolve(order.push("players")));
     db.gameRound.deleteMany.mockImplementationOnce(() => Promise.resolve(order.push("rounds")));
     db.gameEquipment.deleteMany.mockImplementationOnce(() => Promise.resolve(order.push("equipment")));
     db.game.delete.mockImplementationOnce(() => Promise.resolve(order.push("game")));
 
-    await deleteGame(gameId);
+    await expect(deleteGame(gameId)).resolves.toBe(true);
 
+    expect(lockQuery()).toMatch(/FOR UPDATE/);
+    expect(db.game.count).toHaveBeenCalledWith({
+      where: { id: gameId, status: { in: [GameStatus.OPEN, GameStatus.BOOKED] } },
+    });
     expect(db.$transaction).toHaveBeenCalledTimes(1);
     expect(db.gameUser.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
     expect(db.gameRound.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
     expect(db.gameEquipment.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
     expect(db.game.delete).toHaveBeenCalledWith({ where: { id: gameId } });
     expect(order).toEqual(["players", "rounds", "equipment", "game"]);
+  });
+
+  // Input: a game that is completed or cancelled, or no longer exists
+  // Expected behavior: nothing is deleted, so a completed game keeps its score and rating changes
+  // Expected output: false
+  test("Keeps a completed or cancelled game", async () => {
+    db.game.count.mockResolvedValueOnce(0);
+
+    await expect(deleteGame(gameId)).resolves.toBe(false);
+
+    expect(db.gameUser.deleteMany).not.toHaveBeenCalled();
+    expect(db.gameRound.deleteMany).not.toHaveBeenCalled();
+    expect(db.gameEquipment.deleteMany).not.toHaveBeenCalled();
+    expect(db.game.delete).not.toHaveBeenCalled();
   });
 });
 
