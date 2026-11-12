@@ -566,6 +566,8 @@ describe("Mocked: acceptMatch", () => {
     jest.clearAllMocks();
     // The game is still a matched game waiting for answers once locked
     db.game.count.mockResolvedValue(1);
+    // The player hadn't accepted yet
+    db.gameUser.updateMany.mockResolvedValue({ count: 1 });
   });
 
   // Input: the locked game is not a matched open game starting more than 30 minutes from now
@@ -599,6 +601,17 @@ describe("Mocked: acceptMatch", () => {
       data: { acceptedAt: now },
     });
     expect(db.gameUser.count).toHaveBeenCalledWith({ where: { gameId, acceptedAt: null } });
+    expect(db.game.update).not.toHaveBeenCalled();
+  });
+
+  // Input: the player already accepted this match
+  // Expected behavior: nothing else is checked or written
+  // Expected output: "alreadyAccepted"
+  test("Returns alreadyAccepted when the player had already accepted", async () => {
+    db.gameUser.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(acceptMatch(gameId, userId, now)).resolves.toBe("alreadyAccepted");
+    expect(db.gameUser.count).not.toHaveBeenCalled();
     expect(db.game.update).not.toHaveBeenCalled();
   });
 
