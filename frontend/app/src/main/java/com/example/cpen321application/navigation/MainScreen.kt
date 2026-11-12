@@ -9,9 +9,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.cpen321application.core.auth.AuthViewModel
+import com.example.cpen321application.core.data.repository.GamesRepositoryImpl
+import com.example.cpen321application.feature.matchmaking.MatchPopups
+import com.example.cpen321application.feature.matchmaking.MatchmakingRepositoryImpl
+import com.example.cpen321application.feature.matchmaking.MatchmakingViewModel
 
 // "game/", the start of every game screen's route
 private val GAME_ROUTE_PREFIX = Screen.GameDetail.route.substringBefore("{")
@@ -32,6 +37,15 @@ fun MainScreen(
 
     val user by authViewModel.user.collectAsState()
     val isSignedIn = user != null
+
+    // Lives as long as the app, not the Matchmaking tab, so a match pops up on any tab.
+    // One per user, so a different account signing in doesn't see the last one's queue.
+    val matchmakingViewModel = viewModel(key = "matchmaking:${user?.username}") {
+        MatchmakingViewModel(
+            MatchmakingRepositoryImpl(authViewModel.session),
+            GamesRepositoryImpl(authViewModel.session)
+        )
+    }
 
     // Picked once: changing NavHost's start destination would reset the back stack
     val startRoute = rememberSaveable {
@@ -56,9 +70,7 @@ fun MainScreen(
     LaunchedEffect(notificationRoute) {
         if (notificationRoute != null && isSignedIn) {
             if (notificationRoute.startsWith(GAME_ROUTE_PREFIX)) {
-                // A game opens over the Games tab, so back goes to the games list
-                navController.navigateToTab(Screen.ScheduledGame.route)
-                navController.navigate(notificationRoute)
+                navController.openGame(notificationRoute)
             } else {
                 navController.navigateToTab(notificationRoute)
             }
@@ -82,6 +94,7 @@ fun MainScreen(
             authViewModel = authViewModel,
             onLoginSuccess = { newUser -> authViewModel.signIn(newUser) },
             onSignOut = { authViewModel.logout() },
+            matchmakingViewModel = matchmakingViewModel,
         )
         AppNavGraph(
             navController = navController,
@@ -89,6 +102,21 @@ fun MainScreen(
             modifier = Modifier.padding(innerPadding),
         )
     }
+
+    val username = user?.username
+    if (username != null) {
+        MatchPopups(
+            viewModel = matchmakingViewModel,
+            username = username,
+            onGoToGame = { gameId -> navController.openGame(Screen.GameDetail.createRoute(gameId)) },
+        )
+    }
+}
+
+// A game opens over the Games tab, so back goes to the games list
+private fun NavHostController.openGame(gameRoute: String) {
+    navigateToTab(Screen.ScheduledGame.route)
+    navigate(gameRoute)
 }
 
 /**

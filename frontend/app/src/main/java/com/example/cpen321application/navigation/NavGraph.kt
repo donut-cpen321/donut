@@ -16,6 +16,7 @@ import com.example.cpen321application.core.data.repository.GamesRepositoryImpl
 import com.example.cpen321application.feature.leaderboard.LeaderboardRoute
 import com.example.cpen321application.feature.login.LoginRoute
 import com.example.cpen321application.feature.matchmaking.MatchmakingRoute
+import com.example.cpen321application.feature.matchmaking.MatchmakingViewModel
 import com.example.cpen321application.feature.matchsummary.MatchSummaryRoute
 import com.example.cpen321application.feature.matchsummary.MatchSummaryViewModel
 import com.example.cpen321application.feature.profile.ProfileRoute
@@ -46,6 +47,7 @@ data class NavGraphArgs(
     val authViewModel: AuthViewModel,
     val onLoginSuccess: (User) -> Unit,
     val onSignOut: () -> Unit,
+    val matchmakingViewModel: MatchmakingViewModel,
 )
 
 @Composable
@@ -95,10 +97,7 @@ fun AppNavGraph(
             )
         }
         composable(Screen.Matchmaking.route) {
-            MatchmakingRoute(
-                session = args.session,
-                onGoToGame = { gameId -> navController.navigate(Screen.GameDetail.createRoute(gameId)) }
-            )
+            MatchmakingRoute(viewModel = args.matchmakingViewModel)
         }
         composable(Screen.Leaderboard.route) {
             LeaderboardRoute(authViewModel = args.authViewModel)
