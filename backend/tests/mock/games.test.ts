@@ -83,7 +83,9 @@ jest.mock("../../src/friends/friends.repository", () => ({
 }));
 
 jest.mock("../../src/users/users.service", () => ({
-  ...jest.requireActual("../../src/users/users.service"),
+  ...jest.requireActual<typeof import("../../src/users/users.service")>(
+    "../../src/users/users.service",
+  ),
   pushToUsers: jest.fn(),
 }));
 
