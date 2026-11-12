@@ -76,6 +76,7 @@ const acceptMatchErrorStatus: Record<AcceptMatchError, number> = {
   [acceptMatchErrors.NotFound]: 404,
   [acceptMatchErrors.NotInGame]: 403,
   [acceptMatchErrors.NotPending]: 409,
+  [acceptMatchErrors.AlreadyAccepted]: 409,
 };
 
 const inviteFriendErrorStatus: Record<InviteFriendError, number> = {

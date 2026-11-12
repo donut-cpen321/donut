@@ -1,8 +1,11 @@
 import { issueTokens } from '../auth/auth.service';
+import { sendPush, type PushMessage } from '../external/fcm';
 import { validateToken } from './helpers/validateToken';
 import {
+  clearFcmTokens,
   createEquipment as createEquipmentRecord,
   createUser,
+  getFcmTokens,
   getUserByGoogleSub,
   getUserById,
   listEquipment as listEquipmentRecords,
@@ -101,6 +104,21 @@ export async function getProfile(userId: string) {
  */
 export async function saveFcmToken(userId: string, token: string) {
   await saveFcmTokenRecord(userId, token);
+}
+
+/**
+ * Sends one push notification to each user's device, and removes the tokens FCM says no longer exist.
+ * @param userIds The users to notify; those without a device token are skipped
+ * @param message The notification and the data the app reads when it is tapped
+ * @returns How many devices the push reached
+ */
+export async function pushToUsers(userIds: string[], message: PushMessage): Promise<number> {
+  const tokens = await getFcmTokens(userIds);
+  const deadTokens = await sendPush(tokens, message);
+  if (deadTokens.length > 0) {
+    await clearFcmTokens(deadTokens);
+  }
+  return tokens.length - deadTokens.length;
 }
 
 /**
