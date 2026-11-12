@@ -18,8 +18,7 @@ import {
   type MatchedPlayer,
 } from '../../src/matchmaking/matchmaking.service';
 import type { Location } from '../../src/matchmaking/geo';
-import { sendPush } from '../../src/external/fcm';
-import { clearFcmTokens, getFcmTokens } from '../../src/users/users.repository';
+import { pushToUsers } from '../../src/users/users.service';
 
 jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
   getCandidates: jest.fn(),
@@ -29,13 +28,8 @@ jest.mock('../../src/matchmaking/matchmaking.repository', () => ({
   cancelMatchesStartingBefore: jest.fn(),
 }));
 
-jest.mock('../../src/users/users.repository', () => ({
-  getFcmTokens: jest.fn(),
-  clearFcmTokens: jest.fn(),
-}));
-
-jest.mock('../../src/external/fcm', () => ({
-  sendPush: jest.fn(),
+jest.mock('../../src/users/users.service', () => ({
+  pushToUsers: jest.fn(),
 }));
 
 const UBC: Location = { latitude: 49.2606, longitude: -123.246 }; // UBC campus
@@ -243,9 +237,7 @@ describe('runMatchmaking', () => {
 
   beforeEach(() => {
     jest.mocked(claimMatch).mockReset().mockResolvedValue(claimedGame);
-    jest.mocked(getFcmTokens).mockReset().mockResolvedValue([]);
-    jest.mocked(clearFcmTokens).mockReset();
-    jest.mocked(sendPush).mockReset().mockResolvedValue([]);
+    jest.mocked(pushToUsers).mockReset().mockResolvedValue(0);
     jest.mocked(getCourts).mockReset().mockResolvedValue([courtStub(7, SURREY), courtStub(8, KITSILANO)]);
     jest.mocked(getMatchedPlayers).mockReset().mockImplementation((userIds) =>
       Promise.resolve(userIds.map((id) => matchedPlayerStub(id))),
@@ -307,8 +299,8 @@ describe('runMatchmaking', () => {
       { format: 'SINGLES', userIds: ['c', 'd'] },
     ]);
     expect(claimMatch).toHaveBeenCalledTimes(2);
-    expect(getFcmTokens).toHaveBeenCalledTimes(1);
-    expect(getFcmTokens).toHaveBeenCalledWith(['c', 'd']);
+    expect(pushToUsers).toHaveBeenCalledTimes(1);
+    expect(pushToUsers).toHaveBeenCalledWith(['c', 'd'], expect.anything());
   });
 
   // Input: repository returns candidates that cannot be matched
@@ -321,40 +313,24 @@ describe('runMatchmaking', () => {
     expect(claimMatch).not.toHaveBeenCalled();
   });
 
-  // Input: a claimed singles match; both players have a device token
-  // Expected behavior: one push to both devices naming the format and court, carrying the game id
-  // Expected output: sendPush called once with both tokens; no dead tokens, so nothing cleared
+  // Input: a claimed singles match
+  // Expected behavior: one push to both players naming the format and court, carrying the game id
+  // Expected output: pushToUsers called once with both players
   test('Notifies the players of a claimed match', async () => {
     jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b')]);
-    jest.mocked(getFcmTokens).mockResolvedValue(['token-a', 'token-b']);
 
     await runMatchmaking();
 
-    expect(getFcmTokens).toHaveBeenCalledWith(['a', 'b']);
-    expect(sendPush).toHaveBeenCalledWith(['token-a', 'token-b'], {
+    expect(pushToUsers).toHaveBeenCalledWith(['a', 'b'], {
       title: 'Match found!',
       body: 'Your singles game at UBC Tennis Centre starts in 1 hour. Open Donut to accept.',
       data: { gameId: 'game-1' },
     });
-    expect(clearFcmTokens).not.toHaveBeenCalled();
-  });
-
-  // Input: a claimed match; FCM says one player's token no longer exists
-  // Expected behavior: the dead token is removed so it is not used again
-  // Expected output: clearFcmTokens called with the dead token
-  test('Clears tokens FCM says are dead', async () => {
-    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b')]);
-    jest.mocked(getFcmTokens).mockResolvedValue(['token-a', 'token-b']);
-    jest.mocked(sendPush).mockResolvedValue(['token-b']);
-
-    await runMatchmaking();
-
-    expect(clearFcmTokens).toHaveBeenCalledWith(['token-b']);
   });
 
   // Input: two matches found; the push for the first one throws
   // Expected behavior: the error is logged; the game stays claimed and the second match is still claimed and notified
-  // Expected output: both matches returned, sendPush called twice, error logged
+  // Expected output: both matches returned, pushToUsers called twice, error logged
   test('Keeps going when a push fails', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest.mocked(getCandidates).mockResolvedValue([
@@ -363,13 +339,13 @@ describe('runMatchmaking', () => {
       playerStub('c', { rating: 2000, createdAt: new Date(3) }),
       playerStub('d', { rating: 2000, createdAt: new Date(4) }),
     ]);
-    jest.mocked(sendPush).mockRejectedValueOnce(new Error('FCM down')).mockResolvedValue([]);
+    jest.mocked(pushToUsers).mockRejectedValueOnce(new Error('FCM down')).mockResolvedValue(0);
 
     await expect(runMatchmaking()).resolves.toEqual([
       { format: 'SINGLES', userIds: ['a', 'b'] },
       { format: 'SINGLES', userIds: ['c', 'd'] },
     ]);
-    expect(sendPush).toHaveBeenCalledTimes(2);
+    expect(pushToUsers).toHaveBeenCalledTimes(2);
     expect(consoleError).toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.GameSource
 import com.example.cpen321application.core.data.model.GameStatus
 import com.example.cpen321application.core.data.repository.GamesRepository
+import com.example.cpen321application.core.network.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +20,7 @@ const val ACCEPT_FAILED_MESSAGE = "Could not accept the match. Check your connec
 const val ACCEPT_TOO_LATE_MESSAGE = "This match starts in less than 30 minutes, so it can't be accepted anymore."
 const val CANCEL_FAILED_MESSAGE = "Could not cancel the match. Check your connection and try again."
 const val ACTIVE_MATCH_MESSAGE = "You already have a match coming up. Play it or cancel it first."
+const val ALREADY_ACCEPTED_ERROR = "Match already accepted"
 
 /**
  * Holds the location and format the user picked on the Matchmaking tab, their place in the queue,
@@ -165,7 +167,8 @@ class MatchmakingViewModel(
         }
         _uiState.update { it.copy(isAnswering = true, errorMessage = null) }
 
-        val error = gamesRepository.acceptMatch(match.id).exceptionOrNull()
+        // Already accepted is what the player asked for, so it is not an error
+        val error = gamesRepository.acceptMatch(match.id).exceptionOrNull()?.takeUnless { it.isAlreadyAccepted() }
         checkMatch()
         // An accept refused because the match was cancelled already shows "Match fell through"
         if (error != null && _uiState.value.match != null) {
@@ -229,6 +232,9 @@ class MatchmakingViewModel(
 
 private fun List<Game>.pendingMatch(): Game? =
     firstOrNull { it.source == GameSource.MATCHED && it.status == GameStatus.OPEN }
+
+private fun Throwable.isAlreadyAccepted(): Boolean =
+    this is HttpException && code() == HttpURLConnection.HTTP_CONFLICT && toUserMessage() == ALREADY_ACCEPTED_ERROR
 
 // A refused match that isn't cancelled is past the cutoff: the deadline job cancels it within a minute
 private fun acceptFailedMessage(error: Throwable): String {

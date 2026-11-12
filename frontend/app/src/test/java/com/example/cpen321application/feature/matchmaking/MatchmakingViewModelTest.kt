@@ -551,6 +551,24 @@ class MatchmakingViewModelTest {
         assertFalse(viewModel.uiState.value.isAnswering)
     }
 
+    // Input: Accept tapped, but an earlier accept from this player already went through (e.g. a retried request),
+    // so the backend refuses with 409 "Match already accepted"
+    // Expected output: no error, the pop-up shows the refreshed game with the player accepted
+    @Test
+    fun acceptAlreadyAcceptedIsNotAnError() = runBlocking {
+        val viewModel = matchedViewModel()
+        val body = """{"error":"Match already accepted"}""".toResponseBody()
+        games.acceptResult = Result.failure(HttpException(Response.error<Unit>(409, body)))
+        val refreshed = match(aliceAcceptedAt = Instant.parse("2026-11-02T12:05:00Z"))
+        games.gameResult = Result.success(refreshed)
+
+        viewModel.onAccept()
+
+        assertEquals(refreshed, viewModel.uiState.value.match)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isAnswering)
+    }
+
     // Input: Accept tapped after the other player or the deadline cancelled the game
     // Expected output: "Match fell through" instead of an error
     @Test

@@ -292,7 +292,7 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
         7. `POST /games/join` with `{ gameId, team }` → `204`, `POST /games/leave` with `{ gameId }` → `204` - E
             - **Purpose**: Join or leave a scheduled game. Joining needs an `OPEN` scheduled game that hasn't started and a free spot on the team (`409` otherwise); filling the last spot books it. Leaving is `409` for tournament and matched games, closed games, or within 30 minutes of the start; a booked game reopens. Both lock the game's row, so two players can't take the last spot.
         8. `POST /games/accept` with `{ gameId }` → `204` - E
-            - **Purpose**: Accepts a matched game for the caller; it is booked once every player has accepted. `409` if it is no longer waiting for answers, including within 30 minutes of the start.
+            - **Purpose**: Accepts a matched game for the caller; it is booked once every player has accepted. `409` if it is no longer waiting for answers, including within 30 minutes of the start, or if the caller already accepted it.
         9. `POST /games/invite` with `{ gameId, userId }` → `{ notified }` - E
             - **Purpose**: Sends a friend a push notification that opens the game, where they join it. The caller must be in the game (`403`), it must be an open scheduled game that hasn't started (`409`), and the user must be a friend (`403`) not already in it (`409`). `notified` is `false` without Firebase credentials or a working device token.
         10. `PATCH /games/time` with `{ gameId, startsAt }`, `PATCH /games/location` with `{ gameId, courtId }` → `{ game }` - E

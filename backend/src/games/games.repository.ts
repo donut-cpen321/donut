@@ -360,14 +360,15 @@ export async function addPlayerToTeam(
   });
 }
 
-export type AcceptMatchResult = "accepted" | "booked" | "notPending";
+export type AcceptMatchResult = "accepted" | "alreadyAccepted" | "booked" | "notPending";
 
 /**
  * Records that a player accepted a matched game, and books the game once every player has
  * @param gameId the game ID of the matched game
  * @param userId the player accepting, who must be in the game
  * @param now the current time
- * @returns "accepted", "booked" if this was the last answer, or "notPending" if the game is no longer waiting for answers
+ * @returns "accepted", "alreadyAccepted" if the player had already accepted, "booked" if this was the last answer,
+ * or "notPending" if the game is no longer waiting for answers
  */
 export async function acceptMatch(
   gameId: string,
@@ -390,10 +391,13 @@ export async function acceptMatch(
       return "notPending";
     }
 
-    await tx.gameUser.updateMany({
+    const { count: newlyAccepted } = await tx.gameUser.updateMany({
       where: { gameId, userId, acceptedAt: null },
       data: { acceptedAt: now },
     });
+    if (newlyAccepted === 0) {
+      return "alreadyAccepted";
+    }
 
     const unanswered = await tx.gameUser.count({ where: { gameId, acceptedAt: null } });
     if (unanswered > 0) {

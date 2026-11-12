@@ -1,4 +1,4 @@
-import { isPushEnabled, sendPush } from "../external/fcm";
+import { isPushEnabled } from "../external/fcm";
 import { getForecast } from "../external/weather";
 import { fetchFriendship } from "../friends/friends.repository";
 import {
@@ -8,7 +8,7 @@ import {
   GameStatus,
 } from "../generated/prisma/enums";
 import { IncompleteTeamsError } from "../ranking/ranking.service";
-import { clearFcmTokens, getFcmTokens } from "../users/users.repository";
+import { pushToUsers } from "../users/users.service";
 import {
   acceptMatch as recordAcceptance,
   addPlayerToTeam,
@@ -66,6 +66,7 @@ export const acceptMatchErrors = {
   NotFound: "Game not found",
   NotInGame: "User not in game",
   NotPending: "Match is no longer waiting for answers",
+  AlreadyAccepted: "Match already accepted",
 } as const;
 
 export type AcceptMatchError =
@@ -274,27 +275,19 @@ export async function inviteFriend(
     return { success: false, error: inviteFriendErrors.NotFriends } as const;
   }
 
-  // Without Firebase credentials sendPush skips every token, which would look like a delivered push
+  // Without Firebase credentials pushToUsers counts skipped tokens as reached, which would look like a delivered push
   if (!isPushEnabled()) {
     console.warn("FIREBASE_* not set, the game invite was not sent");
     return { success: true, notified: false } as const;
   }
 
-  const tokens = await getFcmTokens([friendId]);
-  if (tokens.length === 0) {
-    return { success: true, notified: false } as const;
-  }
-
-  const deadTokens = await sendPush(tokens, {
+  const reached = await pushToUsers([friendId], {
     title: "Game invite",
     body: `${inviter.name} invited you to a ${game.format.toLowerCase()} game at ${game.court.name}.`,
     data: { gameId, type: "gameInvite" },
   });
-  if (deadTokens.length > 0) {
-    await clearFcmTokens(deadTokens);
-  }
 
-  return { success: true, notified: deadTokens.length < tokens.length } as const;
+  return { success: true, notified: reached > 0 } as const;
 }
 
 /**
@@ -356,7 +349,49 @@ export async function acceptMatch(gameId: string, userId: string) {
     return { success: false, error: acceptMatchErrors.NotPending } as const;
   }
 
+  if (result === "alreadyAccepted") {
+    return { success: false, error: acceptMatchErrors.AlreadyAccepted } as const;
+  }
+
+  await notifyMatchAccepted(gameId, userId, result === "booked");
+
   return { success: true } as const;
+}
+
+/**
+ * Tells the other players of a matched game that a player accepted it, or that the game is booked
+ * once every player has. A failed push is logged, since the acceptance is already saved
+ * @param gameId the game ID of the matched game
+ * @param userId the player who accepted
+ * @param booked true if this was the last answer and the game is now booked
+ */
+async function notifyMatchAccepted(gameId: string, userId: string, booked: boolean) {
+  try {
+    const game = await fetchGameDetails(gameId);
+    const accepter = game?.players.find((player) => player.id === userId);
+    if (!game || !accepter) {
+      return;
+    }
+
+    const otherIds = game.players.map((player) => player.id).filter((id) => id !== userId);
+    const where = `${game.format.toLowerCase()} game at ${game.court.name}`;
+    const messageTitle = booked ? "Match confirmed!" : "Match accepted";
+
+    let messageBody: string;
+    if (booked) {
+      messageBody = `Everyone accepted. Your ${where} is booked.`;
+    } else {
+      messageBody = `${accepter.name} accepted your ${where}.`;
+    }
+
+    await pushToUsers(otherIds, {
+      title: messageTitle,
+      body: messageBody,
+      data: { gameId },
+    });
+  } catch (err) {
+    console.error(`Could not notify the players of game ${gameId} about an acceptance`, err);
+  }
 }
 
 /**
