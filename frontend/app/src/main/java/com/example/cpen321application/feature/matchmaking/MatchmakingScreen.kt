@@ -26,11 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
-import kotlinx.coroutines.delay
-import com.example.cpen321application.core.auth.AuthSession
-import com.example.cpen321application.core.data.repository.GamesRepositoryImpl
 import com.example.cpen321application.core.notifications.rememberAskNotificationPermission
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -59,7 +55,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.BuildConfig
 import com.example.cpen321application.core.ui.theme.Chalk
 import com.example.cpen321application.core.ui.theme.CourtGreen
@@ -82,70 +77,18 @@ private val LOCATION_PERMISSIONS = arrayOf(
     Manifest.permission.ACCESS_COARSE_LOCATION
 )
 
-private const val QUEUE_CHECK_INTERVAL_MS = 10_000L
-
 private typealias LocationLoader = (LocationOption, String, suspend () -> MatchLocation?) -> Unit
 
 /**
- * @param session the signed-in user, for the queue and game calls
- * @param onGoToGame opens a game's screen in Games
+ * The Matchmaking tab. The match pop-up and the queue checks live in MatchPopups, so they run on every tab.
+ * @param viewModel shared with MatchPopups, so both see the same queue and match
  */
 @Composable
-fun MatchmakingRoute(
-    session: AuthSession,
-    onGoToGame: (gameId: String) -> Unit,
-    viewModel: MatchmakingViewModel = viewModel {
-        MatchmakingViewModel(MatchmakingRepositoryImpl(session), GamesRepositoryImpl(session))
-    }
-) {
+fun MatchmakingRoute(viewModel: MatchmakingViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val loadLocation = rememberLocationLoader(viewModel)
     val askNotificationPermission = rememberAskNotificationPermission()
     val scope = rememberCoroutineScope()
-
-    // The player may have joined the queue, or been matched, before the app was closed
-    LaunchedEffect(Unit) {
-        viewModel.restoreQueue()
-        viewModel.loadMatch()
-    }
-
-    // While waiting, ask the backend every 10 seconds whether matchmaking found a game.
-    // Restarts when isSearching changes and stops when the screen closes.
-    LaunchedEffect(uiState.isSearching) {
-        while (uiState.isSearching) {
-            delay(QUEUE_CHECK_INTERVAL_MS)
-            viewModel.checkQueue()
-        }
-    }
-
-    // While the match pop-up is open, ask the backend every 10 seconds whether the other players answered.
-    // Restarts when the match changes and stops when the pop-up closes.
-    val match = uiState.match
-    LaunchedEffect(match?.id) {
-        while (viewModel.uiState.value.match != null) {
-            delay(QUEUE_CHECK_INTERVAL_MS)
-            viewModel.checkMatch()
-        }
-    }
-
-    if (match != null) {
-        MatchDialog(
-            match = match,
-            prompt = matchPrompt(match, session.user?.username),
-            isAnswering = uiState.isAnswering,
-            errorMessage = uiState.errorMessage,
-            onAccept = { scope.launch { viewModel.onAccept() } },
-            onCancel = { scope.launch { viewModel.onCancelMatch() } },
-            onGoToGame = {
-                viewModel.onGoToGame()
-                onGoToGame(match.id)
-            }
-        )
-    }
-
-    if (uiState.matchFellThrough) {
-        MatchFellThroughDialog(onDismiss = viewModel::onMatchFellThroughSeen)
-    }
 
     MatchmakingScreen(
         uiState = uiState,
