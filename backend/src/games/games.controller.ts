@@ -49,6 +49,7 @@ const gameEditErrorStatus: Record<GameEditError, number> = {
   [gameEditErrors.Closed]: 409,
   [gameEditErrors.IncompleteTeams]: 409,
   [gameEditErrors.Matched]: 409,
+  [gameEditErrors.NotStarted]: 409,
 };
 
 const joinGameErrorStatus: Record<JoinGameError, number> = {

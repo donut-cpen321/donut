@@ -1831,10 +1831,18 @@ describe("Mocked: PATCH /games/location", () => {
   });
 });
 
+// A booked game that started an hour ago, so its score can be reported
+const startedGame = (overrides: Partial<Game> = {}): Game =>
+  existingGame({
+    status: GameStatus.BOOKED,
+    startsAt: new Date(Date.now() - 60 * 60 * 1000),
+    ...overrides,
+  });
+
 describe("Mocked: POST /games/score", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedFetchGame.mockResolvedValue(existingGame());
+    mockedFetchGame.mockResolvedValue(startedGame());
     mockedIsUserInGame.mockResolvedValue(true);
   });
 
@@ -1923,6 +1931,30 @@ describe("Mocked: POST /games/score", () => {
       error: "Game is already completed or cancelled",
     });
   });
+
+  // Input: a valid score for a booked scheduled, matched or tournament game that starts in a minute
+  // Expected status code: 409
+  // Expected behavior: nothing is saved and no rating changes
+  // Expected output: { error: "Game has not started yet, the score can be reported once it starts" }
+  test.each([GameSource.SCHEDULED, GameSource.MATCHED, GameSource.TOURNAMENT])(
+    "Returns 409 for a %s game that has not started",
+    async (gameSource) => {
+      mockedFetchGame.mockResolvedValue(
+        startedGame({ gameSource, startsAt: new Date(Date.now() + 60 * 1000) }),
+      );
+
+      const response = await request(createApp())
+        .post("/games/score")
+        .set("Authorization", authHeader)
+        .send(validScoreBody());
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: "Game has not started yet, the score can be reported once it starts",
+      });
+      expect(mockedCompleteGame).not.toHaveBeenCalled();
+    },
+  );
 
   test.each([
     ["missing gameId", { gameId: undefined }],
@@ -2114,8 +2146,12 @@ describe("Mocked: changeGameLocation", () => {
 describe("Mocked: reportScore", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedFetchGame.mockResolvedValue(existingGame());
+    mockedFetchGame.mockResolvedValue(startedGame());
     mockedIsUserInGame.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   const rounds: [number, number][] = [
@@ -2140,6 +2176,39 @@ describe("Mocked: reportScore", () => {
     await expect(reportScore(editGameId, userId, rounds)).resolves.toEqual({
       success: true,
       ...completed,
+    });
+    expect(mockedCompleteGame).toHaveBeenCalledWith(editGameId, rounds);
+  });
+
+  test("Returns NotStarted and does not save before the game's start time", async () => {
+    const now = new Date("2026-11-18T17:00:00.000Z");
+    jest.useFakeTimers({ now });
+    mockedFetchGame.mockResolvedValue(
+      startedGame({ startsAt: new Date(now.getTime() + 1) }),
+    );
+
+    await expect(reportScore(editGameId, userId, rounds)).resolves.toEqual({
+      success: false,
+      error: gameEditErrors.NotStarted,
+    });
+    expect(mockedCompleteGame).not.toHaveBeenCalled();
+  });
+
+  test("Accepts the score exactly at the game's start time", async () => {
+    const now = new Date("2026-11-18T17:00:00.000Z");
+    jest.useFakeTimers({ now });
+    // The same instant written with an offset: start times are compared as instants, not local clock times
+    mockedFetchGame.mockResolvedValue(
+      startedGame({ startsAt: new Date("2026-11-18T09:00:00.000-08:00") }),
+    );
+    mockedCompleteGame.mockResolvedValue({
+      game: startedGame({ status: GameStatus.COMPLETED }),
+      rounds: [],
+      ratingChanges: [],
+    });
+
+    await expect(reportScore(editGameId, userId, rounds)).resolves.toMatchObject({
+      success: true,
     });
     expect(mockedCompleteGame).toHaveBeenCalledWith(editGameId, rounds);
   });

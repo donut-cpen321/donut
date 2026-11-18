@@ -37,6 +37,7 @@ export const gameEditErrors = {
   Closed: "Game is already completed or cancelled",
   IncompleteTeams: "Game does not have full teams",
   Matched: "Matched games can't be moved",
+  NotStarted: "Game has not started yet, the score can be reported once it starts",
 } as const;
 
 export type GameEditError =
@@ -438,17 +439,23 @@ async function fetchMatchAudience(gameId: string, userId: string) {
   };
 }
 
+// "move" changes the time or court, "score" reports the final score
+type GameEdit = "move" | "score";
+
 /**
- * Checks that a game exists, that the given user is in it, and that it is not completed or cancelled
+ * Checks that a game exists, that the given user is in it, that it is not completed or cancelled, and that the edit
+ * suits the game: matched games can't be moved, and the score can only be reported once the game has started
  * @param gameId the game ID of the game to edit
  * @param userId the user editing the game
- * @param isMove true when changing the time or court, which matched games don't allow
+ * @param edit the kind of edit
+ * @param now the current time
  * @returns the reason the user cannot edit the game, or null if they can
  */
 async function checkCanEditGame(
   gameId: string,
   userId: string,
-  isMove = false,
+  edit: GameEdit,
+  now = new Date(),
 ): Promise<GameEditError | null> {
   const game = await fetchGame(gameId);
   if (game === null) {
@@ -467,8 +474,13 @@ async function checkCanEditGame(
   }
 
   // Matched players accepted this time and court
-  if (isMove && game.gameSource === GameSource.MATCHED) {
+  if (edit === "move" && game.gameSource === GameSource.MATCHED) {
     return gameEditErrors.Matched;
+  }
+
+  // A game has no final score before it is played. Exactly at its start time it has started
+  if (edit === "score" && game.startsAt.getTime() > now.getTime()) {
+    return gameEditErrors.NotStarted;
   }
 
   return null;
@@ -486,7 +498,7 @@ export async function changeGameTime(
   userId: string,
   startsAt: Date,
 ) {
-  const error = await checkCanEditGame(gameId, userId, true);
+  const error = await checkCanEditGame(gameId, userId, "move");
   if (error) {
     return { success: false, error } as const;
   }
@@ -509,7 +521,7 @@ export async function changeGameLocation(
   userId: string,
   courtId: number,
 ) {
-  const error = await checkCanEditGame(gameId, userId, true);
+  const error = await checkCanEditGame(gameId, userId, "move");
   if (error) {
     return { success: false, error } as const;
   }
@@ -521,18 +533,20 @@ export async function changeGameLocation(
 }
 
 /**
- * Reports the final score of a game: saves its rounds, marks it as completed and updates every player's rating
+ * Reports the final score of a game that has started: saves its rounds, marks it as completed and updates every
+ * player's rating
  * @param gameId the game ID of the game the score is for
  * @param userId the user reporting the score, who must be in the game
  * @param rounds the [team 1 score, team 2 score] of each round, in order
- * @returns the completed game, its rounds and each player's rating change, or the reason the score cannot be reported
+ * @returns the completed game, its rounds and each player's rating change, or the reason the score cannot be
+ * reported, e.g. NotStarted before the game's start time
  */
 export async function reportScore(
   gameId: string,
   userId: string,
   rounds: ReportScoreInput["rounds"],
 ) {
-  const error = await checkCanEditGame(gameId, userId);
+  const error = await checkCanEditGame(gameId, userId, "score");
   if (error) {
     return { success: false, error } as const;
   }

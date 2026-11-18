@@ -96,6 +96,18 @@ async function reportMatch(players: Player[], match: Match, rounds: [number, num
     .send({ gameId: match.game?.id, rounds });
 }
 
+/**
+ * Moves the games of bracket matches to a minute ago, as if their start time had come, so their scores can be
+ * reported. The tournament keeps its start time, so later rounds are still scheduled from it
+ */
+async function startMatches(matches: Match[]) {
+  const gameIds = matches.map(({ game }) => game?.id ?? "");
+  await prisma.game.updateMany({
+    where: { id: { in: gameIds } },
+    data: { startsAt: new Date(Date.now() - 60 * 1000) },
+  });
+}
+
 const join = (user: TestUser | undefined, id = tournamentId) =>
   request(app)
     .post("/tournaments/join")
@@ -309,7 +321,26 @@ describe("Unmocked: tournament flow", () => {
   });
 
   // Interface POST /games/score
-  // Input: the two quarterfinals feeding semifinal 0 are reported at the same time; then the other two
+  // Input: a quarterfinal reported before the tournament starts
+  // Expected status code: 409
+  // Expected behavior: the game stays booked with no rounds, and the bracket does not move on
+  // Expected output: { error: "Game has not started yet, the score can be reported once it starts" }
+  test("Refuses the score of a match that has not started", async () => {
+    const details = await fetchDetails();
+    const qf0 = matchAt(details.matches, 1, 0);
+
+    const early = await reportMatch(details.players, qf0, straightSetsForTeam1);
+
+    expect(early.status).toBe(409);
+    expect(early.body).toEqual({ error: "Game has not started yet, the score can be reported once it starts" });
+    const game = await prisma.game.findUniqueOrThrow({ where: { id: qf0.game?.id ?? "" }, include: { rounds: true } });
+    expect(game.status).toBe(GameStatus.BOOKED);
+    expect(game.rounds).toHaveLength(0);
+    expect(matchAt((await fetchDetails()).matches, 1, 0).winner).toBeNull();
+  });
+
+  // Interface POST /games/score
+  // Input: once the quarterfinals start, the two feeding semifinal 0 are reported at the same time; then the other two
   // Expected status code: 200 for each report
   // Expected behavior: ratings change, and each semifinal is booked exactly once, an hour after the start, with
   // the winners on the right sides (1 v 4 and 6 v 2)
@@ -319,6 +350,7 @@ describe("Unmocked: tournament flow", () => {
     if (!qf0 || !qf1 || !qf2 || !qf3) {
       throw new Error("Missing quarterfinal");
     }
+    await startMatches([qf0, qf1, qf2, qf3]);
 
     const concurrent = await Promise.all([
       reportMatch(details.players, qf0, straightSetsForTeam1),
@@ -353,12 +385,13 @@ describe("Unmocked: tournament flow", () => {
   });
 
   // Interface POST /games/score, GET /tournaments/me
-  // Input: both semifinals are reported (seeds 1 and 2 win), then the final, won by seed 2
+  // Input: once each round starts, both semifinals are reported (seeds 1 and 2 win), then the final, won by seed 2
   // Expected status code: 200
   // Expected behavior: the final is booked two hours after the start, and reporting it completes the tournament
   // Expected output: the completed tournament with seed 2 as the champion, still in the creator's tournaments
   test("Crowns the champion when the final is reported", async () => {
     const details = await fetchDetails();
+    await startMatches(details.matches.filter(({ round }) => round === 2));
     expect((await reportMatch(details.players, matchAt(details.matches, 2, 0), straightSetsForTeam1)).status).toBe(200);
     expect((await reportMatch(details.players, matchAt(details.matches, 2, 1), threeSetsForTeam2)).status).toBe(200);
 
@@ -367,6 +400,7 @@ describe("Unmocked: tournament flow", () => {
     expect([final.team1, final.team2]).toEqual([1, 2]);
     expect(final.game?.startsAt).toBe(new Date(startsAt.getTime() + 2 * ROUND_INTERVAL_MS).toISOString());
 
+    await startMatches([final]);
     expect((await reportMatch(beforeFinal.players, final, threeSetsForTeam2)).status).toBe(200);
 
     const completed = await fetchDetails();
