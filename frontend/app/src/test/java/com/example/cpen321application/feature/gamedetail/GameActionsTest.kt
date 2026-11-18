@@ -111,9 +111,41 @@ class GameActionsTest {
         )
 
         assertTrue(actions.canReportScore)
+        assertFalse(actions.reportScoreTooEarly)
         assertFalse(actions.canChangeTimeOrCourt)
         assertFalse(actions.canLeave)
         assertTrue(actions.leaveTooLate)
+    }
+
+    // Input: players in booked scheduled, matched and tournament games that start in 1 second, then at the start time
+    // Expected output: before the start the score can't be reported and a note says so; from the start time it can
+    @Test
+    fun scoreCanOnlyBeReportedFromTheStartTime() {
+        for (source in GameSource.entries) {
+            val players = listOf(alice, bob)
+            val early = gameActions(
+                game(players = players, status = GameStatus.BOOKED, source = source, startsIn = Duration.ofSeconds(1)),
+                "alice",
+                now
+            )
+            val atStart = gameActions(
+                game(players = players, status = GameStatus.BOOKED, source = source, startsIn = Duration.ZERO),
+                "alice",
+                now
+            )
+
+            assertFalse(early.canReportScore)
+            assertTrue(early.reportScoreTooEarly)
+            assertTrue(atStart.canReportScore)
+            assertFalse(atStart.reportScoreTooEarly)
+        }
+    }
+
+    // Input: someone who is not playing views a game that has not started
+    // Expected output: no note about reporting the score, since they can't report it at all
+    @Test
+    fun nonPlayerSeesNoScoreNote() {
+        assertFalse(gameActions(game(), "bob", now).reportScoreTooEarly)
     }
 
     // Input: player in a completed or cancelled game
@@ -125,6 +157,7 @@ class GameActionsTest {
 
             assertTrue(actions.isPlayer)
             assertFalse(actions.canReportScore)
+            assertFalse(actions.reportScoreTooEarly)
             assertFalse(actions.canChangeTimeOrCourt)
             assertFalse(actions.canLeave)
             assertFalse(actions.leaveTooLate)

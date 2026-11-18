@@ -3,15 +3,19 @@ package com.example.cpen321application.feature.gamedetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cpen321application.core.auth.AuthSession
+import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.repository.CourtsRepository
 import com.example.cpen321application.core.data.repository.FriendsRepository
 import com.example.cpen321application.core.data.repository.GamesRepository
 import com.example.cpen321application.core.network.toUserMessage
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.Instant
 
 /**
@@ -33,6 +37,9 @@ class GameDetailViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(GameDetailUiState())
     val uiState: StateFlow<GameDetailUiState> = _uiState.asStateFlow()
+
+    // Waits for the game's start time, then shows the actions it opens
+    private var startTimer: Job? = null
 
     init {
         load()
@@ -166,9 +173,27 @@ class GameDetailViewModel(
             .onSuccess { game ->
                 val actions = gameActions(game, currentUsername(), Instant.now())
                 _uiState.update { it.copy(game = game, actions = actions) }
+                refreshActionsAtStart(game)
             }
             .onFailure { error ->
                 _uiState.update { it.copy(errorMessage = error.toUserMessage()) }
             }
+    }
+
+    // Decides the actions again when the game starts, so a player waiting on the screen sees Report final score
+    private fun refreshActionsAtStart(game: Game) {
+        startTimer?.cancel()
+        val untilStart = Duration.between(Instant.now(), game.startsAt)
+        if (untilStart.isNegative || untilStart.isZero) {
+            return
+        }
+
+        startTimer = viewModelScope.launch {
+            // Rounded up, so the game has started when the delay ends
+            delay(untilStart.toMillis() + 1)
+            _uiState.update { state ->
+                state.copy(actions = state.game?.let { gameActions(it, currentUsername(), Instant.now()) })
+            }
+        }
     }
 }

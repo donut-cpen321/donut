@@ -180,6 +180,13 @@ internal fun GamePlayerActions(
                 modifier = Modifier.fillMaxWidth().height(LargeButtonHeight)
             ) { Text("Report final score") }
         }
+        if (actions.reportScoreTooEarly) {
+            Text(
+                text = "You can report the final score once the game starts.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         if (actions.canInvite) {
             InviteButton(enabled = !isSaving, onClick = { onOpenDialog(GameDialog.INVITE) })
         }
