@@ -85,23 +85,21 @@ describe("Unmocked: GET /leaderboard", () => {
     expect(me).toMatchObject({ id: users[1]?.id, rating: 900_001, rank: 2 });
   });
 
-  // Input: a new 1500-rated player asks for the top 1
+  // Input: a new 1500-rated player asks for the top 1, with a player rated 900000 (above anyone else) also there
   // Expected status code: 200
   // Expected behavior: the caller isn't in the top list, but still gets their own rank
-  // Expected output: one entry that isn't the caller, and the caller's rank below it
+  // Expected output: the 900000-rated player as the top 1, and the caller's rank below it
   test("Returns the caller's rank when they are outside the top list", async () => {
-    users = await createTestUsers("leaderboard", 1);
+    // The test makes its own leader, so it doesn't depend on who else is in the database (CI starts empty)
+    users = await createTestUsers("leaderboard", 2, (index) => (index === 0 ? 900_000 : 1500));
+    const [leader, caller] = users as [TestUser, TestUser];
 
-    const response = await request(app)
-      .get("/leaderboard")
-      .query({ limit: 1 })
-      .set("Authorization", users[0]?.auth ?? "");
+    const response = await request(app).get("/leaderboard").query({ limit: 1 }).set("Authorization", caller.auth);
 
     expect(response.status).toBe(200);
     const { leaderboard, me } = response.body as LeaderboardBody;
-    expect(leaderboard).toHaveLength(1);
-    expect(leaderboard[0]?.id).not.toBe(users[0]?.id);
-    expect(me?.id).toBe(users[0]?.id);
+    expect(leaderboard.map(({ id }) => id)).toEqual([leader.id]);
+    expect(me?.id).toBe(caller.id);
     expect(me?.rank).toBeGreaterThan(1);
   });
 
