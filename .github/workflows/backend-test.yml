@@ -54,6 +54,9 @@ jobs:
 
       - run: npm test
 
+      # Non-functional requirements (tests/nfr), after the other suites so nothing competes with the timed requests
+      - run: npm run test:nfr
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
