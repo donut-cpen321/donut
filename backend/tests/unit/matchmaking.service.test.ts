@@ -292,6 +292,20 @@ describe('runMatchmaking', () => {
     expect(claimMatch).toHaveBeenCalledWith(['a', 'b'], expect.objectContaining({ court: { connect: { id: 8 } } }));
   });
 
+  // Input: two compatible candidates with no preferred court, and no courts in the database
+  // Expected behavior: there is nowhere to play, so the match isn't claimed and the players stay queued
+  // Expected output: no matches, claimMatch not called
+  test('Leaves players queued when there are no courts', async () => {
+    jest.mocked(getCandidates).mockResolvedValue([playerStub('a'), playerStub('b')]);
+    jest.mocked(getMatchedPlayers).mockImplementation((userIds) =>
+      Promise.resolve(userIds.map((id) => matchedPlayerStub(id, 1500, []))),
+    );
+    jest.mocked(getCourts).mockResolvedValue([]);
+
+    await expect(runMatchmaking()).resolves.toEqual([]);
+    expect(claimMatch).not.toHaveBeenCalled();
+  });
+
   // Input: two matches found; the first claim fails because a player left the queue
   // Expected behavior: each match is claimed on its own; a failed claim does not block the others
   // Expected output: only the successfully claimed match

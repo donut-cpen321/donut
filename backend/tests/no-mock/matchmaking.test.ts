@@ -1,24 +1,21 @@
-import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { createApp } from "../../src/app";
-import { signAccessToken } from "../../src/auth/tokens";
 import { prisma } from "../../src/db";
 import { GameSource, GameStatus } from "../../src/generated/prisma/enums";
+import { startMatchmakingJob } from "../../src/jobs/matchmaking.job";
 import { runMatchmaking } from "../../src/matchmaking/matchmaking.service";
 import type { EventReader } from "../mock/sseReader";
+import { createTestUsers, deleteTestUsers, type TestUser } from "../realDb";
 import { StreamTestServer } from "../streamServer";
 
 // Runs matchmaking against a real database: two players queue, one run matches them, and the match must show
 // everywhere the app looks for it at once: out of the queue, in both players' games, and on their live Games tab
-// stream, which the app follows while searching in case the match push never arrives. The tests in this file run
-// in order and share the two players and their match.
+// stream, which the app follows while searching in case the match push never arrives. Every test gets two new
+// players and matches them itself (queueAndMatch), so the tests don't depend on each other or on the order they run
+// in. A run matches everyone queued, and its live pushes reach only streams in its own process, so every no-mock
+// test that runs matchmaking is in this file, where they run one at a time.
 process.env.JWT_SECRET = "test-jwt-secret";
 jest.setTimeout(60_000);
-
-interface TestUser {
-  id: string;
-  auth: string;
-}
 
 interface GameBody {
   id: string;
@@ -31,12 +28,9 @@ interface GameListBody {
   games: GameBody[];
 }
 
-// Unique per run, so the test never collides with existing users
-const run = randomUUID().slice(0, 8);
 const app = createApp();
 const server = new StreamTestServer();
-const users: TestUser[] = [];
-let matchId = "";
+let users: TestUser[] = [];
 
 // Reykjavik: far from every other queued player, so the run can only match these two with each other
 const farAway = { format: "EITHER", latitude: 64.1466, longitude: -21.9426 };
@@ -68,36 +62,33 @@ function nextMatchOn(events: EventReader): Promise<GameBody> {
   });
 }
 
-beforeAll(async () => {
-  for (let index = 0; index < 2; index++) {
-    const user = await prisma.user.create({
-      data: {
-        googleSub: `matchmaking-test-${run}-${index}`,
-        username: `matchmaking-${run}-${index}@example.com`,
-        name: `Match Player ${index + 1}`,
-        email: `matchmaking-${run}-${index}@example.com`,
-      },
+/** Both players queue at the same spot and a run matches them; returns their pending match's ID */
+function queueAndMatch(): Promise<string> {
+  const queue = (index: number) => request(app).post("/matchmaking").set("Authorization", auth(index)).send(farAway);
+  return queue(0)
+    .then(() => queue(1))
+    .then(() => runMatchmaking())
+    .then(() => pendingMatchOf(0))
+    .then((match) => {
+      if (match === undefined) throw new Error("The players were not matched");
+      return match.id;
     });
-    users.push({ id: user.id, auth: `Bearer ${signAccessToken(user.id)}` });
-  }
+}
+
+beforeAll(async () => {
   await server.start();
 });
 
-afterEach(() => {
+beforeEach(async () => {
+  users = await createTestUsers("matchmaking", 2);
+});
+
+afterEach(async () => {
   server.stopWatching();
+  await deleteTestUsers(users);
 });
 
 afterAll(async () => {
-  const userIds = users.map(({ id }) => id);
-  await prisma.matchmakingRequest.deleteMany({ where: { userId: { in: userIds } } });
-  const games = await prisma.game.findMany({
-    where: { players: { some: { userId: { in: userIds } } } },
-    select: { id: true },
-  });
-  const gameIds = games.map(({ id }) => id);
-  await prisma.gameUser.deleteMany({ where: { gameId: { in: gameIds } } });
-  await prisma.game.deleteMany({ where: { id: { in: gameIds } } });
-  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
   await server.close();
   await prisma.$disconnect();
 });
@@ -119,30 +110,28 @@ describe("Unmocked: matchmaking", () => {
     expect(nearby.event).toBe("nearby");
     expect((nearby.data as { players: unknown[] }).players).toHaveLength(1);
 
-    const matches = await runMatchmaking();
+    await runMatchmaking();
 
     // Out of the queue: the map stops, pushed rather than polled
     expect((await queue.next()).event).toBe("notQueued");
 
-    const ours = matches.find(({ userIds }) => userIds.includes(users[0]?.id ?? ""));
-    expect(ours?.userIds.sort()).toEqual(users.map(({ id }) => id).sort());
-
     const streamed = await nextMatchOn(events);
-    matchId = streamed.id;
     expect(streamed.players.map(({ id }) => id).sort()).toEqual(users.map(({ id }) => id).sort());
 
     for (const index of [0, 1]) {
       expect((await request(app).get("/matchmaking").set("Authorization", auth(index))).status).toBe(404);
-      expect((await pendingMatchOf(index))?.id).toBe(matchId);
+      expect((await pendingMatchOf(index))?.id).toBe(streamed.id);
     }
   });
 
   // Interface POST /matchmaking
-  // Input: player 2 tries to queue again while the match waits for answers
+  // Input: after a match, player 2 tries to queue again while the match waits for answers
   // Expected status code: 403
   // Expected behavior: they stay out of the queue, so a second match can't be made for them
   // Expected output: ALREADY_HAS_MATCH
   test("Keeps a matched player out of the queue while the match waits", async () => {
+    await queueAndMatch();
+
     const response = await request(app).post("/matchmaking").set("Authorization", auth(1)).send(farAway);
 
     expect(response.status).toBe(403);
@@ -153,11 +142,13 @@ describe("Unmocked: matchmaking", () => {
   });
 
   // Interface POST /games/accept, GET /games
-  // Input: both players accept the match
+  // Input: after a match, both players accept it
   // Expected status code: 204 for each
   // Expected behavior: the game is booked once the second player accepts
   // Expected output: status BOOKED
   test("Books the match once both players accept", async () => {
+    const matchId = await queueAndMatch();
+
     for (const index of [0, 1]) {
       const accepted = await request(app)
         .post("/games/accept")
@@ -168,5 +159,35 @@ describe("Unmocked: matchmaking", () => {
 
     const game = await request(app).get("/games").set("Authorization", auth(0)).query({ gameId: matchId });
     expect((game.body as { game: GameBody }).game.status).toBe(GameStatus.BOOKED);
+  });
+});
+
+describe("Unmocked: matchmaking job", () => {
+  // Input: two 1500-rated players queue for singles at the same remote spot; the real job is started and run once
+  // now with execute(), instead of waiting for its 10-second schedule
+  // Expected behavior: they are matched into one open matched singles game and taken out of the queue
+  // Expected output: both players in the same new game, no queue entries left
+  test("Matches compatible queued players", async () => {
+    const userIds = users.map(({ id }) => id);
+    for (const index of [0, 1]) {
+      const joined = await request(app)
+        .post("/matchmaking")
+        .set("Authorization", auth(index))
+        .send({ ...farAway, format: "SINGLES" });
+      expect(joined.status).toBe(201);
+    }
+
+    const task = startMatchmakingJob();
+    await task.execute();
+    await task.stop();
+
+    expect(await prisma.matchmakingRequest.count({ where: { userId: { in: userIds } } })).toBe(0);
+    const games = await prisma.game.findMany({
+      where: { players: { some: { userId: { in: userIds } } } },
+      select: { format: true, gameSource: true, status: true, players: { select: { userId: true } } },
+    });
+    expect(games).toHaveLength(1);
+    expect(games[0]).toMatchObject({ format: "SINGLES", gameSource: GameSource.MATCHED, status: GameStatus.OPEN });
+    expect(games[0]?.players.map(({ userId }) => userId).sort()).toEqual([...userIds].sort());
   });
 });

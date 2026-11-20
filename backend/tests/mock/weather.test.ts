@@ -79,6 +79,17 @@ describe("Mocked: getForecast", () => {
     expect(url.searchParams.get("appid")).toBe("test-openweather-key");
   });
 
+  // Input: a game exactly halfway between two entries (1.5 hours after one and before the next)
+  // Expected behavior: both are equally close, so the earlier one is kept
+  // Expected output: the forecast of the entry 1.5 hours before the game
+  test("Keeps the earlier entry when two are equally close", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(forecastBody()));
+
+    await expect(
+      getForecast(latitude, longitude, new Date(gameTime.getTime() + 1.5 * 60 * 60 * 1000)),
+    ).resolves.toMatchObject({ at: gameTime, temperature: 10.4 });
+  });
+
   test("Uses 0 when an entry has no precipitation chance", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(forecastBody()));
 

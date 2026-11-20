@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { createApp } from "../../src/app";
-import { signAccessToken } from "../../src/auth/tokens";
 import { prisma } from "../../src/db";
 import { errorBody } from "../../src/errors";
 import { gameErrors } from "../../src/games/games.service";
@@ -13,16 +12,14 @@ import {
 } from "../../src/generated/prisma/enums";
 import { ROUND_INTERVAL_MS } from "../../src/tournaments/bracket";
 import { tournamentErrors } from "../../src/tournaments/tournaments.service";
+import { createTestUsers, deleteTestUsers, type TestUser } from "../realDb";
 
-// Runs the whole tournament flow against a real database: registration, the bracket draw, the games it books,
-// and the score reports that move winners on. The tests in this file run in order and share one tournament.
+// Runs the tournament flow against a real database: registration, the bracket draw, the games it books, and the
+// score reports that move winners on. Every test gets 9 new players and builds its own tournament up to the stage
+// it checks, through the API (createTournament, fillTournament, playQuarterfinals), so the tests don't depend on
+// each other or on the order they run in.
 process.env.JWT_SECRET = "test-jwt-secret";
 jest.setTimeout(60_000);
-
-interface TestUser {
-  id: string;
-  auth: string;
-}
 
 interface Player {
   id: string;
@@ -38,14 +35,18 @@ interface Match {
   game: { id: string; status: string; startsAt: string } | null;
 }
 
-// Unique per run, so the test never collides with existing users
-const run = randomUUID().slice(0, 8);
+interface Details {
+  status: string;
+  winningTeam: number | null;
+  players: Player[];
+  matches: Match[];
+}
+
 const app = createApp();
-const users: TestUser[] = [];
-const tournamentIds: string[] = [];
-let courtId: number;
-let tournamentId: string;
 const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+let courtId: number;
+let users: TestUser[] = [];
+let tournamentIds: string[] = [];
 
 const straightSetsForTeam1: [number, number][] = [
   [6, 3],
@@ -57,19 +58,22 @@ const threeSetsForTeam2: [number, number][] = [
   [2, 6],
 ];
 
-/** Fetches the shared tournament through the API */
-async function fetchDetails() {
-  const response = await request(app)
+const user = (index: number) => {
+  const found = users.at(index);
+  if (found === undefined) throw new Error(`No test user ${index}`);
+  return found;
+};
+
+/** Fetches a tournament through the API */
+function fetchDetails(tournamentId: string): Promise<Details> {
+  return request(app)
     .get("/tournaments")
-    .set("Authorization", users[0]?.auth ?? "")
-    .query({ tournamentId });
-  expect(response.status).toBe(200);
-  return response.body.tournament as {
-    status: string;
-    winningTeam: number | null;
-    players: Player[];
-    matches: Match[];
-  };
+    .set("Authorization", user(0).auth)
+    .query({ tournamentId })
+    .then((response) => {
+      expect(response.status).toBe(200);
+      return response.body.tournament as Details;
+    });
 }
 
 /** Finds the match at a round and position of the bracket */
@@ -84,11 +88,11 @@ function matchAt(matches: Match[], round: number, position: number): Match {
 /** The auth header of a player on the team with the given seed */
 function authOfSeed(players: Player[], seed: number | null): string {
   const player = players.find(({ team }) => team === seed);
-  const user = users.find(({ id }) => id === player?.id);
-  if (user === undefined) {
+  const found = users.find(({ id }) => id === player?.id);
+  if (found === undefined) {
     throw new Error(`No test user on seed ${String(seed)}`);
   }
-  return user.auth;
+  return found.auth;
 }
 
 /**
@@ -111,48 +115,81 @@ function reportMatch(players: Player[], match: Match, rounds: [number, number][]
     .then((reported) => (reported.status === 200 ? confirm() : reported));
 }
 
-const join = (user: TestUser | undefined, id = tournamentId) =>
-  request(app)
-    .post("/tournaments/join")
-    .set("Authorization", user?.auth ?? "")
-    .send({ tournamentId: id });
+const join = (joiner: TestUser, tournamentId: string) =>
+  request(app).post("/tournaments/join").set("Authorization", joiner.auth).send({ tournamentId });
+
+/**
+ * Creates a tournament starting in 2 days at the test court
+ * @returns its ID and name
+ */
+function createTournament(creator = user(0), format: Format = Format.SINGLES) {
+  const name = `Test ${format} ${randomUUID().slice(0, 8)}`;
+  return request(app)
+    .post("/tournaments")
+    .set("Authorization", creator.auth)
+    .send({ name, format, startsAt: startsAt.toISOString(), courtId })
+    .then((created) => {
+      expect(created.status).toBe(201);
+      const id = (created.body as { tournament: { id: string } }).tournament.id;
+      tournamentIds.push(id);
+      return { id, name };
+    });
+}
+
+/** Players 2-8 join the tournament one after another, which fills it and draws the bracket */
+function fillTournament(tournamentId: string, next = 1): Promise<Details> {
+  if (next === 8) return fetchDetails(tournamentId);
+  return join(user(next), tournamentId).then((joined) => {
+    expect(joined.status).toBe(204);
+    return fillTournament(tournamentId, next + 1);
+  });
+}
+
+/** A full singles tournament whose bracket is drawn, created by player 1 */
+const drawnTournament = () =>
+  createTournament().then(({ id, name }) => fillTournament(id).then((details) => ({ id, name, details })));
+
+/**
+ * Plays the quarterfinals: the two feeding semifinal 0 at the same time (seeds 1 and 4 win), then seed 6 beats
+ * seed 3 in three sets and seed 2 beats seed 7
+ * @returns the responses to the four reports, in bracket order
+ */
+function playQuarterfinals({ players, matches }: Details) {
+  const [qf0, qf1, qf2, qf3] = [0, 1, 2, 3].map((position) => matchAt(matches, 1, position)) as [
+    Match,
+    Match,
+    Match,
+    Match,
+  ];
+  return Promise.all([
+    reportMatch(players, qf0, straightSetsForTeam1),
+    reportMatch(players, qf1, straightSetsForTeam1),
+  ]).then((concurrent) =>
+    reportMatch(players, qf2, threeSetsForTeam2).then((third) =>
+      reportMatch(players, qf3, straightSetsForTeam1).then((fourth) => [...concurrent, third, fourth]),
+    ),
+  );
+}
 
 beforeAll(async () => {
   // The forecast is not under test; without a key the feed skips it instead of calling OpenWeather
   delete process.env.OPENWEATHER_API_KEY;
+  courtId = (await prisma.court.findFirstOrThrow({ select: { id: true } })).id;
+});
 
-  const court = await prisma.court.findFirstOrThrow({ select: { id: true } });
-  courtId = court.id;
-
+beforeEach(async () => {
   // 9 players rated 2000, 1990, ..., 1920: 8 fill a singles bracket and the 9th arrives too late
-  for (let index = 0; index < 9; index++) {
-    const user = await prisma.user.create({
-      data: {
-        googleSub: `tournament-test-${run}-${index}`,
-        username: `tournament-${run}-${index}@example.com`,
-        name: `Player ${index + 1}`,
-        email: `tournament-${run}-${index}@example.com`,
-        rating: 2000 - index * 10,
-      },
-    });
-    users.push({ id: user.id, auth: `Bearer ${signAccessToken(user.id)}` });
-  }
+  users = await createTestUsers("tournament", 9, (index) => 2000 - index * 10);
+  tournamentIds = [];
+});
+
+afterEach(async () => {
+  // Deleting a tournament deletes its players and bracket; its games and the users are deleted after
+  await prisma.tournament.deleteMany({ where: { id: { in: tournamentIds } } });
+  await deleteTestUsers(users);
 });
 
 afterAll(async () => {
-  const userIds = users.map(({ id }) => id);
-  // Deleting a tournament deletes its players and bracket; its games and the users are deleted after
-  await prisma.tournament.deleteMany({ where: { id: { in: tournamentIds } } });
-  const games = await prisma.game.findMany({
-    where: { players: { some: { userId: { in: userIds } } } },
-    select: { id: true },
-  });
-  const gameIds = games.map(({ id }) => id);
-  await prisma.gameRound.deleteMany({ where: { gameId: { in: gameIds } } });
-  await prisma.scoreProposal.deleteMany({ where: { gameId: { in: gameIds } } });
-  await prisma.gameUser.deleteMany({ where: { gameId: { in: gameIds } } });
-  await prisma.game.deleteMany({ where: { id: { in: gameIds } } });
-  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
   await prisma.$disconnect();
 });
 
@@ -163,23 +200,17 @@ describe("Unmocked: tournament flow", () => {
   // Expected behavior: the creator is registered, and the tournament is on the feed with 1 of 8 players
   // Expected output: the tournament on the feed, with no forecast
   test("Lists a new tournament on the feed with its creator registered", async () => {
-    const created = await request(app)
-      .post("/tournaments")
-      .set("Authorization", users[0]?.auth ?? "")
-      .send({ name: `Test Open ${run}`, format: Format.SINGLES, startsAt: startsAt.toISOString(), courtId });
-    expect(created.status).toBe(201);
-    tournamentId = created.body.tournament.id;
-    tournamentIds.push(tournamentId);
+    const { id } = await createTournament();
 
-    const feed = await request(app).get("/tournaments/feed").set("Authorization", users[1]?.auth ?? "");
+    const feed = await request(app).get("/tournaments/feed").set("Authorization", user(1).auth);
 
     expect(feed.status).toBe(200);
-    const listed = feed.body.tournaments.find(({ id }: { id: string }) => id === tournamentId);
+    const listed = feed.body.tournaments.find((tournament: { id: string }) => tournament.id === id);
     expect(listed).toMatchObject({
       status: TournamentStatus.REGISTRATION,
       capacity: 8,
       forecast: null,
-      players: [{ id: users[0]?.id, team: null }],
+      players: [{ id: user(0).id, team: null }],
     });
   });
 
@@ -188,66 +219,70 @@ describe("Unmocked: tournament flow", () => {
   // Expected status code: 204 for each join and for player 6 leaving; 409 for the creator and the second join
   // Expected behavior: 6 players are registered
   test("Registers players, lets them leave, and keeps the creator in", async () => {
-    for (const user of users.slice(1, 6)) {
-      expect((await join(user)).status).toBe(204);
+    const { id } = await createTournament();
+    for (const joiner of users.slice(1, 6)) {
+      expect((await join(joiner, id)).status).toBe(204);
     }
 
     const creatorLeaves = await request(app)
       .post("/tournaments/leave")
-      .set("Authorization", users[0]?.auth ?? "")
-      .send({ tournamentId });
+      .set("Authorization", user(0).auth)
+      .send({ tournamentId: id });
     expect(creatorLeaves.status).toBe(409);
     expect(creatorLeaves.body).toEqual(errorBody(tournamentErrors.CreatorCannotLeave));
 
     const playerLeaves = await request(app)
       .post("/tournaments/leave")
-      .set("Authorization", users[5]?.auth ?? "")
-      .send({ tournamentId });
+      .set("Authorization", user(5).auth)
+      .send({ tournamentId: id });
     expect(playerLeaves.status).toBe(204);
-    expect((await join(users[5])).status).toBe(204);
+    expect((await join(user(5), id)).status).toBe(204);
 
-    const again = await join(users[1]);
+    const again = await join(user(1), id);
     expect(again.status).toBe(409);
     expect(again.body).toEqual(errorBody(tournamentErrors.AlreadyRegistered));
 
-    expect(await prisma.tournamentPlayer.count({ where: { tournamentId } })).toBe(6);
+    expect(await prisma.tournamentPlayer.count({ where: { tournamentId: id } })).toBe(6);
   });
 
   // Interface POST /tournaments/join
-  // Input: player 7 joins, then players 8 and 9 race for the last spot
+  // Input: players 2-7 join, then players 8 and 9 race for the last spot
   // Expected status code: exactly one 204 and one 409
   // Expected behavior: the tournament never has more than 8 players, and the winner's registration draws the bracket
   // Expected output: { error: "Tournament is full", code: "TOURNAMENT_FULL" } for the player who lost the race
   test("Gives the last spot to exactly one of two players joining at once", async () => {
-    expect((await join(users[6])).status).toBe(204);
+    const { id } = await createTournament();
+    for (const joiner of users.slice(1, 7)) {
+      expect((await join(joiner, id)).status).toBe(204);
+    }
 
-    const race = await Promise.all([join(users[7]), join(users[8])]);
+    const race = await Promise.all([join(user(7), id), join(user(8), id)]);
 
     expect(race.map(({ status }) => status).sort()).toEqual([204, 409]);
     expect(race.find(({ status }) => status === 409)?.body).toEqual(errorBody(tournamentErrors.Full));
-    expect(await prisma.tournamentPlayer.count({ where: { tournamentId } })).toBe(8);
+    expect(await prisma.tournamentPlayer.count({ where: { tournamentId: id } })).toBe(8);
   });
 
   // Interface GET /tournaments, GET /games/feed, GET /games/me, GET /tournaments/feed
-  // Input: the full tournament
+  // Input: players 2-8 fill player 1's tournament
   // Expected status code: 200
   // Expected behavior: teams are seeded by rating, 4 quarterfinals (1v8, 4v5, 3v6, 2v7) are booked as tournament
   // games, they never appear on the games feed, and the tournament leaves the tournament feed
   // Expected output: the drawn bracket, and each player's quarterfinal labelled in their own games
   test("Draws the bracket into booked tournament games that stay off the games feed", async () => {
-    const details = await fetchDetails();
+    const { id, name, details } = await drawnTournament();
     expect(details.status).toBe(TournamentStatus.IN_PROGRESS);
 
     // Seeds follow the ratings: the creator (2000) is seed 1
     const seeded = [...details.players].sort((a, b) => (a.team ?? 0) - (b.team ?? 0));
     expect(seeded.map(({ team }) => team)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(seeded[0]?.id).toBe(users[0]?.id);
+    expect(seeded[0]?.id).toBe(user(0).id);
     const ratings = await prisma.user.findMany({
-      where: { id: { in: seeded.map(({ id }) => id) } },
+      where: { id: { in: seeded.map((player) => player.id) } },
       select: { id: true, rating: true },
     });
-    const ratingOf = new Map(ratings.map(({ id, rating }) => [id, rating]));
-    const seededRatings = seeded.map(({ id }) => ratingOf.get(id) ?? 0);
+    const ratingOf = new Map(ratings.map((rated) => [rated.id, rated.rating]));
+    const seededRatings = seeded.map((player) => ratingOf.get(player.id) ?? 0);
     expect(seededRatings).toEqual([...seededRatings].sort((a, b) => b - a));
 
     expect(details.matches).toHaveLength(7);
@@ -267,24 +302,24 @@ describe("Unmocked: tournament flow", () => {
       });
     }
 
-    const gamesFeed = await request(app).get("/games/feed").set("Authorization", users[8]?.auth ?? "");
+    const gamesFeed = await request(app).get("/games/feed").set("Authorization", user(8).auth);
     expect(gamesFeed.status).toBe(200);
     const feedGames = gamesFeed.body.games as { id: string; gameSource: string }[];
-    const feedIds = feedGames.map(({ id }) => id);
+    const feedIds = feedGames.map((game) => game.id);
     for (const gameId of gameIds) {
       expect(feedIds).not.toContain(gameId);
     }
     expect(feedGames.map(({ gameSource }) => gameSource)).not.toContain(GameSource.TOURNAMENT);
 
-    const tournamentFeed = await request(app).get("/tournaments/feed").set("Authorization", users[8]?.auth ?? "");
-    expect(tournamentFeed.body.tournaments.map(({ id }: { id: string }) => id)).not.toContain(tournamentId);
+    const tournamentFeed = await request(app).get("/tournaments/feed").set("Authorization", user(8).auth);
+    expect(tournamentFeed.body.tournaments.map((listed: { id: string }) => listed.id)).not.toContain(id);
 
-    const myGames = await request(app).get("/games/me").set("Authorization", users[0]?.auth ?? "");
+    const myGames = await request(app).get("/games/me").set("Authorization", user(0).auth);
     expect(myGames.body.games).toContainEqual(
       expect.objectContaining({
         id: quarterfinals[0]?.game?.id,
         gameSource: GameSource.TOURNAMENT,
-        tournament: { id: tournamentId, name: `Test Open ${run}`, round: 1 },
+        tournament: { id, name, round: 1 },
       }),
     );
   });
@@ -294,14 +329,13 @@ describe("Unmocked: tournament flow", () => {
   // Expected status code: 409 for each
   // Expected behavior: the bracket's games and players are unchanged
   test("Keeps the bracket's games and players fixed", async () => {
-    const details = await fetchDetails();
+    const { id, details } = await drawnTournament();
     const gameId = matchAt(details.matches, 1, 0).game?.id ?? "";
-    const outsider = users.find(({ id }) => !details.players.some((player) => player.id === id));
     const playerAuth = authOfSeed(details.players, 1);
 
     const joinGame = await request(app)
       .post("/games/join")
-      .set("Authorization", outsider?.auth ?? "")
+      .set("Authorization", user(8).auth)
       .send({ gameId, team: 1 });
     expect(joinGame.status).toBe(409);
 
@@ -316,7 +350,7 @@ describe("Unmocked: tournament flow", () => {
     const leaveTournament = await request(app)
       .post("/tournaments/leave")
       .set("Authorization", playerAuth)
-      .send({ tournamentId });
+      .send({ tournamentId: id });
     expect(leaveTournament.status).toBe(409);
 
     expect(await prisma.gameUser.count({ where: { gameId } })).toBe(2);
@@ -326,18 +360,17 @@ describe("Unmocked: tournament flow", () => {
   // Input: a player outside the bracket starts a quarterfinal, then one of its players starts it twice
   // Expected status code: 403, then 200, then 409
   // Expected behavior: only the quarterfinal's start time moves to now; the other quarterfinals keep the
-  // tournament's start, and the next test checks the semifinals are still timed from it
+  // tournament's start
   // Expected output: the started game, then { error: "Game has already started", code: "GAME_ALREADY_STARTED" }
   test("Lets a quarterfinal's players start it early without moving the rest of the bracket", async () => {
-    const details = await fetchDetails();
+    const { id, details } = await drawnTournament();
     const quarterfinal = matchAt(details.matches, 1, 0);
     const gameId = quarterfinal.game?.id ?? "";
-    const outsider = users.find(({ id }) => !details.players.some((player) => player.id === id));
     const playerAuth = authOfSeed(details.players, quarterfinal.team1);
     const startGame = (auth: string) =>
       request(app).post("/games/start").set("Authorization", auth).send({ gameId });
 
-    const byOutsider = await startGame(outsider?.auth ?? "");
+    const byOutsider = await startGame(user(8).auth);
     expect(byOutsider.status).toBe(403);
 
     const before = Date.now();
@@ -354,7 +387,7 @@ describe("Unmocked: tournament flow", () => {
     expect(again.body).toEqual(errorBody(gameErrors.AlreadyStarted));
 
     const others = await prisma.game.findMany({
-      where: { tournamentMatch: { tournamentId, round: 1 }, id: { not: gameId } },
+      where: { tournamentMatch: { tournamentId: id, round: 1 }, id: { not: gameId } },
       select: { startsAt: true },
     });
     expect(others).toHaveLength(3);
@@ -362,28 +395,19 @@ describe("Unmocked: tournament flow", () => {
   });
 
   // Interface POST /games/score
-  // Input: the two quarterfinals feeding semifinal 0 are reported at the same time; then the other two
+  // Input: the two quarterfinals feeding semifinal 0 are reported at the same time; then the other two. Each is
+  // started first, so they all start before the tournament's start time
   // Expected status code: 200 for each report
-  // Expected behavior: ratings change, and each semifinal is booked exactly once, an hour after the start, with
-  // the winners on the right sides (1 v 4 and 6 v 2)
+  // Expected behavior: ratings change, and each semifinal is booked exactly once, an hour after the tournament's
+  // start (not the quarterfinals' early starts), with the winners on the right sides (1 v 4 and 6 v 2)
   test("Books each semifinal once, even when both of its quarterfinals are reported at once", async () => {
-    const details = await fetchDetails();
-    const [qf0, qf1, qf2, qf3] = [0, 1, 2, 3].map((position) => matchAt(details.matches, 1, position));
-    if (!qf0 || !qf1 || !qf2 || !qf3) {
-      throw new Error("Missing quarterfinal");
-    }
+    const { id, details } = await drawnTournament();
 
-    const concurrent = await Promise.all([
-      reportMatch(details.players, qf0, straightSetsForTeam1),
-      reportMatch(details.players, qf1, straightSetsForTeam1),
-    ]);
-    expect(concurrent.map(({ status }) => status)).toEqual([200, 200]);
-    expect(concurrent[0].body.ratingChanges).toHaveLength(2);
+    const reports = await playQuarterfinals(details);
 
-    expect((await reportMatch(details.players, qf2, threeSetsForTeam2)).status).toBe(200);
-    expect((await reportMatch(details.players, qf3, straightSetsForTeam1)).status).toBe(200);
-
-    const after = await fetchDetails();
+    expect(reports.map(({ status }) => status)).toEqual([200, 200, 200, 200]);
+    expect(reports[0].body.ratingChanges).toHaveLength(2);
+    const after = await fetchDetails(id);
     const semifinal0 = matchAt(after.matches, 2, 0);
     const semifinal1 = matchAt(after.matches, 2, 1);
     expect([semifinal0.team1, semifinal0.team2]).toEqual([1, 4]);
@@ -396,40 +420,45 @@ describe("Unmocked: tournament flow", () => {
     const semifinalGames = await prisma.game.count({
       where: {
         gameSource: GameSource.TOURNAMENT,
-        tournamentMatch: { tournamentId, round: 2 },
+        tournamentMatch: { tournamentId: id, round: 2 },
       },
     });
     expect(semifinalGames).toBe(2);
 
-    const creator = await prisma.user.findUniqueOrThrow({ where: { id: users[0]?.id ?? "" } });
+    const creator = await prisma.user.findUniqueOrThrow({ where: { id: user(0).id } });
     expect(creator.rating).not.toBe(2000);
   });
 
   // Interface POST /games/score, GET /tournaments/me
-  // Input: both semifinals are reported (seeds 1 and 2 win), then the final, won by seed 2
+  // Input: after the quarterfinals, both semifinals are reported (seeds 1 and 2 win), then the final, won by seed 2
   // Expected status code: 200
   // Expected behavior: the final is booked two hours after the start, and reporting it completes the tournament
   // Expected output: the completed tournament with seed 2 as the champion, still in the creator's tournaments
   test("Crowns the champion when the final is reported", async () => {
-    const details = await fetchDetails();
-    expect((await reportMatch(details.players, matchAt(details.matches, 2, 0), straightSetsForTeam1)).status).toBe(200);
-    expect((await reportMatch(details.players, matchAt(details.matches, 2, 1), threeSetsForTeam2)).status).toBe(200);
+    const { id, details } = await drawnTournament();
+    await playQuarterfinals(details);
+    const semifinals = await fetchDetails(id);
 
-    const beforeFinal = await fetchDetails();
+    expect((await reportMatch(semifinals.players, matchAt(semifinals.matches, 2, 0), straightSetsForTeam1)).status)
+      .toBe(200);
+    expect((await reportMatch(semifinals.players, matchAt(semifinals.matches, 2, 1), threeSetsForTeam2)).status)
+      .toBe(200);
+
+    const beforeFinal = await fetchDetails(id);
     const final = matchAt(beforeFinal.matches, 3, 0);
     expect([final.team1, final.team2]).toEqual([1, 2]);
     expect(final.game?.startsAt).toBe(new Date(startsAt.getTime() + 2 * ROUND_INTERVAL_MS).toISOString());
 
     expect((await reportMatch(beforeFinal.players, final, threeSetsForTeam2)).status).toBe(200);
 
-    const completed = await fetchDetails();
+    const completed = await fetchDetails(id);
     expect(completed.status).toBe(TournamentStatus.COMPLETED);
     expect(completed.winningTeam).toBe(2);
     expect(completed.matches.every(({ winner }) => winner !== null)).toBe(true);
 
-    const mine = await request(app).get("/tournaments/me").set("Authorization", users[0]?.auth ?? "");
+    const mine = await request(app).get("/tournaments/me").set("Authorization", user(0).auth);
     expect(mine.body.tournaments).toContainEqual(
-      expect.objectContaining({ id: tournamentId, status: TournamentStatus.COMPLETED, winningTeam: 2 }),
+      expect.objectContaining({ id, status: TournamentStatus.COMPLETED, winningTeam: 2 }),
     );
   });
 
@@ -438,30 +467,24 @@ describe("Unmocked: tournament flow", () => {
   // Expected status code: 403, then 204
   // Expected behavior: the tournament is marked as cancelled, leaves the feed and can no longer be joined
   test("Lets only the creator cancel a tournament in registration", async () => {
-    const created = await request(app)
-      .post("/tournaments")
-      .set("Authorization", users[1]?.auth ?? "")
-      .send({ name: `Test Doubles ${run}`, format: Format.DOUBLES, startsAt: startsAt.toISOString(), courtId });
-    expect(created.status).toBe(201);
-    const doublesId: string = created.body.tournament.id;
-    tournamentIds.push(doublesId);
-    expect((await join(users[2], doublesId)).status).toBe(204);
+    const { id } = await createTournament(user(1), Format.DOUBLES);
+    expect((await join(user(2), id)).status).toBe(204);
 
     const byPlayer = await request(app)
       .delete("/tournaments")
-      .set("Authorization", users[2]?.auth ?? "")
-      .query({ tournamentId: doublesId });
+      .set("Authorization", user(2).auth)
+      .query({ tournamentId: id });
     expect(byPlayer.status).toBe(403);
 
     const byCreator = await request(app)
       .delete("/tournaments")
-      .set("Authorization", users[1]?.auth ?? "")
-      .query({ tournamentId: doublesId });
+      .set("Authorization", user(1).auth)
+      .query({ tournamentId: id });
     expect(byCreator.status).toBe(204);
 
-    const feed = await request(app).get("/tournaments/feed").set("Authorization", users[3]?.auth ?? "");
-    expect(feed.body.tournaments.map(({ id }: { id: string }) => id)).not.toContain(doublesId);
-    const lateJoin = await join(users[3], doublesId);
+    const feed = await request(app).get("/tournaments/feed").set("Authorization", user(3).auth);
+    expect(feed.body.tournaments.map((listed: { id: string }) => listed.id)).not.toContain(id);
+    const lateJoin = await join(user(3), id);
     expect(lateJoin.status).toBe(409);
     expect(lateJoin.body).toEqual(errorBody(tournamentErrors.NotOpen));
   });
