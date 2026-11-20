@@ -23,6 +23,7 @@
 | Nov 20, 2026 | 3.5 (Use Case 1), 4.1 | A match no longer depends on its push reaching the app: while searching or answering a match, the app follows the player's live games stream. The queue card's map follows the new `GET /matchmaking/events` stream instead of polling `GET /matchmaking/nearby`, so the app polls nothing during matchmaking. |
 | Nov 20, 2026 | 3.1, 3.4, 3.5 (Use Case 3), 4.1, 4.2 | Score confirmation: a reported score waits until every player confirms it (`POST /games/score/confirm`), and a player who disagrees suggests a correction. The game screen shows who has confirmed, live, and the other players get a push asking them to confirm. |
 | Nov 20, 2026 | 3.5 (Use Case 3), 4.1 | Set scores: past 6 games a set is won by exactly 2 games, or 7–6 after a tiebreak, so a fabricated 99–0 can't move ratings (the other group's review, see Code_Review.md 3.2). |
+| Nov 20, 2026 | 3.7, 4.7 | Added NFR 4, rating accuracy for new players, which `backend/tests/nfr/ratingAccuracy.test.ts` checks. |
 
 ---
 
@@ -257,6 +258,12 @@ Not included. The formal use cases describe each screen.
     - **Description**: When compatible players are queued, 95% are matched and notified within 60 seconds of the last one joining.
     - **Justification**: Matched players play within the hour and must accept 30 minutes before the start. The job runs every 10 seconds, so 60 seconds allows for missed runs and notification delivery.
 
+<a name="nfr4"></a>
+
+4. **Rating accuracy for new players**
+    - **Description**: After 5 rated singles games, at least 80% of new players (true level between 1100 and 1900, starting at 1500) are rated within 200 points of their true level.
+    - **Justification**: Singles matchmaking only pairs players within 200 rating points, so a rating within 200 of a player's level puts them with players of their level. Until then a new player gets one-sided games, so 5 games keeps that stretch short. 80% rather than every player, since a few lucky or unlucky results can still mislead the rating after 5 games.
+
 ---
 
 ## 4. Designs Specification
@@ -456,3 +463,5 @@ An arrow from A to B means A calls an interface of B. Arrows touching the Backen
     - **Implementation**: The columns we filter on most are indexed, the feed loads games, players and ratings in one query, forecasts are cached per court for 10 minutes with a 2-second timeout, and matchmaking runs outside the request path.
 3. [**Match found latency**](#nfr3)
     - **Implementation**: The matchmaking job runs every 10 seconds without overlapping runs. The greedy matcher sorts each format's queue once, so a run takes milliseconds, and notifications are sent right after each match commits.
+4. [**Rating accuracy for new players**](#nfr4)
+    - **Implementation**: The tennis K-factor depends on how many rated games the player has played, 250 / (N + 5)^0.4 (FiveThirtyEight / Kovalchik 2016): about 131 for a new player, falling to about 100 after 5 games, so early results move a new player's rating quickly and later ones settle it. The rating also moves with the margin of games won against the margin expected from the rating gap.
