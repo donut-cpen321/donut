@@ -7,17 +7,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,10 +26,11 @@ import com.example.cpen321application.core.data.model.GameTournament
 import com.example.cpen321application.core.data.model.TEAMS
 import com.example.cpen321application.core.data.model.playersOnTeam
 import com.example.cpen321application.core.data.model.teamSize
+import com.example.cpen321application.core.ui.components.ButtonStyle
 import com.example.cpen321application.core.ui.components.ChipStyle
 import com.example.cpen321application.core.ui.components.DestructiveButton
+import com.example.cpen321application.core.ui.components.DonutButton
 import com.example.cpen321application.core.ui.components.DonutCard
-import com.example.cpen321application.core.ui.components.LargeButtonHeight
 import com.example.cpen321application.core.ui.components.OpenSpotRow
 import com.example.cpen321application.core.ui.components.PersonRow
 import com.example.cpen321application.core.ui.components.Scoreboard
@@ -66,7 +62,7 @@ internal fun GameSummaryCard(game: Game, onOpenTournament: (tournamentId: String
         }
         Text(
             text = formatStartsAt(game.startsAt),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(top = 8.dp)
         )
         Text(text = game.court.name, style = MaterialTheme.typography.titleMedium)
@@ -90,7 +86,7 @@ private fun TournamentLink(tournament: GameTournament, onClick: () -> Unit) {
             .clickable(onClickLabel = "Open the bracket", onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        StatusChip(text = gameTournamentText(tournament), style = ChipStyle.TOURNAMENT, icon = R.drawable.ic_star_filled)
+        StatusChip(text = gameTournamentText(tournament), style = ChipStyle.TOURNAMENT, icon = R.drawable.ic_emoji_events_filled)
         Spacer(modifier = Modifier.weight(1f))
         Icon(
             painter = painterResource(R.drawable.ic_chevron_right),
@@ -136,11 +132,7 @@ private fun TeamHeader(team: Int, canJoin: Boolean, onJoin: () -> Unit) {
     ) {
         SectionLabel(text = "Team $team", modifier = Modifier.weight(1f))
         if (canJoin) {
-            Button(
-                onClick = onJoin,
-                modifier = Modifier.height(SmallButtonHeight),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) { Text("Join team $team") }
+            DonutButton(text = "Join team $team", onClick = onJoin, height = SmallButtonHeight)
         }
     }
 }
@@ -172,34 +164,63 @@ internal fun GamePlayerActions(
     isSaving: Boolean,
     onOpenDialog: (GameDialog) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Shown until the game starts; once it has, Report final score takes its place
         if (actions.canStartNow) {
-            Button(
+            DonutButton(
+                text = "Start now",
                 onClick = { onOpenDialog(GameDialog.START) },
                 enabled = !isSaving,
-                modifier = Modifier.fillMaxWidth().height(LargeButtonHeight)
-            ) { Text("Start now") }
+                icon = R.drawable.ic_sports_tennis_filled,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         if (actions.canReportScore) {
-            Button(
+            DonutButton(
+                text = "Report final score",
                 onClick = { onOpenDialog(GameDialog.SCORE) },
                 enabled = !isSaving,
-                modifier = Modifier.fillMaxWidth().height(LargeButtonHeight)
-            ) { Text("Report final score") }
+                icon = R.drawable.ic_emoji_events_filled,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         if (actions.canInvite) {
-            InviteButton(enabled = !isSaving, onClick = { onOpenDialog(GameDialog.INVITE) })
+            // Ball yellow, so Start now or Report final score stays the one clay button
+            DonutButton(
+                text = "Invite friends",
+                onClick = { onOpenDialog(GameDialog.INVITE) },
+                enabled = !isSaving,
+                style = ButtonStyle.TONAL,
+                icon = R.drawable.ic_person_add_filled,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         if (actions.canChangeTimeOrCourt) {
-            RescheduleButtons(isSaving = isSaving, onOpenDialog = onOpenDialog)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DonutButton(
+                    text = "Change time",
+                    onClick = { onOpenDialog(GameDialog.TIME) },
+                    enabled = !isSaving,
+                    style = ButtonStyle.SECONDARY,
+                    modifier = Modifier.weight(1f)
+                )
+                DonutButton(
+                    text = "Change court",
+                    onClick = { onOpenDialog(GameDialog.COURT) },
+                    enabled = !isSaving,
+                    style = ButtonStyle.SECONDARY,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
         if (actions.canLeave) {
-            OutlinedButton(
+            DonutButton(
+                text = "Leave game",
                 onClick = { onOpenDialog(GameDialog.LEAVE) },
                 enabled = !isSaving,
-                modifier = Modifier.fillMaxWidth().height(LargeButtonHeight)
-            ) { Text("Leave game") }
+                style = ButtonStyle.SECONDARY,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         if (actions.leaveTooLate) {
             Text(
@@ -211,38 +232,5 @@ internal fun GamePlayerActions(
         if (actions.canCancel) {
             DestructiveButton(text = "Cancel game", enabled = !isSaving, onClick = { onOpenDialog(GameDialog.CANCEL) })
         }
-    }
-}
-
-// Tonal: a neutral fill, so Start now or Report final score stays the one ink button
-@Composable
-private fun InviteButton(enabled: Boolean, onClick: () -> Unit) {
-    FilledTonalButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth().height(LargeButtonHeight),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        )
-    ) {
-        Icon(painterResource(R.drawable.ic_person_add), contentDescription = null, modifier = Modifier.size(20.dp))
-        Text("Invite friends", modifier = Modifier.padding(start = 8.dp))
-    }
-}
-
-@Composable
-private fun RescheduleButtons(isSaving: Boolean, onOpenDialog: (GameDialog) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        OutlinedButton(
-            onClick = { onOpenDialog(GameDialog.TIME) },
-            enabled = !isSaving,
-            modifier = Modifier.weight(1f).height(LargeButtonHeight)
-        ) { Text("Change time") }
-        OutlinedButton(
-            onClick = { onOpenDialog(GameDialog.COURT) },
-            enabled = !isSaving,
-            modifier = Modifier.weight(1f).height(LargeButtonHeight)
-        ) { Text("Change court") }
     }
 }

@@ -3,52 +3,51 @@ package com.example.cpen321application.feature.matchsummary
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.cpen321application.R
 import com.example.cpen321application.core.data.model.MatchResult
 import com.example.cpen321application.core.data.model.Player
 import com.example.cpen321application.core.data.model.playersOnTeam
 import com.example.cpen321application.core.ui.components.BackHeader
-import com.example.cpen321application.R
+import com.example.cpen321application.core.ui.components.ButtonStyle
 import com.example.cpen321application.core.ui.components.ChipStyle
+import com.example.cpen321application.core.ui.components.DonutButton
 import com.example.cpen321application.core.ui.components.DonutCard
+import com.example.cpen321application.core.ui.components.MessageBanner
 import com.example.cpen321application.core.ui.components.OutcomeBadge
 import com.example.cpen321application.core.ui.components.PlayerAvatar
 import com.example.cpen321application.core.ui.components.RatingChangeFooter
 import com.example.cpen321application.core.ui.components.RatingDelta
 import com.example.cpen321application.core.ui.components.Scoreboard
 import com.example.cpen321application.core.ui.components.ScoreboardSide
+import com.example.cpen321application.core.ui.components.SmallButtonHeight
 import com.example.cpen321application.core.ui.components.StatusChip
-import com.example.cpen321application.core.ui.theme.DonutTextStyles
+import com.example.cpen321application.core.ui.components.UnderlinedTextButton
 import com.example.cpen321application.core.ui.formatStartsAt
 import com.example.cpen321application.core.ui.gameTournamentText
 import com.example.cpen321application.core.ui.label
 import com.example.cpen321application.core.ui.playerNames
+import com.example.cpen321application.core.ui.theme.DonutTextStyles
 import kotlin.math.roundToInt
-
 
 @Composable
 fun MatchSummaryRoute(viewModel: MatchSummaryViewModel, onBack: () -> Unit) {
@@ -104,7 +103,7 @@ private fun LoadError(message: String?, onRetry: () -> Unit) {
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center
         )
-        TextButton(onClick = onRetry) { Text("Retry") }
+        UnderlinedTextButton(text = "Retry", onClick = onRetry)
     }
 }
 
@@ -136,11 +135,11 @@ private fun MatchSummaryContent(
 @Composable
 private fun ResultCard(match: MatchResult) {
     val game = match.game
-    DonutCard {
+    DonutCard(sticker = true) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            OutcomeBadge(outcome = match.outcome, size = 44.dp, textStyle = DonutTextStyles.numericTitle)
+            OutcomeBadge(outcome = match.outcome, size = 52.dp, textStyle = DonutTextStyles.numericMedium)
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "vs ${playerNames(match.opponents)}", style = MaterialTheme.typography.titleLarge)
+                Text(text = "vs ${playerNames(match.opponents)}", style = MaterialTheme.typography.headlineSmall)
                 if (match.partners.isNotEmpty()) {
                     Text(
                         text = "with ${playerNames(match.partners)}",
@@ -164,7 +163,7 @@ private fun ResultCard(match: MatchResult) {
             StatusChip(
                 text = gameTournamentText(it),
                 style = ChipStyle.TOURNAMENT,
-                icon = R.drawable.ic_star_filled,
+                icon = R.drawable.ic_emoji_events_filled,
                 modifier = Modifier.padding(top = 6.dp)
             )
         }
@@ -214,18 +213,20 @@ private fun PlayersSection(
     val teams = listOf(myTeam, if (myTeam == 1) 2 else 1)
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = "Players", style = MaterialTheme.typography.titleMedium)
+        Text(text = "Players", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 4.dp))
         FriendMessage(uiState = uiState, onDismiss = onDismissFriendMessage)
-        teams.forEachIndexed { index, team ->
-            if (index > 0) HorizontalDivider()
-            match.game.playersOnTeam(team).forEach { player ->
-                PlayerRowWithFriendButton(
-                    player = player,
-                    isMe = player.id == match.me.id,
-                    friendStatusOrNullToHideButton = uiState.friendStatuses[player.id],
-                    isSending = player.id in uiState.sendingRequestTo,
-                    onAddFriend = { onAddFriend(player.id) }
-                )
+        DonutCard(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)) {
+            teams.forEachIndexed { index, team ->
+                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                match.game.playersOnTeam(team).forEach { player ->
+                    PlayerRowWithFriendButton(
+                        player = player,
+                        isMe = player.id == match.me.id,
+                        friendStatusOrNullToHideButton = uiState.friendStatuses[player.id],
+                        isSending = player.id in uiState.sendingRequestTo,
+                        onAddFriend = { onAddFriend(player.id) }
+                    )
+                }
             }
         }
     }
@@ -235,15 +236,7 @@ private fun PlayersSection(
 private fun FriendMessage(uiState: MatchSummaryUiState, onDismiss: () -> Unit) {
     val isError = uiState.friendErrorMessage != null
     val message = uiState.friendErrorMessage ?: uiState.friendMessage ?: return
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f)
-        )
-        TextButton(onClick = onDismiss) { Text("OK") }
-    }
+    MessageBanner(message = message, isError = isError, onDismiss = onDismiss)
 }
 
 @Composable
@@ -256,7 +249,9 @@ private fun PlayerRowWithFriendButton(
 ) {
     val friendStatus = friendStatusOrNullToHideButton
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         PlayerAvatar(name = player.name)
@@ -301,23 +296,22 @@ private fun PlayerRating(player: Player) {
 @Composable
 private fun FriendButton(status: FriendStatus, isSending: Boolean, onAddFriend: () -> Unit) {
     when (status) {
-        FriendStatus.FRIENDS -> OutlinedButton(onClick = {}, enabled = false) {
-            Icon(painterResource(R.drawable.ic_check), contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Friends")
-        }
-        FriendStatus.REQUEST_SENT -> OutlinedButton(onClick = {}, enabled = false) {
-            Text("Requested")
-        }
-        FriendStatus.REQUEST_RECEIVED -> Button(onClick = onAddFriend, enabled = !isSending) {
-            Icon(painterResource(R.drawable.ic_check), contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Accept")
-        }
-        FriendStatus.NOT_FRIENDS -> Button(onClick = onAddFriend, enabled = !isSending) {
-            Icon(painterResource(R.drawable.ic_person_add), contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Add friend")
-        }
+        FriendStatus.FRIENDS -> StatusChip(text = "Friends", style = ChipStyle.OPEN, icon = R.drawable.ic_check)
+        FriendStatus.REQUEST_SENT -> StatusChip(text = "Requested", style = ChipStyle.DONE)
+        FriendStatus.REQUEST_RECEIVED -> DonutButton(
+            text = "Accept",
+            onClick = onAddFriend,
+            enabled = !isSending,
+            height = SmallButtonHeight,
+            icon = R.drawable.ic_check
+        )
+        FriendStatus.NOT_FRIENDS -> DonutButton(
+            text = "Add friend",
+            onClick = onAddFriend,
+            enabled = !isSending,
+            style = ButtonStyle.TONAL,
+            height = SmallButtonHeight,
+            icon = R.drawable.ic_person_add_filled
+        )
     }
 }

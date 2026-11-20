@@ -36,12 +36,10 @@ fun setsText(scores: List<Pair<Int, Int>>): String =
     scores.joinToString("  ") { (mine, theirs) -> "$mine–$theirs" }
 
 /**
- * The second line of a match history row
- * @return e.g. "6–4  7–5 · Kitsilano Beach Park · Nov 12"
+ * Where and when a match in the history was played, after its set scores
+ * @return e.g. "Kitsilano Beach Park · Nov 12"
  */
-fun historyDetailText(match: MatchResult, zone: ZoneId = ZoneId.systemDefault()): String =
-    listOf(setsText(match.myScores), match.game.court.name, shortDateFormatter.format(match.game.startsAt.atZone(zone)))
-        .filter { it.isNotEmpty() }
-        .joinToString(" · ")
+fun historyPlaceText(match: MatchResult, zone: ZoneId = ZoneId.systemDefault()): String =
+    "${match.game.court.name} · ${shortDateFormatter.format(match.game.startsAt.atZone(zone))}"
 
 private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")

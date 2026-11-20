@@ -8,9 +8,11 @@ import com.example.cpen321application.core.data.model.GameStatus
 import com.example.cpen321application.core.data.model.MatchOutcome
 import com.example.cpen321application.core.data.model.MatchResult
 import com.example.cpen321application.core.data.model.Player
-import com.example.cpen321application.core.ui.historyDetailText
+import com.example.cpen321application.core.ui.historyPlaceText
 import com.example.cpen321application.core.ui.setsText
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.ZoneOffset
@@ -50,35 +52,21 @@ class ProfileStatsTest {
     }
 
     @Test
-    fun trendStartsBeforeTheOldestMatchAndEndsAtTheLatest() {
-        // Most recent first, as the profile keeps it
-        val history = listOf(
-            result(MatchOutcome.WIN, 1573.0, 1587.4),
-            result(MatchOutcome.LOSS, 1579.0, 1573.0),
-            result(MatchOutcome.WIN, 1552.0, 1579.0)
-        )
+    fun donutSetNeedsAWonSixLove() {
+        val won = result(MatchOutcome.WIN, null, null)
 
-        assertEquals(listOf(1552, 1579, 1573, 1587), ratingTrend(history))
+        assertTrue(hasDonutSet(won.copy(myScores = listOf(6 to 0, 6 to 3))))
+        assertFalse(hasDonutSet(won))
+        assertFalse(hasDonutSet(won.copy(outcome = MatchOutcome.LOSS, myScores = listOf(6 to 0, 3 to 6, 4 to 6))))
     }
 
     @Test
-    fun trendSkipsMatchesWithoutARatingAndNeedsThree() {
-        val history = listOf(
-            result(MatchOutcome.WIN, 1573.0, 1587.0),
-            result(MatchOutcome.LOSS, null, null),
-            result(MatchOutcome.WIN, 1552.0, 1573.0)
-        )
-
-        assertEquals(emptyList<Int>(), ratingTrend(history))
-    }
-
-    @Test
-    fun historyDetailShowsSetsCourtAndDate() {
+    fun historyShowsSetsThenCourtAndDate() {
         val match = result(MatchOutcome.WIN, null, null)
 
         assertEquals("6–4  7–5", setsText(match.myScores))
         // The date follows the phone's locale: "Nov 12" in en-US, "Nov. 12" in en-CA
         val date = DateTimeFormatter.ofPattern("MMM d").format(match.game.startsAt.atZone(ZoneOffset.UTC))
-        assertEquals("6–4  7–5 · Kitsilano Beach Park · $date", historyDetailText(match, ZoneOffset.UTC))
+        assertEquals("Kitsilano Beach Park · $date", historyPlaceText(match, ZoneOffset.UTC))
     }
 }

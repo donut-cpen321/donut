@@ -44,15 +44,6 @@ class GameTextTest {
     }
 
     @Test
-    fun dayHeaderNamesTodayAndTomorrow() {
-        val today = LocalDate.of(2026, 11, 16)
-
-        assertEquals("Today · ${day(today)}", dayHeaderText(today, today))
-        assertEquals("Tomorrow · ${day(today.plusDays(1))}", dayHeaderText(today.plusDays(1), today))
-        assertEquals(day(LocalDate.of(2026, 11, 21)), dayHeaderText(LocalDate.of(2026, 11, 21), today))
-    }
-
-    @Test
     fun startDayUsesTheGivenZone() {
         // 2 AM UTC on the 17th is still the 16th in Vancouver
         val startsAt = Instant.parse("2026-11-17T02:00:00Z")
@@ -76,6 +67,20 @@ class GameTextTest {
         assertEquals(
             "${day(LocalDate.of(2026, 11, 21))}, ${time("2026-11-21T10:00:00Z")}",
             relativeStartText(Instant.parse("2026-11-21T10:00:00Z"), today, utc)
+        )
+    }
+
+    @Test
+    fun cardStartPutsADotBetweenDayAndTime() {
+        val today = LocalDate.of(2026, 11, 16)
+
+        assertEquals(
+            "Today · ${time("2026-11-16T18:00:00Z")}",
+            relativeStartText(Instant.parse("2026-11-16T18:00:00Z"), today, utc, separator = " · ")
+        )
+        assertEquals(
+            "${day(LocalDate.of(2026, 11, 21))} · ${time("2026-11-21T10:00:00Z")}",
+            relativeStartText(Instant.parse("2026-11-21T10:00:00Z"), today, utc, separator = " · ")
         )
     }
 

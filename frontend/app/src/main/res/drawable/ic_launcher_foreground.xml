@@ -1,20 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Donut mark: a ring (r 15-30 around 54,54, drawn at 80%: r 12-24) cut by two tennis-ball seams.
-     Launchers show the middle 72 dp, so the ring fills about two thirds of the icon.
-     The seams are gaps in the outline, so the same shape works as the themed (monochrome) icon. -->
+<!-- The Donut mark: a frosted donut that is also a tennis ball, on the 108 dp adaptive-icon canvas.
+     Dough r 11-31 around (54, 54), inside the 66 dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.8"
-        android:scaleY="0.8">
-        <path
-            android:fillColor="#F7F7F4"
-            android:fillType="evenOdd"
-            android:pathData="M84.0,52.5L83.7,49.6L83.3,47.4L82.7,45.3L82.0,43.2L80.8,40.5L79.7,38.6L78.5,36.7L76.7,34.4L75.2,36.3L74.0,38.3L72.8,40.3L71.6,43.2L70.9,45.4L70.2,48.5L69.9,50.8L69.8,54.0L69.9,57.2L70.2,59.5L70.9,62.6L71.6,64.8L72.8,67.7L74.0,69.7L75.2,71.7L76.7,73.6L78.5,71.3L80.1,68.8L81.4,66.2L82.5,63.4L83.3,60.6L83.8,57.7L84.0,55.5ZM73.5,31.2L70.7,29.1L68.8,27.9L66.8,26.9L64.1,25.8L61.3,24.9L59.1,24.4L56.9,24.1L54.0,24.0L51.1,24.1L48.9,24.4L46.7,24.9L43.9,25.8L41.2,26.9L39.2,27.9L36.7,29.5L34.5,31.2L35.9,32.9L36.9,34.4L37.9,36.0L38.8,37.6L39.6,39.2L40.6,41.6L41.2,43.4L41.7,45.4L42.6,44.2L43.9,42.9L45.4,41.7L46.9,40.8L48.6,40.0L50.4,39.4L52.2,39.1L54.0,39.0L55.8,39.1L57.6,39.4L59.4,40.0L61.1,40.8L62.6,41.7L64.1,42.9L65.4,44.2L66.3,45.4L67.1,42.5L68.4,39.1L69.6,36.8L70.6,35.2L72.1,33.0ZM31.3,34.4L29.1,37.3L27.9,39.2L26.9,41.2L25.8,43.9L24.9,46.7L24.4,48.9L24.1,51.1L24.0,54.0L24.1,56.9L24.4,59.1L25.1,62.0L25.8,64.1L26.6,66.2L27.9,68.8L29.5,71.3L31.3,73.6L32.8,71.7L34.0,69.7L35.2,67.7L36.4,64.8L37.1,62.6L37.8,59.5L38.1,57.2L38.2,54.0L38.1,50.8L37.6,47.7L36.9,44.7L36.1,42.5L35.2,40.3L34.4,39.0L32.8,36.3ZM34.5,76.8L36.7,78.5L39.2,80.1L41.8,81.4L43.9,82.2L46.0,82.9L48.9,83.6L51.8,83.9L54.0,84.0L56.2,83.9L59.1,83.6L62.0,82.9L64.1,82.2L66.8,81.1L68.8,80.1L71.3,78.5L73.5,76.8L72.1,75.1L71.1,73.6L70.1,72.0L69.2,70.4L68.4,68.8L67.4,66.4L66.8,64.6L66.3,62.6L65.4,63.8L64.1,65.1L62.6,66.3L61.1,67.2L59.4,68.0L57.6,68.6L55.8,68.9L54.0,69.0L52.2,68.9L50.4,68.6L48.6,68.0L46.9,67.2L45.4,66.3L43.9,65.1L42.6,63.8L41.7,62.6L40.9,65.5L39.6,68.9L38.4,71.2L37.4,72.8L35.9,75.0Z" />
-    </group>
+    <!-- Dough: an ink-outlined ring, r 11-31 -->
+    <path
+        android:fillColor="#F2C28B"
+        android:fillType="evenOdd"
+        android:pathData="M54,23a31,31 0,1 1,0 62a31,31 0,1 1,0 -62ZM54,43a11,11 0,1 0,0 22a11,11 0,1 0,0 -22Z"
+        android:strokeWidth="3"
+        android:strokeColor="#2A1E17" />
+    <!-- Ball-yellow frosting, r 14-25, with six drips -->
+    <path
+        android:fillColor="#D9EE3A"
+        android:fillType="evenOdd"
+        android:pathData="M54,29a25,25 0,1 1,0 50a25,25 0,1 1,0 -50ZM54,40a14,14 0,1 0,0 28a14,14 0,1 0,0 -28Z" />
+    <path
+        android:fillColor="#D9EE3A"
+        android:pathData="M68.3,69.8a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0ZM45.2,78.1a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0ZM28.3,66.3a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0ZM29.4,39.9a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0ZM57.9,31a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0ZM72.5,45.6a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0Z" />
+    <!-- The tennis-ball seam -->
+    <path
+        android:pathData="M38,42Q46,34 54,37.5T70,40"
+        android:strokeWidth="3"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <!-- Sprinkles: clay, grass, white -->
+    <path
+        android:pathData="M34,60l5,3M64,69l3,4.5M34,50l2,5"
+        android:strokeWidth="3.2"
+        android:strokeColor="#C8481E"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M45,74l4.5,-3M70,61l4.5,-3"
+        android:strokeWidth="3.2"
+        android:strokeColor="#2F7D4E"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M67,45l5,1.5"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
 </vector>

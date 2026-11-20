@@ -54,30 +54,16 @@ private val startTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 private val dayFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
 
 /**
- * @return e.g. "6:00 PM", in the phone's time zone. The day is in the list's day header.
+ * @return e.g. "6:00 PM", in the phone's time zone
  */
 fun formatStartTime(startsAt: Instant, zone: ZoneId = ZoneId.systemDefault()): String =
     startTimeFormatter.format(startsAt.atZone(zone))
 
 /**
- * The day a game falls on, to group a list of games under day headers
+ * The day a game falls on, in the phone's time zone
  */
 fun startDay(startsAt: Instant, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
     startsAt.atZone(zone).toLocalDate()
-
-/**
- * The header above a day's games
- * @param today the phone's date
- * @return "Today · Mon, Nov 16", "Tomorrow · Tue, Nov 17", or "Sat, Nov 21" for any other day
- */
-fun dayHeaderText(day: LocalDate, today: LocalDate): String {
-    val date = dayFormatter.format(day)
-    return when (day) {
-        today -> "Today · $date"
-        today.plusDays(1) -> "Tomorrow · $date"
-        else -> date
-    }
-}
 
 /**
  * @return how many players the game still needs
@@ -124,14 +110,20 @@ fun temperatureText(forecast: Forecast): String = "${forecast.temperature.roundT
 fun rainChanceText(forecast: Forecast): String = "${(forecast.precipitationChance * 100).roundToInt()}%"
 
 /**
+ * @param separator between the day and the time: ", " in sentences, " · " on a game card
  * @return "Today, 6:30 PM", "Tomorrow, 7:30 AM" or "Sat, Nov 21, 10:00 AM"
  */
-fun relativeStartText(startsAt: Instant, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): String {
+fun relativeStartText(
+    startsAt: Instant,
+    today: LocalDate,
+    zone: ZoneId = ZoneId.systemDefault(),
+    separator: String = ", ",
+): String {
     val day = startDay(startsAt, zone)
     val time = formatStartTime(startsAt, zone)
     return when (day) {
-        today -> "Today, $time"
-        today.plusDays(1) -> "Tomorrow, $time"
-        else -> "${dayFormatter.format(day)}, $time"
+        today -> "Today$separator$time"
+        today.plusDays(1) -> "Tomorrow$separator$time"
+        else -> "${dayFormatter.format(day)}$separator$time"
     }
 }

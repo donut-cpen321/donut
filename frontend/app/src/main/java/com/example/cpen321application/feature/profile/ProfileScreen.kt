@@ -12,6 +12,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.core.auth.AuthViewModel
@@ -19,7 +20,7 @@ import com.example.cpen321application.core.network.dto.EquipmentDto
 import com.example.cpen321application.core.network.dto.EquipmentType
 import com.example.cpen321application.core.ui.FollowWhileVisible
 import com.example.cpen321application.core.ui.components.FloatingMessage
-import com.example.cpen321application.core.ui.components.UnderlineTabs
+import com.example.cpen321application.core.ui.components.SegmentedControl
 
 private val PROFILE_TABS = listOf(ProfileTab.MATCH_HISTORY, ProfileTab.FRIENDS, ProfileTab.EQUIPMENT)
 
@@ -113,32 +114,35 @@ fun ProfileScreen(
     }
 }
 
-// The page itself: the header, rating, stats, and the selected tab
+// "Friends · 2" while friend requests are waiting
+private fun profileTabTitle(tab: ProfileTab, requests: Int): String = when (tab) {
+    ProfileTab.MATCH_HISTORY -> "History"
+    ProfileTab.FRIENDS -> if (requests > 0) "Friends · $requests" else "Friends"
+    ProfileTab.EQUIPMENT -> "Equipment"
+}
+
+// The page itself: the header, the stat tiles, and the selected tab
 @Composable
 private fun ProfileContent(uiState: ProfileUiState, actions: ProfileActions) {
     Column(modifier = Modifier.fillMaxSize()) {
         ProfileTopBar(onSignOut = actions.onSignOut)
 
         ProfileIdentity(name = uiState.name, username = uiState.username)
-        RatingCard(
+        StatTiles(
             rating = uiState.elo,
             lastChange = uiState.matchHistory.firstOrNull()?.ratingChange,
-            trend = ratingTrend(uiState.matchHistory),
+            record = recordText(uiState.matchHistory),
+            friends = uiState.friendCount,
             onOpenStats = actions.onOpenStats,
         )
-        StatsRow(
-            stats = listOf(
-                recordText(uiState.matchHistory) to "Record",
-                uiState.matchHistory.size.toString() to "Matches",
-                uiState.friendCount.toString() to "Friends",
-            )
-        )
 
-        UnderlineTabs(
-            titles = listOf("History", "Friends", "Equipment"),
-            selectedIndex = PROFILE_TABS.indexOf(uiState.selectedTab),
-            onSelect = { actions.onSelectTab(PROFILE_TABS[it]) },
-            badges = mapOf(PROFILE_TABS.indexOf(ProfileTab.FRIENDS) to uiState.friendRequests.size),
+        SegmentedControl(
+            options = PROFILE_TABS,
+            selected = uiState.selectedTab,
+            label = { tab -> profileTabTitle(tab, requests = uiState.friendRequests.size) },
+            onSelect = actions.onSelectTab,
+            role = Role.Tab,
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
 
         ProfileTabBody(

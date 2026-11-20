@@ -54,21 +54,22 @@ class ScheduleGameE2ETest {
         composeRule.onAllNodesWithText(court).onFirst().assertIsDisplayed()
         composeRule.onAllNodesWithText("Singles", substring = true).onFirst().assertIsDisplayed()
 
-        // The game is listed under My games. Its card shows the time; the day is in the header above it
+        // The game is listed under My games. Its card's date chip shows the day and the time, e.g. "Today · 4:15 PM"
         val cardTime = startsAt.substringAfter(" · ")
         composeRule.onNode(hasContentDescription("Back")).performClick()
         showMyGames()
-        waitForText(cardTime)
+        composeRule.waitUntil(TIMEOUT_MS) { countCards(cardTime) > 0 }
 
         cancelGame(cardTime)
 
         // Cancelled: back on the list, and the game is no longer in it
         showMyGames()
-        composeRule.waitUntil(TIMEOUT_MS) { countText(cardTime) == 0 }
+        composeRule.waitUntil(TIMEOUT_MS) { countCards(cardTime) == 0 }
     }
 
     private fun openGamesTab() {
-        val signedIn = hasText("Games") and hasClickAction()
+        // The bottom bar names tabs by their icon's content description
+        val signedIn = hasContentDescription("Games") and hasClickAction()
         val signedOut = hasText("Sign in with Google")
         composeRule.waitUntil(TIMEOUT_MS) { count(signedIn) > 0 || count(signedOut) > 0 }
         if (count(signedOut) > 0) {
@@ -125,7 +126,7 @@ class ScheduleGameE2ETest {
 
     // cardTime: the start time as the game's card in the list shows it, e.g. "4:15 PM"
     private fun cancelGame(cardTime: String) {
-        composeRule.onNodeWithText(cardTime, useUnmergedTree = true).performClick()
+        composeRule.onAllNodes(hasText(cardTime, substring = true), useUnmergedTree = true).onFirst().performClick()
         waitForText("Cancel game")
 
         composeRule.onNode(hasText("Cancel game") and hasClickAction()).performScrollTo().performClick()
@@ -149,6 +150,9 @@ class ScheduleGameE2ETest {
 
     // Text is matched in the unmerged tree, where each Text is its own node
     private fun countText(text: String) = count(hasText(text), useUnmergedTree = true)
+
+    // Game cards whose date chip ends with the given time
+    private fun countCards(cardTime: String) = count(hasText(cardTime, substring = true), useUnmergedTree = true)
 
     private fun count(matcher: SemanticsMatcher, useUnmergedTree: Boolean = false) =
         composeRule.onAllNodes(matcher, useUnmergedTree).fetchSemanticsNodes().size

@@ -1,8 +1,10 @@
 package com.example.cpen321application.feature.matchmaking
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,14 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetProperties
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,29 +26,49 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.cpen321application.R
 import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.Player
-import com.example.cpen321application.core.ui.components.PlayerAvatar
+import com.example.cpen321application.core.ui.components.ButtonStyle
 import com.example.cpen321application.core.ui.components.CourtMap
-import com.example.cpen321application.core.ui.components.LargeButtonHeight
-import com.example.cpen321application.core.ui.components.LiveLabel
+import com.example.cpen321application.core.ui.components.DonutButton
+import com.example.cpen321application.core.ui.components.IconBubble
+import com.example.cpen321application.core.ui.components.PlayerAvatar
+import com.example.cpen321application.core.ui.components.Sprinkle
+import com.example.cpen321application.core.ui.components.SprinkleTone
+import com.example.cpen321application.core.ui.components.Sprinkles
+import com.example.cpen321application.core.ui.components.StickerSurface
 import com.example.cpen321application.core.ui.formatStartTime
 import com.example.cpen321application.core.ui.label
 import com.example.cpen321application.core.ui.relativeStartText
 import com.example.cpen321application.core.ui.theme.DonutTextStyles
+import com.example.cpen321application.core.ui.theme.DonutTheme
+import com.example.cpen321application.core.ui.theme.StickerBorderWidth
+import com.example.cpen321application.core.ui.theme.sticker
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
-import kotlin.math.roundToInt
 
 // Players can accept until 30 minutes before the game starts (Product_Design §5.4)
 private val ACCEPT_BEFORE_START: Duration = Duration.ofMinutes(30)
-private const val PRIMARY_WEIGHT = 1.4f
+private val SHEET_SHAPE = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+private val AVATAR_SIZE = 64.dp
+private const val VS_TILT = -10f
+
+private val SPRINKLES = listOf(
+    Sprinkle(40f, 26f, 30f, SprinkleTone.CLAY),
+    Sprinkle(300f, 40f, -40f, SprinkleTone.GRASS),
+    Sprinkle(28f, 88f, 70f, SprinkleTone.BALL),
+    Sprinkle(318f, 96f, 15f, SprinkleTone.BLUE),
+)
 
 /**
  * What the match sheet's buttons do
@@ -62,7 +82,8 @@ data class MatchSheetActions(
 
 /**
  * The matched game waiting for the player's answer, as a bottom sheet that can't be swiped away or
- * closed with Back: Accept or Decline before answering, Go to game (or Decline) after.
+ * closed with Back: "It's a match!" with both sides, when and where, and I'm in! or Not this time.
+ * After answering it shows Go to game (or Not this time).
  * @param distanceKm from where the player searched to the court, null when that place is not known
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,104 +103,172 @@ fun MatchSheet(
     ModalBottomSheet(
         onDismissRequest = {},
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        shape = SHEET_SHAPE,
+        containerColor = MaterialTheme.colorScheme.surface,
         properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false)
     ) {
-        Column(
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            LiveLabel(matchTitle(prompt))
-            Text(
-                text = "${match.format.label} · ${relativeStartText(match.startsAt, LocalDate.now())}",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            if (!prompt.isBooked) {
-                CourtSection(match = match, distanceKm = distanceKm)
+        Box {
+            Sprinkles(SPRINKLES, modifier = Modifier.fillMaxWidth().height(100.dp))
+            Column(
+                modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Versus(match = match, prompt = prompt)
+                Text(
+                    text = matchTitle(prompt),
+                    style = MaterialTheme.typography.displaySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = matchSubtitle(prompt, match.format.label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                MatchDetails(match = match, prompt = prompt, distanceKm = distanceKm)
+                if (errorMessage != null) {
+                    Text(text = errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                }
+                MatchButtons(prompt, isAnswering, actions)
             }
-            Versus(match = match, prompt = prompt)
-            MatchNote(match = match, prompt = prompt)
-            if (errorMessage != null) {
-                Text(text = errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-            }
-            MatchButtons(prompt, isAnswering, actions.onAccept, actions.onCancel, actions.onGoToGame)
         }
     }
 }
 
+// Your side against theirs: overlapping 64 dp avatar stickers with a tilted "vs" between them
 @Composable
-private fun CourtSection(match: Game, distanceKm: Double?) {
-    val shape = MaterialTheme.shapes.medium
-    CourtMap(
-        name = match.court.name,
-        latitude = match.court.latitude,
-        longitude = match.court.longitude,
-        googlePlaceId = null,
-        onTouchedChange = {},
+private fun Versus(match: Game, prompt: MatchPrompt) {
+    val me = match.players.filter { it !in prompt.partners && it !in prompt.opponents }
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(112.dp)
-            .clip(shape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-    )
-    Column {
-        Text(
-            text = match.court.name,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (distanceKm != null) {
+            .padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy((-10).dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AvatarStack(players = me + prompt.partners)
+        StickerSurface(
+            modifier = Modifier
+                .zIndex(1f)
+                .size(40.dp)
+                .rotate(VS_TILT)
+                .clearAndSetSemantics {},
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.tertiary,
+        ) {
             Text(
-                text = "${distanceText(distanceKm)} away",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "vs",
+                style = DonutTextStyles.numericMedium.copy(fontSize = 15.sp, lineHeight = 15.sp),
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+        AvatarStack(players = prompt.opponents)
+    }
+}
+
+// In doubles each side has two players; the avatars overlap by 16 dp
+@Composable
+private fun AvatarStack(players: List<Player>) {
+    val donut = DonutTheme.colors
+    Row(horizontalArrangement = Arrangement.spacedBy((-16).dp)) {
+        players.forEach { player ->
+            PlayerAvatar(
+                name = player.name,
+                size = AVATAR_SIZE,
+                modifier = Modifier.sticker(CircleShape, donut.stickerBorder, donut.stickerShadow)
             )
         }
     }
 }
 
+// When, where and what's next, each in a white row with a coloured icon bubble
 @Composable
-private fun MatchNote(match: Game, prompt: MatchPrompt) {
-    val text = when {
-        prompt.isBooked -> "Everyone accepted. See you on court."
-        prompt.hasAccepted -> "Waiting for ${prompt.waitingFor.joinToString(", ") { it.name }} to accept."
-        else -> "Accept by ${formatStartTime(match.startsAt.minus(ACCEPT_BEFORE_START))}. Everyone has to accept."
-    }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Icon(
-            painter = painterResource(R.drawable.ic_timer),
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurface
+private fun MatchDetails(match: Game, prompt: MatchPrompt, distanceKm: Double?) {
+    val colors = MaterialTheme.colorScheme
+    val minutesToStart = Duration.between(Instant.now(), match.startsAt).toMinutes()
+    val acceptBy = formatStartTime(match.startsAt.minus(ACCEPT_BEFORE_START))
+    Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        DetailRow(
+            icon = R.drawable.ic_calendar_month_filled,
+            bubble = colors.primaryContainer to colors.onPrimaryContainer,
+            title = "${match.format.label} · ${relativeStartText(match.startsAt, LocalDate.now())}",
+            subtitle = startsInText(minutesToStart)
         )
-        Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        DetailRow(
+            icon = R.drawable.ic_location_on_filled,
+            bubble = colors.secondaryContainer to colors.onSecondaryContainer,
+            title = match.court.name,
+            subtitle = distanceKm?.let { "${distanceText(it)} away" } ?: "Court"
+        )
+        if (!prompt.isBooked) {
+            CourtMap(
+                name = match.court.name,
+                latitude = match.court.latitude,
+                longitude = match.court.longitude,
+                googlePlaceId = null,
+                onTouchedChange = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(104.dp)
+                    .clip(MaterialTheme.shapes.medium)
+                    .border(StickerBorderWidth, colors.outlineVariant, MaterialTheme.shapes.medium)
+            )
+        }
+        DetailRow(
+            icon = R.drawable.ic_timer_filled,
+            bubble = colors.tertiaryContainer to colors.onTertiaryContainer,
+            title = when {
+                prompt.isBooked -> "Booked"
+                prompt.hasAccepted -> "Waiting on the others"
+                else -> "Say yes by $acceptBy"
+            },
+            subtitle = if (prompt.isBooked) "See you on court" else "It's booked once everyone's in"
+        )
     }
 }
 
 @Composable
-private fun MatchButtons(
-    prompt: MatchPrompt,
-    isAnswering: Boolean,
-    onAccept: () -> Unit,
-    onCancel: () -> Unit,
-    onGoToGame: () -> Unit
-) {
-    Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+private fun DetailRow(@DrawableRes icon: Int, bubble: Pair<Color, Color>, title: String, subtitle: String) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.surfaceContainerLowest, MaterialTheme.shapes.medium)
+            .border(StickerBorderWidth, colors.outlineVariant, MaterialTheme.shapes.medium)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        IconBubble(icon = icon, container = bubble.first, content = bubble.second, size = 38.dp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun MatchButtons(prompt: MatchPrompt, isAnswering: Boolean, actions: MatchSheetActions) {
+    Row(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         // A booked game is cancelled from its own screen in Games
         if (!prompt.isBooked) {
-            OutlinedButton(
-                onClick = onCancel,
+            DonutButton(
+                text = "Not this time",
+                onClick = actions.onCancel,
                 enabled = !isAnswering,
-                modifier = Modifier.weight(1f).height(LargeButtonHeight)
-            ) { Text("Decline") }
+                style = ButtonStyle.SECONDARY,
+                modifier = Modifier.weight(1f)
+            )
         }
         val answered = prompt.hasAccepted || prompt.isBooked
-        Button(
-            onClick = if (answered) onGoToGame else onAccept,
+        DonutButton(
+            text = if (answered) "Go to game" else "I'm in!",
+            onClick = if (answered) actions.onGoToGame else actions.onAccept,
             enabled = !isAnswering,
-            modifier = Modifier.weight(PRIMARY_WEIGHT).height(LargeButtonHeight)
-        ) { Text(if (answered) "Go to game" else "Accept") }
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -188,72 +277,9 @@ fun MatchFellThroughDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Match fell through") },
-        text = { Text("Tap Find a match to search again.") },
+        text = { Text("Tap Find me a match to search again.") },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("OK") }
         }
     )
 }
-
-private fun matchTitle(prompt: MatchPrompt): String = when {
-    prompt.isBooked -> "Game on"
-    prompt.hasAccepted -> "You're in"
-    else -> "Match found"
-}
-
-// Your side against theirs: avatars, names, ratings. In doubles each side has two players.
-@Composable
-private fun Versus(match: Game, prompt: MatchPrompt) {
-    val me = match.players.filter { it !in prompt.partners && it !in prompt.opponents }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.medium)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        TeamColumn(players = me + prompt.partners, firstIsMe = me.isNotEmpty(), modifier = Modifier.weight(1f))
-        Text(
-            text = "VS",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        TeamColumn(players = prompt.opponents, firstIsMe = false, modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun TeamColumn(players: List<Player>, firstIsMe: Boolean, modifier: Modifier = Modifier) {
-    val ring = MaterialTheme.colorScheme.surfaceContainerLow
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(AVATAR_OVERLAP)) {
-            players.forEach { player ->
-                PlayerAvatar(
-                    name = player.name,
-                    size = 44.dp,
-                    modifier = Modifier.border(2.dp, ring, CircleShape)
-                )
-            }
-        }
-        Text(
-            text = players.mapIndexed { index, player -> if (firstIsMe && index == 0) "You" else player.name }
-                .joinToString(" & "),
-            style = MaterialTheme.typography.titleSmall,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = players.joinToString(" · ") { it.rating.roundToInt().toString() },
-            style = DonutTextStyles.numericSmall.copy(fontSize = 12.5.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-private val AVATAR_OVERLAP = (-10).dp

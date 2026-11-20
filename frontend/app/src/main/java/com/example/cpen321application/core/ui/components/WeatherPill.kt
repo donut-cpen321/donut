@@ -1,20 +1,24 @@
 package com.example.cpen321application.core.ui.components
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.cpen321application.R
 import com.example.cpen321application.core.data.model.Forecast
 import com.example.cpen321application.core.ui.WeatherKind
@@ -25,30 +29,38 @@ import com.example.cpen321application.core.ui.theme.DonutTextStyles
 import com.example.cpen321application.core.ui.theme.DonutTheme
 import com.example.cpen321application.core.ui.weatherKind
 
+// The chance of rain is a little lighter than the temperature
+private const val RAIN_ALPHA = 0.85f
+
 /**
- * The forecast at the court in one line: icon, temperature, chance of rain (in the info colour).
+ * The forecast at the court as a soft blue 28 dp pill: icon, temperature, chance of rain.
  * TalkBack reads the whole forecast, e.g. "11°C · light rain · 40% chance of rain".
  */
 @Composable
 fun WeatherPill(forecast: Forecast, modifier: Modifier = Modifier) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val donut = DonutTheme.colors
     val spoken = forecastText(forecast)
     Row(
-        modifier = modifier.clearAndSetSemantics { contentDescription = spoken },
+        modifier = modifier
+            .height(28.dp)
+            .background(donut.infoContainer, CircleShape)
+            .padding(start = 8.dp, end = 10.dp)
+            .clearAndSetSemantics { contentDescription = spoken },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Icon(
             painter = painterResource(weatherKind(forecast.description).icon),
             contentDescription = null,
-            tint = muted,
-            modifier = Modifier.size(18.dp),
+            tint = donut.onInfoContainer,
+            modifier = Modifier.size(16.dp),
         )
-        Text(text = temperatureText(forecast), style = DonutTextStyles.numericSmall.copy(fontSize = 13.sp), color = muted)
+        Text(text = temperatureText(forecast), style = DonutTextStyles.numericSmall, color = donut.onInfoContainer)
         Text(
             text = rainChanceText(forecast),
-            style = DonutTextStyles.numericSmall.copy(fontSize = 13.sp),
-            color = DonutTheme.colors.info,
+            style = DonutTextStyles.numericSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = donut.onInfoContainer,
+            modifier = Modifier.alpha(RAIN_ALPHA),
         )
     }
 }

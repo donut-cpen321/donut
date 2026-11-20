@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material Symbols Outlined, weight 300 (Apache 2.0). Tinted by Icon at the call site. -->
+<!-- Material Symbols Rounded, weight 500 (Apache 2.0). Tinted by Icon at the call site. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="960"
-    android:viewportHeight="960"
-    android:autoMirrored="true">
+    android:viewportHeight="960">
     <group android:translateY="960">
         <path
             android:fillColor="@android:color/white"
-            android:pathData="m517.85-480-184-184L376-706.15 602.15-480 376-253.85 333.85-296l184-184Z" />
+            android:pathData="M496.4-480 344.2-632.2Q331.5-644.9 331.5-664t12.7-31.8Q356.9-708.5 376-708.5t31.8 12.7l183.8 183.8q6.7 6.7 9.8 14.9 3.1 8.2 3.1 17.1 0 9-3.1 17.1-3.1 8.2-9.8 14.9L407.8-264.2Q395.1-251.5 376-251.5t-31.8-12.7Q331.5-276.9 331.5-296t12.7-31.8L496.4-480Z" />
     </group>
 </vector>

@@ -1,14 +1,13 @@
 package com.example.cpen321application.feature.matchmaking
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,22 +18,29 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.cpen321application.R
 import com.example.cpen321application.core.ui.components.ChipStyle
 import com.example.cpen321application.core.ui.components.DonutCard
-import com.example.cpen321application.core.ui.components.LargeButtonHeight
-import com.example.cpen321application.core.ui.components.RingSpinner
 import com.example.cpen321application.core.ui.components.StatusChip
-import com.example.cpen321application.core.ui.theme.DonutTextStyles
+import com.example.cpen321application.core.ui.components.TennisBall
+import com.example.cpen321application.core.ui.components.UnderlinedTextButton
 import kotlinx.coroutines.delay
 
 private const val TICK_MS = 1000L
 
+// The criteria chips, in the order criteriaChips gives them: distance, rating, start time
+private val CRITERIA_LOOKS = listOf(
+    ChipStyle.DATE to R.drawable.ic_location_on_filled,
+    ChipStyle.OPEN to R.drawable.ic_leaderboard_filled,
+    ChipStyle.BOOKED to R.drawable.ic_schedule_filled,
+)
+
 /**
- * Shown instead of Find a match while waiting in the queue: a spinner, the time waited, a map of the
- * players searching nearby, the rules of a match and Leave queue
+ * Shown instead of Find me a match while waiting in the queue, as a sticker: a bouncing ball,
+ * the time waited, a map of the players searching nearby, the rules of a match as coloured chips,
+ * and Leave the queue
  * @param title e.g. "Finding a match near you"
  * @param nearby the players searching nearby, null until the first load
  * @param leaveEnabled false while a join or leave is on its way to the backend
@@ -48,20 +54,25 @@ internal fun QueueStatus(
     leaveEnabled: Boolean,
     onLeaveQueue: () -> Unit
 ) {
-    DonutCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+    DonutCard(sticker = true, contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RingSpinner()
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            TennisBall(bouncing = true)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Usually a few minutes",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Text(
                 text = elapsedText(rememberSecondsInQueue()),
-                style = DonutTextStyles.numericSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum")
             )
         }
         QueueMap(nearby = nearby, modifier = Modifier.padding(top = 12.dp))
@@ -72,22 +83,21 @@ internal fun QueueStatus(
             modifier = Modifier.padding(top = 6.dp)
         )
         FlowRow(
-            modifier = Modifier.padding(top = 9.dp),
+            modifier = Modifier.padding(top = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            criteriaChips(format).forEach { StatusChip(text = it, style = ChipStyle.OUTLINE) }
+            criteriaChips(format).forEachIndexed { index, text ->
+                val (style, icon) = CRITERIA_LOOKS.getOrElse(index) { ChipStyle.DONE to null }
+                StatusChip(text = text, style = style, icon = icon)
+            }
         }
-        OutlinedButton(
+        UnderlinedTextButton(
+            text = "Leave the queue",
             onClick = onLeaveQueue,
             enabled = leaveEnabled,
-            modifier = Modifier
-                .padding(top = 9.dp)
-                .fillMaxWidth()
-                .height(LargeButtonHeight)
-        ) {
-            Text(text = "Leave queue")
-        }
+            modifier = Modifier.padding(top = 2.dp)
+        )
     }
 }
 

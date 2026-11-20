@@ -183,8 +183,8 @@ private fun handleAddressSearchResult(
 }
 
 /**
- * The Play tab: where, singles or doubles, then Find a match. While searching, the queue card
- * replaces the button.
+ * The Play tab: a court card, how it works, where, singles or doubles, then Find me a match.
+ * While searching, the queue card replaces the button.
  */
 @Composable
 fun MatchmakingScreen(
@@ -203,6 +203,7 @@ fun MatchmakingScreen(
                 .padding(bottom = 8.dp)
         ) {
             PlayHeader()
+            CourtCard()
             HowItWorksSteps()
             LocationSection(
                 uiState = uiState,

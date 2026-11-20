@@ -18,7 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,9 +41,10 @@ import com.example.cpen321application.core.ui.components.BackHeader
 import com.example.cpen321application.core.ui.components.ConfirmDialog
 import com.example.cpen321application.core.ui.components.CourtPickerDialog
 import com.example.cpen321application.core.ui.components.DateTimePickerDialog
+import com.example.cpen321application.core.ui.components.DonutTextField
 import com.example.cpen321application.core.ui.components.SectionLabel
+import com.example.cpen321application.core.ui.components.UnderlinedTextButton
 import com.example.cpen321application.core.ui.theme.DonutTextStyles
-import com.example.cpen321application.core.ui.theme.TextFieldShape
 import java.time.Instant
 
 // Tennis matches are best of 3 or 5 sets
@@ -165,7 +165,7 @@ fun GameDetailScreen(
                     text = uiState.errorMessage ?: "This game could not be loaded.",
                     color = MaterialTheme.colorScheme.error
                 )
-                TextButton(onClick = onRetry) { Text("Retry") }
+                UnderlinedTextButton(text = "Retry", onClick = onRetry)
             }
             else -> GameDetails(
                 game = game,
@@ -413,13 +413,12 @@ private fun ScoreForm(rounds: SnapshotStateList<RoundInput>, error: String?) {
 
 @Composable
 private fun ScoreField(value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
+    DonutTextField(
         value = value,
         // Digits only, and at most two of them
         onValueChange = { text -> onValueChange(text.filter { it.isDigit() }.take(2)) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        shape = TextFieldShape,
         textStyle = DonutTextStyles.numericSmall.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize),
         modifier = Modifier.width(80.dp)
     )

@@ -12,7 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,9 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.cpen321application.R
+import com.example.cpen321application.core.ui.theme.StickerBorderWidth
 
 // Rows in a list: 20 dp from the screen edge, at least 56 dp tall
 private val ROW_GUTTER = 20.dp
@@ -36,6 +40,7 @@ private val ROW_AVATAR = 36.dp
  * @param name shown as the title and used for the avatar's initials
  * @param supporting a second, muted line, e.g. "@mayac" or "Wants to be your friend"
  * @param supportingContent a second line drawn by the caller instead, e.g. a live dot and "Playing"
+ * @param gutter the space at the sides: 20 dp in a card's list, 12 dp when the row is its own ListCard
  * @param trailing put at the end of the row
  */
 @Composable
@@ -44,6 +49,7 @@ fun PersonRow(
     modifier: Modifier = Modifier,
     supporting: String? = null,
     avatarSize: Dp = ROW_AVATAR,
+    gutter: Dp = ROW_GUTTER,
     supportingContent: (@Composable () -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
@@ -51,7 +57,7 @@ fun PersonRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = ROW_MIN_HEIGHT)
-            .padding(horizontal = ROW_GUTTER, vertical = 8.dp),
+            .padding(horizontal = gutter, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -75,11 +81,11 @@ fun PersonRow(
 }
 
 /**
- * An empty place in a team: a dashed circle where the avatar would be, then "Open spot"
+ * An empty place in a team: a dashed circle with a + where the avatar would be, then "Open spot"
  */
 @Composable
 fun OpenSpotRow(modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
-    val outline = MaterialTheme.colorScheme.outline
+    val colors = MaterialTheme.colorScheme
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -93,21 +99,43 @@ fun OpenSpotRow(modifier: Modifier = Modifier, trailing: @Composable RowScope.()
                 .size(ROW_AVATAR)
                 .drawBehind {
                     val dash = 3.dp.toPx()
+                    val width = StickerBorderWidth.toPx()
                     drawCircle(
-                        color = outline,
-                        radius = size.minDimension / 2 - 1.dp.toPx(),
-                        style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash))),
+                        color = colors.outline,
+                        radius = size.minDimension / 2 - width / 2,
+                        style = Stroke(width, pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash))),
                     )
                 },
-        )
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_add),
+                contentDescription = null,
+                tint = colors.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
         Text(
             text = "Open spot",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = colors.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
         trailing()
     }
+}
+
+/**
+ * A white list card with 18 dp corners and a soft border: one per person, item or match in a list
+ */
+@Composable
+fun ListCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    StickerSurface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        shadowOffset = 0.dp,
+        border = MaterialTheme.colorScheme.outlineVariant,
+    ) { content() }
 }
 
 /**
@@ -124,30 +152,33 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * A 4 dp bar, filled in ink, e.g. how many players have registered
+ * An 8 dp pill bar, filled in grass, e.g. how many players have registered
  * @param filled from 0 to 1
  */
 @Composable
 fun FillBar(filled: Float, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(2.dp)
     Box(
         modifier = modifier
-            .height(4.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape),
+            .height(8.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(filled.coerceIn(0f, 1f))
-                .background(MaterialTheme.colorScheme.onSurface, shape),
+                .background(MaterialTheme.colorScheme.secondary, CircleShape),
         )
     }
 }
 
 /**
- * The label above a form field, e.g. FORMAT or START TIME, with room above it
+ * The label above a form field or a section, in sentence case, e.g. "Format" or "Where do you want to play?"
  */
 @Composable
-fun FormLabel(text: String) {
-    SectionLabel(text = text, modifier = Modifier.padding(start = 4.dp, top = 12.dp))
+fun FormLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        modifier = modifier.padding(start = 4.dp, top = 12.dp),
+    )
 }

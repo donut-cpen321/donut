@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,7 +11,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,7 +20,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.R
 import com.example.cpen321application.core.network.dto.FriendDto
+import com.example.cpen321application.core.ui.components.ButtonStyle
 import com.example.cpen321application.core.ui.components.ChipStyle
+import com.example.cpen321application.core.ui.components.DonutButton
 import com.example.cpen321application.core.ui.components.PlayerAvatar
 import com.example.cpen321application.core.ui.components.SmallButtonHeight
 import com.example.cpen321application.core.ui.components.StatusChip
@@ -147,13 +147,13 @@ private fun FriendInviteRow(
             InviteStatus.SENDING -> CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
             InviteStatus.NOTIFIED, InviteStatus.NOT_NOTIFIED ->
                 StatusChip(text = "Invited", style = ChipStyle.OPEN, icon = R.drawable.ic_check)
-            InviteStatus.NOT_INVITED -> OutlinedButton(
+            InviteStatus.NOT_INVITED -> DonutButton(
+                text = "Invite",
                 onClick = onInvite,
                 enabled = !isAnotherInviteSending,
-                modifier = Modifier.height(SmallButtonHeight)
-            ) {
-                Text("Invite")
-            }
+                style = ButtonStyle.SECONDARY,
+                height = SmallButtonHeight
+            )
         }
     }
 }

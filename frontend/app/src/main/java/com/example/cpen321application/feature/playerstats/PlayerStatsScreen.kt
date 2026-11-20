@@ -17,7 +17,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.example.cpen321application.core.network.dto.OpponentRatingBandDto
 import com.example.cpen321application.core.network.dto.PlayerStatsDto
 import com.example.cpen321application.core.ui.components.BackHeader
+import com.example.cpen321application.core.ui.components.UnderlinedTextButton
 import com.example.cpen321application.core.ui.ratingChangeText
 import com.example.cpen321application.core.ui.theme.DonutTheme
 import java.util.Locale
@@ -82,7 +82,7 @@ private fun LoadError(message: String?, onRetry: () -> Unit) {
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
         )
-        TextButton(onClick = onRetry) { Text("Retry") }
+        UnderlinedTextButton(text = "Retry", onClick = onRetry)
     }
 }
 

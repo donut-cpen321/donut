@@ -1,6 +1,5 @@
 package com.example.cpen321application.feature.tournamentdetail
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,7 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.cpen321application.core.ui.components.StickerSurface
 import com.example.cpen321application.core.ui.theme.DonutTextStyles
+import com.example.cpen321application.core.ui.theme.DonutTheme
+import com.example.cpen321application.core.ui.theme.StickerShadowOffset
 
 /**
  * The bracket, one column per round, scrolling sideways on narrow screens
@@ -67,20 +68,20 @@ private fun RoundColumn(column: BracketColumn, onMatchClick: (gameId: String) ->
     }
 }
 
-// A hairline card per match; it opens the match's game once both teams are known
+// A card per match: a sticker once it has a game to open, a plain bordered card until then
 @Composable
 private fun MatchCard(match: BracketMatch, onMatchClick: (gameId: String) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val decided = match.team1.isWinner || match.team2.isWinner
-    Surface(
-        onClick = { match.gameId?.let(onMatchClick) },
-        enabled = match.gameId != null,
+    val gameId = match.gameId
+    StickerSurface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         shape = MaterialTheme.shapes.medium,
-        color = colors.surfaceContainerLowest,
-        border = BorderStroke(1.dp, colors.outlineVariant)
+        onClick = gameId?.let { { onMatchClick(it) } },
+        shadowOffset = if (gameId != null) StickerShadowOffset else 0.dp,
+        border = if (gameId != null) DonutTheme.colors.stickerBorder else colors.outlineVariant,
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             SlotRow(slot = match.team1, matchHasWinner = decided)
@@ -95,7 +96,7 @@ private fun SlotRow(slot: BracketSlot, matchHasWinner: Boolean) {
     // Once the match has a winner, the loser is muted
     val colors = MaterialTheme.colorScheme
     val color = if (matchHasWinner && !slot.isWinner) colors.onSurfaceVariant else colors.onSurface
-    val numbers = DonutTextStyles.numericSmall.copy(fontWeight = if (slot.isWinner) FontWeight.SemiBold else FontWeight.Medium)
+    val numbers = DonutTextStyles.numericSmall.copy(fontWeight = if (slot.isWinner) FontWeight.ExtraBold else FontWeight.Medium)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = slot.seed?.toString().orEmpty(),
@@ -115,7 +116,7 @@ private fun SlotRow(slot: BracketSlot, matchHasWinner: Boolean) {
             Text(
                 text = score.toString(),
                 style = numbers,
-                color = color,
+                color = if (slot.isWinner) colors.secondary else color,
                 textAlign = TextAlign.End,
                 modifier = Modifier.width(14.dp)
             )

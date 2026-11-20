@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material Symbols Outlined, weight 300 (Apache 2.0). Tinted by Icon at the call site. -->
+<!-- Material Symbols Rounded, weight 500 (Apache 2.0). Tinted by Icon at the call site. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -8,6 +8,6 @@
     <group android:translateY="960">
         <path
             android:fillColor="@android:color/white"
-            android:pathData="M450-450H220v-60h230v-230h60v230h230v60H510v230h-60v-230Z" />
+            android:pathData="M434.5-434.5H237.4q-19.1 0-32.3-13.2-13.2-13.2-13.2-32.3t13.2-32.3q13.2-13.2 32.3-13.2H434.5v-197.1q0-19.1 13.2-32.3 13.2-13.2 32.3-13.2t32.3 13.2q13.2 13.2 13.2 32.3v197.1h197.1q19.1 0 32.3 13.2 13.2 13.2 13.2 32.3t-13.2 32.3q-13.2 13.2-32.3 13.2H525.5v197.1q0 19.1-13.2 32.3-13.2 13.2-32.3 13.2t-32.3-13.2q-13.2-13.2-13.2-32.3V-434.5Z" />
     </group>
 </vector>

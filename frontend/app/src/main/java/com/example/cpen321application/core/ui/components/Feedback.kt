@@ -2,6 +2,7 @@ package com.example.cpen321application.core.ui.components
 
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -22,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,8 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -68,13 +71,13 @@ fun rememberReducedMotion(): Boolean {
 }
 
 /**
- * A thin ring with a green arc that turns once every 1.1 s. With animations off it stays still.
+ * A thin ring with a clay arc that turns once every 1.1 s. With animations off it stays still.
  * @param size the ring's diameter
  */
 @Composable
 fun RingSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp) {
     val track = MaterialTheme.colorScheme.outlineVariant
-    val arc = MaterialTheme.colorScheme.secondary
+    val arc = MaterialTheme.colorScheme.primary
     val reducedMotion = rememberReducedMotion()
     val rotation = if (reducedMotion) {
         0f
@@ -111,7 +114,7 @@ fun RingSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp) {
  * A MessageBanner floating over the top of the screen: it slides down when a message arrives and back up when
  * it is dismissed or times out, without moving anything under it. Put it last in a Box over the screen
  * @param message what happened, or null to hide it
- * @param isError leaves out the success check, and keeps the message up until dismissed
+ * @param isError red, and keeps the message up until dismissed
  * @param onDismiss hides the message
  */
 @Composable
@@ -133,10 +136,11 @@ fun FloatingMessage(message: String?, isError: Boolean, onDismiss: () -> Unit, m
 }
 
 /**
- * A dark snackbar-style message, e.g. "Friend request sent", with a close button. A success hides itself after
- * a few seconds, like a snackbar; an error stays until dismissed, so it isn't missed
+ * A soft pill message, e.g. "Friend request sent!": grass for good news, red for errors, with a
+ * close button. It is a sticker, since it floats over the screen. A success hides itself after a
+ * few seconds, like a snackbar; an error stays until dismissed, so it isn't missed
  * @param message what happened
- * @param isError leaves out the success check, and keeps the message up
+ * @param isError red, leaves out the success check, and keeps the message up
  * @param onDismiss hides the message
  */
 @Composable
@@ -152,25 +156,22 @@ fun MessageBanner(message: String, isError: Boolean, onDismiss: () -> Unit, modi
     }
 
     val colors = MaterialTheme.colorScheme
-    Surface(
+    StickerSurface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = colors.inverseSurface,
-        // Lifted off the screen, since it floats over it
-        shadowElevation = 6.dp,
-        contentColor = colors.inverseOnSurface,
+        shape = RoundedCornerShape(20.dp),
+        color = if (isError) colors.errorContainer else colors.secondaryContainer,
+        contentColor = if (isError) colors.onErrorContainer else colors.onSecondaryContainer,
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Errors say what went wrong in the text; successes get a ball-yellow check
+            // Errors say what went wrong in the text; successes get a check
             if (!isError) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_check),
+                    painter = painterResource(R.drawable.ic_check_filled),
                     contentDescription = null,
-                    tint = DonutTheme.colors.highlight,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -181,3 +182,49 @@ fun MessageBanner(message: String, isError: Boolean, onDismiss: () -> Unit, modi
         }
     }
 }
+
+/**
+ * The Clubhouse tennis ball: ball yellow with an ink outline and white seams. It bounces while
+ * the app looks for players (1 s, ease in and out); with animations off it stays still.
+ * @param size its diameter
+ * @param bouncing whether it bounces
+ */
+@Composable
+fun TennisBall(modifier: Modifier = Modifier, size: Dp = 30.dp, bouncing: Boolean = false) {
+    val ball = MaterialTheme.colorScheme.tertiary
+    val ink = DonutTheme.colors.stickerBorder
+    val reducedMotion = rememberReducedMotion()
+    val lift = if (bouncing && !reducedMotion) {
+        val transition = rememberInfiniteTransition(label = "bounce")
+        val value by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(BOUNCE_MS / 2, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "lift",
+        )
+        value
+    } else {
+        0f
+    }
+    Canvas(modifier = modifier.size(size)) {
+        // Drawn on a 34 x 34 grid, as in the design
+        val unit = this.size.minDimension / BALL_GRID
+        translate(top = -lift * BOUNCE_HEIGHT * unit) {
+            drawCircle(color = ball, radius = BALL_RADIUS * unit)
+            drawCircle(color = ink, radius = BALL_RADIUS * unit, style = Stroke(width = 2 * unit))
+            val seam = Path().apply {
+                moveTo(6 * unit, 8 * unit)
+                cubicTo(12 * unit, 12 * unit, 12 * unit, 22 * unit, 6 * unit, 26 * unit)
+                moveTo(28 * unit, 8 * unit)
+                cubicTo(22 * unit, 12 * unit, 22 * unit, 22 * unit, 28 * unit, 26 * unit)
+            }
+            drawPath(seam, color = Color.White, style = Stroke(width = 2 * unit, cap = StrokeCap.Round))
+        }
+    }
+}
+
+private const val BOUNCE_MS = 1000
+private const val BALL_GRID = 34f
+private const val BALL_RADIUS = 15f
+// How high the ball bounces, in grid units
+private const val BOUNCE_HEIGHT = 5f

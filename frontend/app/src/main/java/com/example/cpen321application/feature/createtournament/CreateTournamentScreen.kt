@@ -4,13 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -24,12 +23,12 @@ import com.example.cpen321application.R
 import com.example.cpen321application.core.data.model.Court
 import com.example.cpen321application.core.data.model.Format
 import com.example.cpen321application.core.ui.components.BackHeader
-import com.example.cpen321application.core.ui.components.FormLabel
-import com.example.cpen321application.core.ui.components.SegmentedControl
-import com.example.cpen321application.core.ui.theme.TextFieldShape
 import com.example.cpen321application.core.ui.components.CourtPickerDialog
 import com.example.cpen321application.core.ui.components.DateTimePickerDialog
+import com.example.cpen321application.core.ui.components.DonutTextField
+import com.example.cpen321application.core.ui.components.FormLabel
 import com.example.cpen321application.core.ui.components.PickerButton
+import com.example.cpen321application.core.ui.components.SegmentedControl
 import com.example.cpen321application.core.ui.components.SubmitButton
 import com.example.cpen321application.core.ui.formatStartsAt
 import com.example.cpen321application.core.ui.label
@@ -135,13 +134,12 @@ private fun CreateTournamentForm(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         FormLabel("Name")
-        OutlinedTextField(
+        DonutTextField(
             value = uiState.name,
             onValueChange = callbacks.onNameChange,
             placeholder = { Text("e.g. Kits Fall Classic") },
             supportingText = { Text("${uiState.name.length}/$MAX_NAME_LENGTH") },
             singleLine = true,
-            shape = TextFieldShape,
             modifier = Modifier.fillMaxWidth()
         )
 

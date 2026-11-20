@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,25 +20,27 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.core.data.model.GameStatus
 import com.example.cpen321application.core.ui.theme.DonutTheme
+import com.example.cpen321application.core.ui.theme.StickerBorderWidth
 
 enum class ChipStyle {
-    OPEN,        // free spots: green container
-    YOU,         // the signed-in user is in it: ink
-    BOOKED,      // every spot filled: neutral
-    DONE,        // completed: outline only
+    OPEN,        // free spots: grass container
+    YOU,         // the signed-in user is in it: clay
+    BOOKED,      // every spot filled: info blue container
+    DONE,        // completed: neutral
     CANCELLED,   // red container
-    TOURNAMENT,  // ball-yellow container
+    TOURNAMENT,  // ball yellow with an ink border
+    DATE,        // when a game starts: peach container
     UP,          // rating went up
     DOWN,        // rating went down
-    OUTLINE,     // a plain fact, like a matchmaking criterion
-    LIVE,        // happening right now: the live dot and green text, no fill
+    OUTLINE,     // a plain fact on white with an ink border, e.g. the rank on Profile
+    LIVE,        // happening right now: the live dot and clay text, no fill
 }
 
 /**
- * A 24 dp label for a state, like "1 spot left", "Booked" or "+14"
+ * A 28 dp pill for a state, like "1 spot left", "Booked" or "Today · 6:30 PM"
  * @param text what the chip says
  * @param style its colours
- * @param icon an optional 14 dp icon before the text, e.g. R.drawable.ic_star_filled
+ * @param icon an optional 16 dp filled icon before the text, e.g. R.drawable.ic_emoji_events_filled
  */
 @Composable
 fun StatusChip(
@@ -49,28 +51,55 @@ fun StatusChip(
 ) {
     val (container, content) = chipColors(style)
     val border = when (style) {
-        ChipStyle.DONE, ChipStyle.OUTLINE -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ChipStyle.TOURNAMENT, ChipStyle.OUTLINE -> BorderStroke(StickerBorderWidth, DonutTheme.colors.stickerBorder)
         else -> null
     }
     Surface(
-        modifier = modifier.height(24.dp),
-        shape = RoundedCornerShape(8.dp),
+        modifier = modifier.height(28.dp),
+        shape = CircleShape,
         color = container,
         contentColor = content,
         border = border,
     ) {
         Row(
             // A live chip has no fill, so it lines up with the text around it, like the design's live label
-            modifier = Modifier.padding(horizontal = if (style == ChipStyle.LIVE) 0.dp else 9.dp),
+            modifier = when {
+                style == ChipStyle.LIVE -> Modifier
+                icon == null -> Modifier.padding(horizontal = 11.dp)
+                else -> Modifier.padding(start = 8.dp, end = 11.dp)
+            },
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             if (style == ChipStyle.LIVE) {
                 LiveDot(dotSize = 6.dp)
             } else if (icon != null) {
-                Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(16.dp))
             }
             Text(text = text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * The "Donut set!" badge for a won set that ended 6–0, with the donut mark
+ */
+@Composable
+fun DonutSetChip(modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.height(24.dp),
+        shape = CircleShape,
+        color = colors.tertiaryContainer,
+        contentColor = colors.onTertiaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 4.dp, end = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            DonutMark(size = 18.dp)
+            Text(text = "Donut set!", style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
@@ -82,14 +111,15 @@ private fun chipColors(style: ChipStyle): Pair<Color, Color> {
     return when (style) {
         ChipStyle.OPEN -> colors.secondaryContainer to colors.onSecondaryContainer
         ChipStyle.YOU -> colors.primary to colors.onPrimary
-        ChipStyle.BOOKED -> colors.surfaceContainerHigh to colors.onSurface
-        ChipStyle.DONE -> Color.Transparent to colors.onSurfaceVariant
+        ChipStyle.BOOKED -> donut.infoContainer to donut.onInfoContainer
+        ChipStyle.DONE -> colors.surfaceContainerHigh to colors.onSurfaceVariant
         ChipStyle.CANCELLED -> colors.errorContainer to colors.onErrorContainer
-        ChipStyle.TOURNAMENT -> colors.tertiaryContainer to colors.onTertiaryContainer
+        ChipStyle.TOURNAMENT -> colors.tertiary to colors.onTertiary
+        ChipStyle.DATE -> colors.primaryContainer to colors.onPrimaryContainer
         ChipStyle.UP -> donut.winContainer to donut.onWinContainer
         ChipStyle.DOWN -> donut.lossContainer to donut.onLossContainer
-        ChipStyle.OUTLINE -> Color.Transparent to colors.onSurface
-        ChipStyle.LIVE -> Color.Transparent to colors.secondary
+        ChipStyle.OUTLINE -> colors.surfaceContainerLowest to colors.onSurface
+        ChipStyle.LIVE -> Color.Transparent to donut.live
     }
 }
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Mirrors background in core/ui/theme/Color.kt -->
-    <color name="donut_background">#FFF7F7F4</color>
+    <color name="donut_background">#FFFBF5EC</color>
 </resources>

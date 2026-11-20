@@ -9,168 +9,169 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.example.cpen321application.R
 
-// Option A · Baseline. Fonts are bundled in app/src/main/res/font/ (static TTFs, SIL OFL):
-//   geist_semibold.ttf, geist_bold.ttf, geist_regular.ttf, geist_medium.ttf, geist_mono_medium.ttf, geist_mono_semibold.ttf
-// Download: https://fonts.google.com/specimen/Geist  https://fonts.google.com/specimen/Geist+Mono
+// Option C · Clubhouse. Fonts are bundled in app/src/main/res/font/ (static TTFs, SIL OFL):
+//   bricolage_grotesque_bold.ttf, bricolage_grotesque_extrabold.ttf, figtree_regular.ttf, figtree_medium.ttf, figtree_semibold.ttf, figtree_bold.ttf, figtree_extrabold.ttf
+// Download: https://fonts.google.com/specimen/Bricolage+Grotesque  https://fonts.google.com/specimen/Figtree
 
-val Geist = FontFamily(
-    Font(R.font.geist_semibold, FontWeight.SemiBold),
-    Font(R.font.geist_bold, FontWeight.Bold),
-    Font(R.font.geist_regular, FontWeight.Normal),
-    Font(R.font.geist_medium, FontWeight.Medium)
+val BricolageGrotesque = FontFamily(
+    Font(R.font.bricolage_grotesque_bold, FontWeight.Bold),
+    Font(R.font.bricolage_grotesque_extrabold, FontWeight.ExtraBold)
 )
 
-val GeistMono = FontFamily(
-    Font(R.font.geist_mono_medium, FontWeight.Medium),
-    Font(R.font.geist_mono_semibold, FontWeight.SemiBold)
+val Figtree = FontFamily(
+    Font(R.font.figtree_regular, FontWeight.Normal),
+    Font(R.font.figtree_medium, FontWeight.Medium),
+    Font(R.font.figtree_semibold, FontWeight.SemiBold),
+    Font(R.font.figtree_bold, FontWeight.Bold),
+    Font(R.font.figtree_extrabold, FontWeight.ExtraBold)
 )
 
 // Roles marked UPPER are drawn uppercase: call .uppercase() on the string at the call site
 // (Compose has no text-transform). See the brief for the effect on tests.
 val DonutTypography = Typography(
     displayLarge = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Bold,
-        fontSize = 57.sp,
-        lineHeight = 64.sp,
-        letterSpacing = (-0.04).em
-    ),
-    displayMedium = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Bold,
-        fontSize = 45.sp,
-        lineHeight = 52.sp,
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 56.sp,
+        lineHeight = 60.sp,
         letterSpacing = (-0.035).em
     ),
+    displayMedium = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 44.sp,
+        lineHeight = 48.sp,
+        letterSpacing = (-0.03).em
+    ),
     displaySmall = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 44.sp,
-        letterSpacing = (-0.03).em
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.03).em
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 34.sp,
+        lineHeight = 38.sp,
         letterSpacing = (-0.025).em
     ),
-    headlineSmall = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.SemiBold,
+    headlineLarge = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 30.sp,
+        lineHeight = 34.sp,
+        letterSpacing = (-0.025).em
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
-        lineHeight = 32.sp,
+        lineHeight = 30.sp,
         letterSpacing = (-0.02).em
     ),
-    titleLarge = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 28.sp,
+    headlineSmall = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Bold,
+        fontSize = 21.sp,
+        lineHeight = 26.sp,
         letterSpacing = (-0.015).em
     ),
-    titleMedium = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
+    titleLarge = TextStyle(
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
         letterSpacing = (-0.01).em
     ),
-    titleSmall = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+    titleMedium = TextStyle(
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.5.sp,
+        lineHeight = 21.sp,
         letterSpacing = (-0.005).em
     ),
+    titleSmall = TextStyle(
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Bold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.em
+    ),
     bodyLarge = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Normal,
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Medium,
         fontSize = 16.sp,
         lineHeight = 24.sp,
         letterSpacing = 0.em
     ),
     bodyMedium = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Normal,
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
         letterSpacing = 0.em
     ),
     bodySmall = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Normal,
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Medium,
         fontSize = 12.5.sp,
         lineHeight = 17.sp,
         letterSpacing = 0.005.em
     ),
     labelLarge = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Bold,
         fontSize = 15.sp,
         lineHeight = 20.sp,
-        letterSpacing = (-0.005).em
+        letterSpacing = 0.em
     ),
     labelMedium = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.Medium,
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Bold,
         fontSize = 12.sp,
         lineHeight = 16.sp,
         letterSpacing = 0.01.em
     ),
     labelSmall = TextStyle(
-        fontFamily = Geist,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = Figtree,
+        fontWeight = FontWeight.ExtraBold,
         fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.08.em
+        lineHeight = 14.sp,
+        letterSpacing = 0.06.em
     ) /* UPPER */
 )
 
 /** Styles outside the M3 scale: ratings, scores, rating deltas */
 object DonutTextStyles {
     val numericLarge = TextStyle(
-        fontFamily = GeistMono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 56.sp,
-        lineHeight = 60.sp,
-        letterSpacing = (-0.05).em,
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 44.sp,
+        lineHeight = 48.sp,
+        letterSpacing = (-0.03).em,
         fontFeatureSettings = "tnum"
     )
     val numericMedium = TextStyle(
-        fontFamily = GeistMono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 22.sp,
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 24.sp,
         lineHeight = 28.sp,
-        letterSpacing = (-0.03).em,
-        fontFeatureSettings = "tnum"
-    )
-
-    // A game's start time on its card: titleLarge in mono
-    val numericTitle = TextStyle(
-        fontFamily = GeistMono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
-        letterSpacing = (-0.03).em,
-        fontFeatureSettings = "tnum"
-    )
-
-    // Rating deltas, set scores and the W / L badge
-    val numericSmall = TextStyle(
-        fontFamily = GeistMono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 18.sp,
         letterSpacing = (-0.02).em,
+        fontFeatureSettings = "tnum"
+    )
+
+    // A game's start time or a set score: headlineSmall's size in the numeric face
+    val numericTitle = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 20.sp,
+        lineHeight = 24.sp,
+        letterSpacing = (-0.02).em,
+        fontFeatureSettings = "tnum"
+    )
+
+    // Ratings in rows and pills, set scores and rating deltas: Figtree with tabular figures
+    val numericSmall = TextStyle(
+        fontFamily = Figtree,
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.em,
         fontFeatureSettings = "tnum"
     )
 }

@@ -77,4 +77,40 @@ class MatchPromptTest {
         assertTrue(prompt.isBooked)
         assertEquals(emptyList<Player>(), prompt.waitingFor)
     }
+
+    // Input: a singles match nobody answered, then accepted by alice, then booked
+    // Expected output: the title and the line under it follow the answers
+    @Test
+    fun sheetTextFollowsTheAnswers() {
+        val open = matchPrompt(match(listOf(alice, bob)), "alice")
+        assertEquals("It's a match!", matchTitle(open))
+        assertEquals("Bob (1540) wants a singles game too.", matchSubtitle(open, "Singles"))
+
+        val answered = matchPrompt(match(listOf(alice.copy(acceptedAt = accepted), bob)), "alice")
+        assertEquals("You're in!", matchTitle(answered))
+        assertEquals("Waiting for Bob to say yes.", matchSubtitle(answered, "Singles"))
+
+        val booked = matchPrompt(match(listOf(alice, bob), status = GameStatus.BOOKED), "alice")
+        assertEquals("Game on!", matchTitle(booked))
+        assertEquals("Everyone's in. See you on court!", matchSubtitle(booked, "Singles"))
+    }
+
+    // Input: a doubles match seen by alice, nobody has answered
+    // Expected output: both opponents are named, without ratings
+    @Test
+    fun doublesSubtitleNamesBothOpponents() {
+        val prompt = matchPrompt(match(listOf(alice, bob, carol, dan), Format.DOUBLES), "alice")
+
+        assertEquals("Bob & Dan want a doubles game too.", matchSubtitle(prompt, "Doubles"))
+    }
+
+    // Input: minutes until the game starts
+    // Expected output: rounded to what a person would say
+    @Test
+    fun startsInRoundsToWhatPeopleSay() {
+        assertEquals("Starting now", startsInText(0))
+        assertEquals("In 30 min", startsInText(30))
+        assertEquals("An hour from now", startsInText(60))
+        assertEquals("In about 2 hours", startsInText(110))
+    }
 }

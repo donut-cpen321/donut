@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Small icon of push notifications: the white mark, never the launcher foreground -->
-    <drawable name="ic_stat_donut">@drawable/ic_donut_mark</drawable>
-</resources>

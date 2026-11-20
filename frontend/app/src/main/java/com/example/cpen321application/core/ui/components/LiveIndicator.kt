@@ -28,7 +28,8 @@ private const val PULSE_MS = 1600
 private const val HALO_START_ALPHA = 0.35f
 
 /**
- * A green dot with a pulsing halo, for something happening right now, e.g. a match found or a friend playing.
+ * A dot in the live colour (clay) with a pulsing halo, for something happening right now, e.g. a match
+ * found or a friend playing.
  * It always takes twice the dot's size, so the pulse never moves what is around it
  * @param dotSize the dot's diameter; the halo grows to twice it
  */
@@ -70,7 +71,7 @@ fun LiveLabel(text: String, modifier: Modifier = Modifier) {
         Text(
             text = text.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.secondary,
+            color = DonutTheme.colors.live,
         )
     }
 }
@@ -86,6 +87,6 @@ fun LiveStatusText(text: String, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         LiveDot(dotSize = 6.dp)
-        Text(text = text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+        Text(text = text, style = MaterialTheme.typography.bodySmall, color = DonutTheme.colors.live)
     }
 }

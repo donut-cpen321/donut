@@ -1,7 +1,7 @@
 package com.example.cpen321application.feature.profile
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,14 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,7 +23,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -38,16 +31,15 @@ import androidx.compose.ui.unit.dp
 import com.example.cpen321application.R
 import com.example.cpen321application.core.network.dto.FriendDto
 import com.example.cpen321application.core.network.dto.FriendRequestDto
+import com.example.cpen321application.core.ui.components.ButtonStyle
+import com.example.cpen321application.core.ui.components.DonutButton
+import com.example.cpen321application.core.ui.components.ListCard
 import com.example.cpen321application.core.ui.components.LiveStatusText
 import com.example.cpen321application.core.ui.components.PersonRow
+import com.example.cpen321application.core.ui.components.RoundIconButton
 import com.example.cpen321application.core.ui.components.SectionLabel
 import com.example.cpen321application.core.ui.components.SmallButtonHeight
 import kotlin.math.roundToInt
-
-// Dividers start where the name does: 20 dp gutter + 36 dp avatar + 12 dp
-private val DIVIDER_INSET = 68.dp
-// The outline of Remove is the error colour at 40%, like every destructive button
-private const val REMOVE_OUTLINE_ALPHA = 0.4f
 
 @Composable
 internal fun FriendsTabContent(
@@ -63,7 +55,8 @@ internal fun FriendsTabContent(
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             friendRequestsSection(uiState = uiState, actions = actions)
             friendsListSection(uiState = uiState, actions = actions, onOpenPlaying = { openFriendId = it })
@@ -91,26 +84,17 @@ private fun ListHeader(text: String, onRefresh: (() -> Unit)?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .padding(start = 20.dp, end = 8.dp, top = 4.dp),
+            .heightIn(min = 52.dp)
+            .padding(start = 4.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SectionLabel(text = text, modifier = Modifier.weight(1f))
         if (onRefresh != null) {
-            IconButton(onClick = onRefresh) {
-                Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh Friends")
-            }
+            RoundIconButton(icon = R.drawable.ic_refresh, contentDescription = "Refresh Friends", onClick = onRefresh)
         }
     }
 }
 
-@Composable
-private fun RowDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(start = DIVIDER_INSET, end = 20.dp),
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
-}
 
 private fun LazyListScope.friendRequestsSection(
     uiState: ProfileUiState,
@@ -121,10 +105,7 @@ private fun LazyListScope.friendRequestsSection(
     item(key = "requests-header") {
         ListHeader(text = "Requests · ${uiState.friendRequests.size}", onRefresh = actions.onRefresh)
     }
-    itemsIndexed(uiState.friendRequests, key = { _, request -> "request-${request.userId}" }) { index, request ->
-        if (index > 0) {
-            RowDivider()
-        }
+    items(uiState.friendRequests, key = { request -> "request-${request.userId}" }) { request ->
         FriendRequestRow(
             request = request,
             isActionInProgress = uiState.isActionInProgress,
@@ -159,10 +140,7 @@ private fun LazyListScope.friendsListSection(
             )
         }
     } else {
-        itemsIndexed(uiState.friends, key = { _, friend -> "friend-${friend.userId}" }) { index, friend ->
-            if (index > 0) {
-                RowDivider()
-            }
+        items(uiState.friends, key = { friend -> "friend-${friend.userId}" }) { friend ->
             FriendRow(
                 friend = friend,
                 isActionInProgress = uiState.isActionInProgress,
@@ -179,18 +157,19 @@ private fun FriendRequestRow(
     isActionInProgress: Boolean,
     onAccept: () -> Unit,
 ) {
-    PersonRow(
-        name = request.displayName,
-        supportingContent = { PersonSubtitle(username = request.username) { MutedLine("Wants to be your friend") } },
-    ) {
-        Button(
-            onClick = onAccept,
-            enabled = !isActionInProgress,
-            modifier = Modifier.height(SmallButtonHeight),
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+    ListCard {
+        PersonRow(
+            name = request.displayName,
+            gutter = 12.dp,
+            supportingContent = { PersonSubtitle(username = request.username) { MutedLine("Wants to be your friend") } },
         ) {
-            Icon(painterResource(R.drawable.ic_check), contentDescription = null, modifier = Modifier.size(18.dp))
-            Text("Accept", modifier = Modifier.padding(start = 6.dp))
+            DonutButton(
+                text = "Accept",
+                onClick = onAccept,
+                enabled = !isActionInProgress,
+                height = SmallButtonHeight,
+                icon = R.drawable.ic_check,
+            )
         }
     }
 }
@@ -231,38 +210,36 @@ private fun FriendRow(
     onRemove: () -> Unit,
     onOpenPlaying: () -> Unit,
 ) {
-    val error = MaterialTheme.colorScheme.error
     val status = friendStatusText(friend)
     val isPlaying = friend.playing != null
-    PersonRow(
-        name = friend.displayName,
-        modifier = if (isPlaying) {
-            Modifier.clickable(onClickLabel = "See ${friend.displayName}'s game", onClick = onOpenPlaying)
-        } else {
-            Modifier
-        },
-        supportingContent = {
-            PersonSubtitle(
-                username = friend.username,
-                status = when {
-                    status == null -> null
-                    isPlaying -> { { LiveStatusText(status) } }
-                    else -> { { MutedLine(status) } }
-                },
-            )
-        },
-    ) {
-        OutlinedButton(
-            onClick = onRemove,
-            enabled = !isActionInProgress,
-            modifier = Modifier
-                .height(SmallButtonHeight)
-                .semantics { contentDescription = "Remove ${friend.displayName}" },
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = error),
-            border = BorderStroke(1.dp, error.copy(alpha = REMOVE_OUTLINE_ALPHA)),
-            contentPadding = PaddingValues(horizontal = 16.dp),
+    ListCard {
+        PersonRow(
+            name = friend.displayName,
+            modifier = if (isPlaying) {
+                Modifier.clickable(onClickLabel = "See ${friend.displayName}'s game", onClick = onOpenPlaying)
+            } else {
+                Modifier
+            },
+            gutter = 12.dp,
+            supportingContent = {
+                PersonSubtitle(
+                    username = friend.username,
+                    status = when {
+                        status == null -> null
+                        isPlaying -> { { LiveStatusText(status) } }
+                        else -> { { MutedLine(status) } }
+                    },
+                )
+            },
         ) {
-            Text("Remove")
+            DonutButton(
+                text = "Remove",
+                onClick = onRemove,
+                enabled = !isActionInProgress,
+                style = ButtonStyle.DANGER,
+                height = SmallButtonHeight,
+                modifier = Modifier.semantics { contentDescription = "Remove ${friend.displayName}" },
+            )
         }
     }
 }

@@ -7,22 +7,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -39,9 +35,11 @@ import androidx.compose.ui.unit.dp
 import com.example.cpen321application.R
 import com.example.cpen321application.core.data.model.isRegistered
 import com.example.cpen321application.core.ui.FollowWhileVisible
-import com.example.cpen321application.core.ui.components.UnderlineTabs
-import com.example.cpen321application.core.ui.dayHeaderText
-import com.example.cpen321application.core.ui.startDay
+import com.example.cpen321application.core.ui.components.DonutButton
+import com.example.cpen321application.core.ui.components.RoundIconButton
+import com.example.cpen321application.core.ui.components.SegmentedControl
+import com.example.cpen321application.core.ui.components.SmallButtonHeight
+import com.example.cpen321application.core.ui.components.UnderlinedTextButton
 import java.time.LocalDate
 
 @Composable
@@ -85,11 +83,13 @@ fun ScheduledGameScreen(
             onCreateTournament = onCreateTournament
         )
 
-        UnderlineTabs(
-            titles = GamesTab.entries.map { it.title },
-            selectedIndex = uiState.selectedTab.ordinal,
-            onSelect = { onTabSelected(GamesTab.entries[it]) },
-            modifier = Modifier.padding(top = 6.dp)
+        SegmentedControl(
+            options = GamesTab.entries,
+            selected = uiState.selectedTab,
+            label = { it.title },
+            onSelect = onTabSelected,
+            role = Role.Tab,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         if (uiState.errorMessage != null) {
@@ -105,7 +105,7 @@ fun ScheduledGameScreen(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onRefresh) { Text("Retry") }
+                UnderlinedTextButton(text = "Retry", onClick = onRefresh)
             }
         }
 
@@ -125,8 +125,10 @@ private fun GamesHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 16.dp, top = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .heightIn(min = 68.dp)
+            .padding(start = 20.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
             text = "Games",
@@ -135,18 +137,19 @@ private fun GamesHeader(
                 .weight(1f)
                 .semantics { heading() }
         )
-        IconButton(onClick = onRefresh, enabled = !isLoading) {
-            Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh")
-        }
+        RoundIconButton(
+            icon = R.drawable.ic_refresh,
+            contentDescription = "Refresh",
+            onClick = onRefresh,
+            enabled = !isLoading
+        )
         Box {
-            Button(
+            DonutButton(
+                text = "Schedule",
+                icon = R.drawable.ic_add,
                 onClick = { showScheduleMenu = true },
-                modifier = Modifier.height(40.dp),
-                contentPadding = ButtonDefaults.ButtonWithIconContentPadding
-            ) {
-                Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(20.dp))
-                Text("Schedule", modifier = Modifier.padding(start = 6.dp))
-            }
+                height = SmallButtonHeight
+            )
             DropdownMenu(expanded = showScheduleMenu, onDismissRequest = { showScheduleMenu = false }) {
                 DropdownMenuItem(
                     text = { Text("Game") },
@@ -198,47 +201,38 @@ private fun FeedList(
                     .padding(24.dp)
             )
             else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                // 14 dp between cards leaves room for the shadows and the tournament trophies
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                feedByDay(items, uiState.username, onGameClick, onTournamentClick)
+                feedItems(items, uiState.username, onGameClick, onTournamentClick)
             }
         }
     }
 }
 
-// The items under a header per day ("Today · Mon, Nov 16"), soonest first
-private fun LazyListScope.feedByDay(
+// The feed, soonest first; each card's date chip says the day
+private fun LazyListScope.feedItems(
     items: List<FeedItem>,
     username: String?,
     onGameClick: (gameId: String) -> Unit,
     onTournamentClick: (tournamentId: String) -> Unit
 ) {
     val today = LocalDate.now()
-    items.groupBy { startDay(it.startsAt) }.forEach { (day, dayItems) ->
-        item(key = "day-$day") {
-            Text(
-                text = dayHeaderText(day, today).uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .padding(start = 4.dp, top = 14.dp)
-                    .semantics { heading() }
+    items(items, key = { it.key }) { item ->
+        when (item) {
+            is FeedItem.GameItem -> GameCard(
+                game = item.game,
+                isPlaying = item.game.players.any { it.username == username },
+                onClick = { onGameClick(item.game.id) },
+                today = today
             )
-        }
-        items(dayItems, key = { it.key }) { item ->
-            when (item) {
-                is FeedItem.GameItem -> GameCard(
-                    game = item.game,
-                    isPlaying = item.game.players.any { it.username == username },
-                    onClick = { onGameClick(item.game.id) }
-                )
-                is FeedItem.TournamentItem -> TournamentCard(
-                    tournament = item.tournament,
-                    isRegistered = item.tournament.isRegistered(username),
-                    onClick = { onTournamentClick(item.tournament.id) }
-                )
-            }
+            is FeedItem.TournamentItem -> TournamentCard(
+                tournament = item.tournament,
+                isRegistered = item.tournament.isRegistered(username),
+                onClick = { onTournamentClick(item.tournament.id) },
+                today = today
+            )
         }
     }
 }

@@ -1,29 +1,36 @@
 package com.example.cpen321application.core.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.cpen321application.R
 import com.example.cpen321application.core.ui.theme.DonutTextStyles
+import com.example.cpen321application.core.ui.theme.StickerBorderWidth
 
-private val SET_COLUMN = 34.dp
-private val ROW_AVATAR = 24.dp
+private val SET_CIRCLE = 34.dp
+private val ROW_AVATAR = 36.dp
+private val DASH = 4.dp
 
 /**
  * One side of a scoreboard
@@ -39,9 +46,18 @@ data class ScoreboardSide(
     val otherSetScores: List<Int>,
 )
 
+/** Whether this side won more sets than it lost */
+private val ScoreboardSide.wonMatch: Boolean
+    get() {
+        val won = setScores.indices.count { setScores[it] > (otherSetScores.getOrNull(it) ?: Int.MAX_VALUE) }
+        val lost = setScores.indices.count { setScores[it] < (otherSetScores.getOrNull(it) ?: Int.MIN_VALUE) }
+        return won > lost
+    }
+
 /**
- * A TV-style score card: a header row with a column per set, one row per side, and an optional
- * footer row such as the rating change. Sets a side won are in ink, the rest are muted.
+ * A sticker score card: a small title, one row per side with each set's games in a circle (the
+ * sets a side won are filled grass), a trophy by the winner, and an optional footer such as the
+ * rating change. Rows are split by dashed lines.
  * @param title e.g. "Final · Singles", drawn in small caps
  */
 @Composable
@@ -51,50 +67,45 @@ fun Scoreboard(
     modifier: Modifier = Modifier,
     footer: (@Composable RowScope.() -> Unit)? = null,
 ) {
-    val sets = sides.maxOfOrNull { it.setScores.size } ?: 0
-    DonutCard(modifier = modifier, contentPadding = PaddingValues(0.dp)) {
+    DonutCard(modifier = modifier, sticker = true, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)) {
         Column {
-            ScoreboardHeader(title = title, sets = sets)
-            sides.forEach { side ->
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                ScoreboardRow(side = side)
+            SectionLabel(text = title, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+            sides.forEachIndexed { index, side ->
+                DashedRow(dashed = index > 0) { ScoreboardRow(side = side) }
             }
             if (footer != null) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) { footer() }
+                DashedRow(dashed = true) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) { footer() }
+                }
             }
         }
     }
 }
 
+// A row with a dashed outlineVariant line above it
 @Composable
-private fun ScoreboardHeader(title: String, sets: Int) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            text = title.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = muted,
-            modifier = Modifier.weight(1f),
-        )
-        repeat(sets) { index ->
-            Text(
-                text = "SET ${index + 1}",
-                style = MaterialTheme.typography.labelSmall,
-                color = muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(SET_COLUMN),
-                maxLines = 1,
-            )
-        }
-    }
+private fun DashedRow(dashed: Boolean, content: @Composable () -> Unit) {
+    val line = MaterialTheme.colorScheme.outlineVariant
+    Box(
+        modifier = Modifier.drawBehind {
+            if (dashed) {
+                val width = StickerBorderWidth.toPx()
+                val dash = DASH.toPx()
+                drawLine(
+                    color = line,
+                    start = Offset(0f, width / 2),
+                    end = Offset(size.width, width / 2),
+                    strokeWidth = width,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash)),
+                )
+            }
+        },
+    ) { content() }
 }
 
 @Composable
@@ -103,44 +114,57 @@ private fun ScoreboardRow(side: ScoreboardSide) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PlayerAvatar(name = side.avatarName, size = ROW_AVATAR)
-        Text(
-            text = side.name,
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = side.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (side.wonMatch) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_emoji_events_filled),
+                    contentDescription = "Winner",
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .size(18.dp),
+                )
+            }
+        }
         side.setScores.forEachIndexed { index, games ->
             val won = games > (side.otherSetScores.getOrNull(index) ?: Int.MAX_VALUE)
-            Text(
-                text = games.toString(),
-                style = DonutTextStyles.numericTitle.copy(fontWeight = if (won) FontWeight.SemiBold else FontWeight.Medium),
-                color = if (won) colors.onSurface else colors.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(SET_COLUMN),
-            )
+            Box(
+                modifier = Modifier
+                    .size(SET_CIRCLE)
+                    .background(if (won) colors.secondary else colors.surfaceContainerHigh, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = games.toString(),
+                    style = DonutTextStyles.numericMedium.copy(fontSize = 15.sp, lineHeight = 15.sp),
+                    color = if (won) colors.onSecondary else colors.onSurface,
+                )
+            }
         }
     }
 }
 
 /**
- * The scoreboard's footer for the signed-in user: "Your rating   1573 → 1587  +14"
+ * The scoreboard's footer for the signed-in user: "Your rating: 1573 → 1587   +14"
  */
 @Composable
 fun RowScope.RatingChangeFooter(before: Int, after: Int) {
     Text(
-        text = "Your rating",
-        style = MaterialTheme.typography.bodySmall,
+        text = "Your rating: $before → $after",
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(end = 8.dp),
+        modifier = Modifier.weight(1f),
     )
-    Spacer(modifier = Modifier.weight(1f))
-    Text(text = "$before → $after", style = DonutTextStyles.numericSmall)
-    Spacer(modifier = Modifier.size(8.dp))
     RatingDelta(change = after - before)
 }
