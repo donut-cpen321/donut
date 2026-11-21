@@ -229,12 +229,8 @@ private fun EquipmentItemInfo(
                 }
             }
         }
-        val gamesCount = equipment.effectiveGamesUsed
-        val hoursCount = equipment.effectiveHoursUsed
-        val hoursText = if (hoursCount % 1.0 == 0.0) hoursCount.toInt().toString() else String.format(
-            Locale.US, "%.1f", hoursCount)
         Text(
-            text = "$gamesCount ${if (gamesCount == 1) "game" else "games"} used · $hoursText ${if (hoursCount == 1.0) "hr" else "hrs"} used",
+            text = equipmentUsageText(equipment.effectiveGamesUsed, equipment.effectiveHoursUsed),
             style = MaterialTheme.typography.bodySmall,
             color = muted,
         )
@@ -425,4 +421,16 @@ private fun RacketMaintenanceNote() {
             modifier = Modifier.padding(12.dp),
         )
     }
+}
+
+/**
+ * How much an item was used, e.g. "3 games used · 3 hrs used" or "1 game used · 1.5 hrs used"
+ * @param games the games played with it
+ * @param hours the hours played with it, shown with one decimal unless whole
+ */
+internal fun equipmentUsageText(games: Int, hours: Double): String {
+    val gamesText = if (games == 1) "1 game" else "$games games"
+    val hoursNumber = if (hours % 1.0 == 0.0) hours.toInt().toString() else String.format(Locale.US, "%.1f", hours)
+    val hoursText = if (hours == 1.0) "1 hr" else "$hoursNumber hrs"
+    return "$gamesText used · $hoursText used"
 }

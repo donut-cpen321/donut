@@ -129,7 +129,7 @@ fun GameDetailRoute(
             onOpenTournament = onOpenTournament,
             onOpenInvite = viewModel::loadFriends,
             onInvite = viewModel::invite,
-            onToggleEquipment = viewModel::toggleEquipment,
+            onToggleEquipment = viewModel.equipment::toggle,
             onOpenEquipment = onOpenEquipment
         )
     }

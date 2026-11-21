@@ -63,8 +63,15 @@ open class UnusedTournamentsRepository : TournamentsRepository {
 
 open class UnusedEquipmentRepository : EquipmentRepository {
     override suspend fun getEquipment(session: AuthSession): Result<List<EquipmentDto>> = Result.success(emptyList())
-    override suspend fun createEquipment(session: AuthSession, request: CreateEquipmentRequestDto): Result<EquipmentDto> = error("unused")
-    override suspend fun updateEquipment(session: AuthSession, id: Int, request: UpdateEquipmentRequestDto): Result<EquipmentDto> = error("unused")
+    override suspend fun createEquipment(
+        session: AuthSession,
+        request: CreateEquipmentRequestDto
+    ): Result<EquipmentDto> = error("unused")
+    override suspend fun updateEquipment(
+        session: AuthSession,
+        id: Int,
+        request: UpdateEquipmentRequestDto
+    ): Result<EquipmentDto> = error("unused")
     override suspend fun deleteEquipment(session: AuthSession, id: Int): Result<Unit> = error("unused")
 }
 

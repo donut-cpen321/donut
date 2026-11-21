@@ -9,7 +9,6 @@ import com.donut.app.core.data.repository.EquipmentRepository
 import com.donut.app.core.data.repository.EquipmentRepositoryImpl
 import com.donut.app.core.data.repository.FriendsRepository
 import com.donut.app.core.data.model.Game
-import com.donut.app.core.data.model.isClosed
 import com.donut.app.core.data.repository.GameUpdate
 import com.donut.app.core.data.repository.GamesRepository
 import com.donut.app.core.data.repository.reconnecting
@@ -22,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 import java.time.Duration
 import java.time.Instant
 
@@ -48,6 +46,9 @@ class GameDetailViewModel(
     private val _uiState = MutableStateFlow(GameDetailUiState())
     val uiState: StateFlow<GameDetailUiState> = _uiState.asStateFlow()
 
+    // The user's equipment, and which of it they use in this game. Shares this state
+    val equipment = GameDetailEquipment(gameId, _uiState, viewModelScope, gamesRepository, equipmentRepository, session)
+
     // Waits for the moment the game's actions next change with the time, see showGame
     private var actionsTimer: Job? = null
 
@@ -55,7 +56,7 @@ class GameDetailViewModel(
         // The screen opens the game's event stream (followUpdates), which sends the game first, so it isn't
         // loaded here too
         _uiState.update { it.copy(isLoading = true) }
-        loadEquipment()
+        equipment.load()
     }
 
     fun load() {
@@ -223,10 +224,7 @@ class GameDetailViewModel(
 
     private fun showGame(game: Game) {
         val username = currentUsername()
-        val myUserId = game.players.firstOrNull { it.username.equals(username, ignoreCase = true) }?.id
-        val selectedIds = myUserId?.let { uid ->
-            game.equipment.filter { it.userId == uid }.map { it.id }.toSet()
-        } ?: emptySet()
+        val selectedIds = myEquipmentIds(game, username)
 
         val now = Instant.now()
         val actions = gameActions(game, username, now)
@@ -241,62 +239,6 @@ class GameDetailViewModel(
             // + 1 ms: wait until just past the moment, so the time rule has already changed
             delay(Duration.between(now, changeAt).toMillis() + 1)
             showGame(game)
-        }
-    }
-
-    fun loadEquipment() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingEquipment = true, equipmentErrorMessage = null) }
-            equipmentRepository.getEquipment(session)
-                .onSuccess { equipment ->
-                    _uiState.update { it.copy(isLoadingEquipment = false, userEquipment = equipment) }
-                }
-                .onFailure { error ->
-                    _uiState.update { it.copy(isLoadingEquipment = false, equipmentErrorMessage = error.toUserMessage()) }
-                }
-        }
-    }
-
-    fun toggleEquipment(equipmentId: Int) {
-        val game = _uiState.value.game ?: return
-        if (game.isClosed) return
-
-        val currentSelection = _uiState.value.selectedEquipmentIds
-        val newSelection = if (equipmentId in currentSelection) {
-            currentSelection - equipmentId
-        } else {
-            currentSelection + equipmentId
-        }
-
-        _uiState.update {
-            it.copy(
-                selectedEquipmentIds = newSelection,
-                equipmentErrorMessage = null
-            )
-        }
-
-        viewModelScope.launch {
-            gamesRepository.setGameEquipment(gameId, newSelection.toList())
-                .onFailure { error ->
-                    val errorMessage = if (error is HttpException) {
-                        when (error.code()) {
-                            409 -> "The game is over."
-                            404 -> {
-                                loadEquipment()
-                                "The item was removed."
-                            }
-                            else -> error.toUserMessage()
-                        }
-                    } else {
-                        error.toUserMessage()
-                    }
-                    _uiState.update {
-                        it.copy(
-                            selectedEquipmentIds = currentSelection,
-                            equipmentErrorMessage = errorMessage
-                        )
-                    }
-                }
         }
     }
 
