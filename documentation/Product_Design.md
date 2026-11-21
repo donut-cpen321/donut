@@ -34,8 +34,6 @@ The creator picks:
 
 Any player in a game can move it to another time or court, leave it (until 30 minutes before the start) or cancel it, and report or confirm its final score ([§6](#6-scoring)). There is no owner role.
 
-Planned: a calendar view of all games, adding games to Google Calendar, checking in at the court, and a live score during the game.
-
 ## 5. Matchmaking
 
 Players ask for a game now instead of creating one. The system matches them as soon as it can.
@@ -62,7 +60,7 @@ The longest-waiting player is matched first, with the closest-rated players near
 ### 5.3. The proposed game
 
 - It starts **one hour** after the match is found.
-- The court is the one most of the players prefer within 10 km of all of them, or else the court nearest the middle of them. (Picking preferred courts is planned; until then it is always the nearest court.)
+- The court is the one most of the players prefer within 10 km of all of them, or else the court nearest the middle of them.
 - In doubles, the highest- and lowest-rated players play against the middle two, so the teams are balanced.
 
 ### 5.4. Accepting a match
@@ -155,7 +153,6 @@ We will likely move to **Glicko** (the system chess.com uses). It adds a rating 
 | Google Maps Platform (Maps and Places) | Showing a matched game's court on a map, and the address to be matched near |
 | OpenWeather | Forecasts in the feed |
 | Firebase Cloud Messaging | Push notifications for matches, game invites and scores to confirm |
-| Google Calendar API (planned) | Adding games to the user's calendar |
 
 ## 9. Out of scope for now
 

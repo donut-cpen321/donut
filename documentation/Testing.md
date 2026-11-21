@@ -19,6 +19,7 @@
 | 11-20-2026        | 2.1.1                 | Set score rule: added tests that past 6 games a set is won by 2 games or 7–6 on both score routes, that 99–97 rates like 8–6 (`elo.test.ts`), and that an unaccepted matched game can't be scored |
 | 11-20-2026        | 2.1, 2.3, 2.4         | Added no-mock tests for every interface that had none: the user, friends, courts, leaderboard and game routes, the queue, and both scheduled jobs. Every no-mock test now creates its own users and data, so the tests no longer depend on the order they run in. Split `tests/mock/games.test.ts` (3,200 lines) into five files by area. Added the coverage screenshots, with a justification for every file under 100%, and set the commit and the links |
 | 11-20-2026        | 3                     | Added the tests of the non-functional requirements in `backend/tests/nfr/`: API response time, match found latency, and the new rating accuracy requirement (Requirements_and_Design.md 3.7), with their logs |
+| 11-20-2026        | 2.1.1, 3.1            | Listed the live update streams and named Matchmaking as the fully tested component. Renumbered the NFRs to match Requirements_and_Design.md and removed the live score NFR. |
 
 ---
 
@@ -60,6 +61,7 @@
 | **POST /games/start**         | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.edit.test.ts`], [`tests/mock/repositories.test.ts`] | Game DB |
 | **POST /games/score**         | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/playerStats.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.score.test.ts`], [`tests/mock/repositories.test.ts`], [`tests/mock/bracket.repository.test.ts`] | Game DB, Tournament DB, Firebase Cloud Messaging |
 | **POST /games/score/confirm** | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/playerStats.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.score.test.ts`], [`tests/mock/repositories.test.ts`] | Game DB, Tournament DB |
+| **GET /games/events**, **GET /games/feed/events** | *(mocks only)* | [`tests/mock/gameEvents.test.ts`], [`tests/mock/liveLists.test.ts`], [`tests/mock/live.test.ts`] | Game DB |
 | **POST /tournaments**         | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
 | **GET /tournaments**          | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
 | **GET /tournaments/feed**     | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`], [`tests/mock/weather.test.ts`] | Tournament DB, OpenWeather API     |
@@ -67,11 +69,15 @@
 | **POST /tournaments/join**    | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`], [`tests/mock/bracket.repository.test.ts`] | Tournament DB, Game DB             |
 | **POST /tournaments/leave**   | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
 | **DELETE /tournaments**       | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
+| **GET /tournaments/events** | *(mocks only)* | [`tests/mock/liveLists.test.ts`] | Tournament DB |
 | **GET /friends**              | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **GET /friends/requests**     | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **POST /friends/requests**    | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **POST /friends/requests/accept** | [`tests/no-mock/friends.test.ts`]                | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **DELETE /friends**           | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
+| **GET /friends/events** | *(mocks only)* | [`tests/mock/friendEvents.test.ts`], [`tests/mock/live.test.ts`] | Friendship DB |
+
+**Matchmaking** is the component with every interface tested both with and without mocks, including its live stream (`GET /matchmaking/events`) and both jobs.
 
 Every no-mock test runs against a real, migrated Postgres database (see 2.1.3). Each test creates its own users (with [`tests/realDb.ts`]) and builds the data it needs through the API, then deletes it, so the tests don't depend on each other or on the order they run in (they pass with `npx jest tests/no-mock --randomize`). The flow files do this with stage helpers: in `tournaments.test.ts` each test creates a tournament and drives it to the stage it checks (`createTournament`, `fillTournament`, `playQuarterfinals`), and in `playerStats.test.ts` each test plays the games it needs first (`playFirstGame`, `playSecondGame`). A matchmaking run matches everyone queued, and its live pushes only reach streams in its own Jest worker, so every no-mock test that runs matchmaking is in `matchmaking.test.ts`, where they run one at a time.
 
@@ -147,10 +153,9 @@ Without mocks, the tests can only reach what a real client can make the server d
 
 | **Non-Functional Requirement** | **Location in Git** |
 | ------------------------------ | ------------------- |
-| **API response time** (NFR 2: 95% of requests within 500 ms with 50 concurrent users) | [`tests/nfr/apiResponseTime.test.ts`] |
-| **Match found latency** (NFR 3: 95% of compatible players matched within 60 seconds of the last one joining) | [`tests/nfr/matchLatency.test.ts`] |
-| **Rating accuracy for new players** (NFR 4: after 5 games, 80% of new players rated within 200 of their true level) | [`tests/nfr/ratingAccuracy.test.ts`] |
-| **Live score sync latency** (NFR 1) | Not tested yet |
+| **API response time** (NFR 1: 95% of requests within 500 ms with 50 concurrent users) | [`tests/nfr/apiResponseTime.test.ts`] |
+| **Match found latency** (NFR 2: 95% of compatible players matched within 60 seconds of the last one joining) | [`tests/nfr/matchLatency.test.ts`] |
+| **Rating accuracy for new players** (NFR 3: after 5 games, 80% of new players rated within 200 of their true level) | [`tests/nfr/ratingAccuracy.test.ts`] |
 
 Run them with `npm run test:nfr` in `backend/` (see 2.1.3); the GitHub Actions workflow runs them after the other tests.
 
@@ -271,6 +276,10 @@ These render one screen with injected data, with no backend or signed-in account
 [`tests/mock/matchmaking.job.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/matchmaking.job.test.ts
 [`tests/mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/matchmaking.test.ts
 [`tests/mock/queueEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/queueEvents.test.ts
+[`tests/mock/gameEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/gameEvents.test.ts
+[`tests/mock/liveLists.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/liveLists.test.ts
+[`tests/mock/friendEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/friendEvents.test.ts
+[`tests/mock/live.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/live.test.ts
 [`tests/mock/ratings.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/ratings.repository.test.ts
 [`tests/mock/repositories.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/repositories.test.ts
 [`tests/mock/stats.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/stats.test.ts
