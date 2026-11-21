@@ -1292,7 +1292,7 @@ function systemTable(k) {
 }
 
 /* ---------- 5. Kotlin ---------- */
-const KT_PKG = "package com.example.cpen321application.core.ui.theme";
+const KT_PKG = "package com.donut.app.core.ui.theme";
 const hexKt = v => `Color(0xFF${v.slice(1).toUpperCase()})`;
 const emKt = v => v === 0 ? "0.em" : v < 0 ? `(${v}).em` : `${v}.em`;
 const spKt = v => `${v}.sp`;
@@ -1356,7 +1356,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.example.cpen321application.R
+import com.donut.app.R
 
 // Option ${k} · ${o.name}. Fonts are bundled in app/src/main/res/font/ (static TTFs, SIL OFL):
 //   ${files.map(f => f + ".ttf").join(", ")}
