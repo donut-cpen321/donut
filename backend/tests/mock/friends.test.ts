@@ -113,6 +113,8 @@ describe("Mocked: /friends requireAuth", () => {
 describe("Mocked: GET /friends", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // clearAllMocks keeps return values, so a game in progress set by another test would show up here
+    mockedFetchGamesInProgress.mockResolvedValue([]);
   });
 
   // Input: authenticated caller with one accepted friend

@@ -91,6 +91,23 @@ const teamSize: Record<Format, number> = {
 const LEAVE_DEADLINE_MS = 30 * 60 * 1000;
 
 /**
+ * Starts a player off with their default equipment in a game they created or joined, so its use is counted without
+ * them picking it. A failure is logged, since the game itself is already saved and they can pick equipment later
+ * @param gameId the game ID of the game
+ * @param userId the player
+ */
+async function useDefaultEquipment(gameId: string, userId: string): Promise<void> {
+  try {
+    const defaultIds = (await getEquipment(userId)).filter((item) => item.isDefault).map((item) => item.id);
+    if (defaultIds.length > 0) {
+      await replaceGameEquipment(gameId, userId, defaultIds);
+    }
+  } catch (err) {
+    console.error(`Could not add the default equipment of user ${userId} to game ${gameId}`, err);
+  }
+}
+
+/**
  * Creates a game using the given game information and adds the given user to the game on team 1
  * @param game the game to be created
  * @param userId the user to be added to the game
@@ -101,15 +118,7 @@ export async function newGame(game: CreateGameInput, userId: string) {
   const created = await mapPrismaErrors(createGame({ ...game, status: GameStatus.OPEN }, userId), {
     P2003: commonErrors.CourtNotFound,
   });
-  try {
-    const userEquipment = await getEquipment(userId);
-    const defaultIds = userEquipment.filter((eq) => eq.isDefault).map((eq) => eq.id);
-    if (defaultIds.length > 0) {
-      await replaceGameEquipment(created.id, userId, defaultIds);
-    }
-  } catch (err) {
-    console.error("Could not set default equipment for new game", err);
-  }
+  await useDefaultEquipment(created.id, userId);
   // On the feed, and in the creator's games
   gameChanged({ gameId: created.id });
   return created;
@@ -257,16 +266,7 @@ export async function joinGame(gameId: string, userId: string, team: number): Pr
     { P2002: gameErrors.AlreadyInGame, P2003: gameErrors.GameOrUserNotFound },
   );
   if (result === "added") {
-    try {
-      const userEquipment = await getEquipment(userId);
-      const defaultIds = userEquipment.filter((eq) => eq.isDefault).map((eq) => eq.id);
-      if (defaultIds.length > 0) {
-        await replaceGameEquipment(gameId, userId, defaultIds);
-      }
-    } catch (err) {
-      console.error("Could not set default equipment on join", err);
-    }
-
+    await useDefaultEquipment(gameId, userId);
     gameChanged({ gameId });
     return;
   }
