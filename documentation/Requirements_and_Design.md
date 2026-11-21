@@ -27,6 +27,7 @@
 | Nov 20, 2026 | 3.1, 3.2, 3.4, 3.5, 4.6 | Reviewer feedback on features and use cases: split use cases that had more than one goal, added the missing user-facing use cases (sign out, profile, leave the queue, decline a match, friends, equipment, match history, stats), moved system-only steps out of the use case list and gave every use case an active, user-focused name. Redrew the use case diagram. |
 | Nov 20, 2026 | 3.1, 3.2, 3.3, 3.4, 3.5, 3.7, 4.1, 4.3, 4.6, 4.7 | Every feature that was not yet built is now implemented, so the notes saying so are removed. Removed the live score feature, its use cases and its non-functional requirement: players report the score once after the game. Added a fifth formal use case, Join a scheduled match. |
 | Nov 20, 2026 | 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.3, 4.5, 4.6 | Removed Google Calendar and Edit profile (not built). Failure scenarios say what the user sees. Added `GET /user/:userId/photo`. Diagrams matched to the code, plus a Join a scheduled match diagram. Check-in replaced by "Start now" (Use Case 2, Start a scheduled match); players opt out by leaving or cancelling. Courts moved out of Users into their own component. Restored the score confirmation and `GET /matchmaking/events` text lost in a merge. |
+| Nov 21, 2026 | 3.1, 3.2, 3.4, 4.1, 4.2 | Equipment tracking: players choose the equipment they use in a game (`PUT /games/equipment`, use case 38), starting with their default items, and each item counts the games and hours it was used. |
 
 ---
 
@@ -55,7 +56,7 @@ After every player of a game confirms its final score, every player's ELO rating
 #### **Tournaments**
 Users create an 8-team single-elimination tournament (singles or doubles) that players register for from the feed. When it fills, the system forms and seeds the teams, draws the bracket and books the quarterfinals. Each confirmed score moves the winner on, up to the champion.
 
-Supporting features: **friends** (requests, friends list, adding players from a match summary), **match history** with a summary per game, and **equipment** tracking (rackets, balls, shoes, with maintenance dates).
+Supporting features: **friends** (requests, friends list, adding players from a match summary), **match history** with a summary per game, and **equipment** tracking (rackets, balls, shoes, with maintenance dates and how many games and hours each was used).
 
 **Project scope requirements:**
 - **External API**: Google Maps (picking courts), Google Places (picking where to play), OpenWeather (feed forecasts).
@@ -72,7 +73,7 @@ Use cases are numbered as in §3.4. The User takes part in every use case of eac
 2. **Google Sign-In**: authenticates players.
 3. **Google Maps Platform**: shows a matched game's court on a map, and Places looks up where a player wants to play.
 4. **Firebase Cloud Messaging**: delivers match notifications and game invites.
-5. **OpenWeather**: supplies forecasts for the feed.
+5. **OpenWeather**: supplies forecasts for the feed.
 
 ### **3.4. Use Case Description**
 Each use case is one goal of one user, named with an active verb. The numbers match the diagram in §3.2.
@@ -123,10 +124,11 @@ Each use case is one goal of one user, named with an active verb. The numbers ma
 33. **View friends**: The user views their friends and the game each one is playing.
 
 - Feature 7: Equipment
-34. **View equipment**: The user views their rackets, balls and shoes, with maintenance dates.
+34. **View equipment**: The user views their rackets, balls and shoes, with maintenance dates and how many games and hours each was used.
 35. **Add equipment**: The user adds an item and can make it their default.
 36. **Update equipment**: The user changes an item's name, default status or maintenance date.
 37. **Remove equipment**: The user retires an item.
+38. **Choose equipment for a game**: The user picks which of their items they use in a game; their default items are picked for them when they create or join it.
 
 **System steps (not use cases).** The user does not do these directly, so they are not in the diagram:
 - *Matchmaking* (part of use case 5): every 10 seconds, the system groups queued players who want a compatible format, are within 10 km of each other and have close ratings, books a game one hour later at a court near them and notifies everyone.
@@ -308,7 +310,7 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
         4. `PUT /user/me/fcm-token` with `{ token }` → `204` - E
             - **Purpose**: Registers the device that receives the caller's notifications.
         5. `GET /user/equipment` → `{ equipment }`, `POST /user/equipment` with `{ type, name, isDefault?, nextMaintenanceAt? }` → `201 { equipment }`, `PATCH /user/equipment/:equipmentId` → `{ equipment }`, `DELETE /user/equipment/:equipmentId` → `204` - E
-            - **Purpose**: The caller's equipment (`RACKET`, `BALLS`, `SHOES` or `OTHER`), default items first. Deleting retires the item. `404` "Equipment not found".
+            - **Purpose**: The caller's equipment (`RACKET`, `BALLS`, `SHOES` or `OTHER`), default items first. Each item has `gamesUsed` and `hoursUsed`, counted from completed games (see Games 14). Deleting retires the item. `404` "Equipment not found".
         6. `GET /user/me/preferred-courts` → `{ preferredCourts }`, `PUT` / `DELETE /user/me/preferred-courts/:courtId` → `204` - E
             - **Purpose**: The caller's preferred courts, used by matchmaking to pick a court. `404` if the court doesn't exist.
         7. `GET /user/:userId/photo` → `{ photoUrl }` - E
@@ -324,7 +326,7 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
         2. `GET /games/feed` → `{ games: FeedGame[] }` - E
             - **Purpose**: Scheduled games that are `OPEN` and haven't started, soonest first. A `FeedGame` is a `GameDetails` with a `forecast` (`{ at, temperature, description, icon, precipitationChance }`), or `null` if it is over 5 days away or OpenWeather fails.
         3. `GET /games` with `gameId` → `{ game: GameDetails }` - E
-            - **Purpose**: One game with its court, players (`{ id, username, name, rating, team, acceptedAt, scoreConfirmedAt, ratingBefore, ratingAfter }`), rounds, `scoreProposal` (the score waiting for confirmation, `{ rounds, proposedById, proposedAt }` with rounds shaped like the game's, or `null`), `tournament` (`{ id, name, round }`, or `null`) and `forecast`, like a `FeedGame`'s (`null` for a `COMPLETED` or `CANCELLED` game). `404` if not found.
+            - **Purpose**: One game with its court, players (`{ id, username, name, rating, team, acceptedAt, scoreConfirmedAt, ratingBefore, ratingAfter }`), rounds, `equipment` (the items players use, `{ id, userId, type, name }[]`), `scoreProposal` (the score waiting for confirmation, `{ rounds, proposedById, proposedAt }` with rounds shaped like the game's, or `null`), `tournament` (`{ id, name, round }`, or `null`) and `forecast`, like a `FeedGame`'s (`null` for a `COMPLETED` or `CANCELLED` game). `404` if not found.
         4. `GET /games/me` → `{ games }` - E
             - **Purpose**: The caller's `BOOKED` and `IN_PROGRESS` games and `OPEN` games that haven't started, soonest first, each with its `forecast` like a `FeedGame`.
         5. `GET /games/history` → `{ games }` - E
@@ -345,6 +347,8 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
             - **Purpose**: Score confirmation for an `IN_PROGRESS` game: the game only completes once every player agrees with its score. `/score` reports a score: it is saved in `score_proposals` with only the caller agreeing (`game_users.scoreConfirmedAt`), replacing any score waiting and resetting everyone else's agreement, and the other players get a push (`type: "scoreReported"`) that opens the game. Reporting the score already waiting counts as confirming it. `/score/confirm` agrees with the score waiting; its body is the score the caller saw, so a score changed since then is refused (`409 SCORE_CHANGED`, or `409 NO_SCORE_TO_CONFIRM` if none is waiting), and confirming twice is fine. Both run under the game's row lock, so two players can't both complete the game. When the last player agrees, the same transaction completes the game, saves the rounds, deletes the score waiting, updates ratings (`applyGameResult`) and, for a tournament game, advances the bracket (`advanceBracket`). Every step is pushed live to the game's stream. `400` for an invalid score (no sets, a tied set, a set past 6 games not won by 2 games or 7-6, or no winner), `403` if the caller isn't in the game, `409` if not started (`GAME_NOT_STARTED`), already completed, a team isn't full, or Postgres aborts the transaction on a deadlock.
         13. `GET /games/events` with `gameId`, `GET /games/feed/events` → Server-Sent Events - E
             - **Purpose**: Live updates, pushed instead of polled. Each stream sends the current state when it opens, then again after every change, plus a heartbeat every 25 s. A game's stream sends `gameUpdated` (`{ game }`, like `GET /games`) or `gameDeleted`; the Games tab's sends `feed` (games and tournaments open to join, the same for everyone) and `mine` (the caller's), each `{ games, tournaments }`. Services announce changes (`events/changes.ts`) and `live/live.ts` pushes them, loading nothing when no one is watching. A user has at most 10 streams open; past that their oldest is closed. The app keeps a stream open only while its screen is visible, and reconnects whenever one ends.
+        14. `PUT /games/equipment` with `{ gameId, equipmentIds }` → `204` - E
+            - **Purpose**: Replaces which of their own items the caller uses in a game; an empty list clears it. A player who creates or joins a game starts with their default items. When the game completes, each item used gets one more game and one more hour (`gamesUsed`, `hoursUsed`), in the same transaction. `400` for a repeated item or more than 20, `403` if the caller isn't in the game, `404` if an item isn't theirs or is retired, `409` once the game is completed or cancelled.
 3. **Matchmaking**
     - **Purpose**: The matchmaking queue, the matching algorithm, and the jobs that run it every 10 seconds and cancel unanswered matches every minute.
     - **Rationale**: Matching creates games without a request, so it runs on a timer outside the request path, where join requests can't race each other.
@@ -408,7 +412,7 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
 
 ### **4.2. Databases**
 1. **PostgreSQL (`donut`)**
-    - **Purpose**: Stores users, refresh tokens, courts, the matchmaking queue, games, their players (with ratings before and after, and when they confirmed the score), rounds, scores waiting for confirmation (`score_proposals`), equipment, friendships and tournaments (`backend/prisma/schema.prisma`).
+    - **Purpose**: Stores users, refresh tokens, courts, the matchmaking queue, games, their players (with ratings before and after, and when they confirmed the score), rounds, scores waiting for confirmation (`score_proposals`), equipment (with games and hours used) and which items are used in each game, friendships and tournaments (`backend/prisma/schema.prisma`).
     - **Rationale**: The data is relational, and a match or a final score (with ratings and the bracket) must be saved in one transaction. MongoDB was rejected because nothing is document-shaped and it would lose those transactions.
 
 ### **4.3. External Modules**
