@@ -3,6 +3,8 @@ package com.donut.app.feature.gamedetail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -14,7 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,8 +35,10 @@ import com.donut.app.core.data.model.GameStatus
 import com.donut.app.core.data.model.GameTournament
 import com.donut.app.core.data.model.Round
 import com.donut.app.core.data.model.TEAMS
+import com.donut.app.core.data.model.isClosed
 import com.donut.app.core.data.model.playersOnTeam
 import com.donut.app.core.data.model.teamSize
+import com.donut.app.core.network.dto.EquipmentDto
 import com.donut.app.core.ui.components.ChipStyle
 import com.donut.app.core.ui.components.DestructiveButton
 import com.donut.app.core.ui.components.DonutCard
@@ -236,6 +242,137 @@ internal fun GamePlayerActions(
         if (actions.canCancel) {
             DestructiveButton(text = "Cancel game", enabled = !isSaving, onClick = { onOpenDialog(GameDialog.CANCEL) })
         }
+    }
+}
+
+/**
+ * The game's equipment: the signed-in user's items as chips to pick for this game (locked once the game is over, or
+ * a link to the equipment screen if they have none), and the items every player uses
+ */
+@Composable
+internal fun EquipmentSection(
+    game: Game,
+    userEquipment: List<EquipmentDto>,
+    selectedEquipmentIds: Set<Int>,
+    isLoadingEquipment: Boolean,
+    equipmentErrorMessage: String?,
+    onToggleEquipment: (Int) -> Unit,
+    onOpenEquipmentScreen: () -> Unit
+) {
+    DonutCard {
+        SectionLabel(text = "Equipment")
+        Spacer(modifier = Modifier.height(8.dp))
+
+        when {
+            isLoadingEquipment && userEquipment.isEmpty() -> Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            }
+            userEquipment.isEmpty() -> NoEquipment(onOpenEquipmentScreen)
+            else -> EquipmentPicker(game, userEquipment, selectedEquipmentIds, onToggleEquipment)
+        }
+
+        if (game.equipment.isNotEmpty()) {
+            PlayersEquipment(game)
+        }
+
+        if (equipmentErrorMessage != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = equipmentErrorMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun NoEquipment(onOpenEquipmentScreen: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "No equipment yet",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(onClick = onOpenEquipmentScreen) {
+            Text("Go to equipment screen")
+        }
+    }
+}
+
+// The user's items as chips, checked when used in this game
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EquipmentPicker(
+    game: Game,
+    userEquipment: List<EquipmentDto>,
+    selectedEquipmentIds: Set<Int>,
+    onToggleEquipment: (Int) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (game.isClosed) {
+            Text(
+                text = "This game is completed or cancelled. Equipment selection is locked.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            userEquipment.forEach { item ->
+                EquipmentChip(
+                    name = item.name,
+                    selected = item.id in selectedEquipmentIds,
+                    enabled = !game.isClosed,
+                    onClick = { onToggleEquipment(item.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EquipmentChip(name: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val checkIcon: @Composable () -> Unit = {
+        Icon(
+            painter = painterResource(R.drawable.ic_check),
+            contentDescription = null,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        enabled = enabled,
+        label = { Text(name) },
+        leadingIcon = if (selected) checkIcon else null
+    )
+}
+
+// Every player's items in the game, read-only, e.g. "• Pro Staff (Bob B)"
+@Composable
+private fun PlayersEquipment(game: Game) {
+    Spacer(modifier = Modifier.height(12.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = "Players' equipment",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    game.equipment.forEach { item ->
+        val player = game.players.firstOrNull { it.id == item.userId }
+        Text(
+            text = "• ${item.name} (${player?.name ?: "Player"})",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

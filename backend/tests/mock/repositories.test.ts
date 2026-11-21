@@ -9,6 +9,7 @@ import {
   GameStatus,
 } from "../../src/generated/prisma/enums";
 import {
+  HOURS_PER_GAME,
   acceptMatch,
   addPlayerToTeam,
   cancelMatchedGame,
@@ -20,6 +21,7 @@ import {
   fetchUserGames,
   fetchUserHistory,
   recordScore,
+  replaceGameEquipment,
   startBookedGame,
 } from "../../src/games/games.repository";
 import { applyGameResult } from "../../src/ranking/ranking.service";
@@ -50,7 +52,8 @@ function mockPrismaClient() {
     },
     gameRound: { deleteMany: jest.fn(), createManyAndReturn: jest.fn() },
     scoreProposal: { upsert: jest.fn(), deleteMany: jest.fn() },
-    gameEquipment: { deleteMany: jest.fn() },
+    gameEquipment: { deleteMany: jest.fn(), createMany: jest.fn() },
+    equipment: { count: jest.fn(), updateMany: jest.fn() },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
@@ -104,6 +107,8 @@ const gameRow = () => ({
     tournament: { id: string; name: string };
   } | null,
   scoreProposal: null as { rounds: unknown; proposedById: string; proposedAt: Date } | null,
+  // Each item is wrapped in its game_equipment row, as Prisma returns it
+  equipment: [] as { equipment: { id: number; userId: string; type: string; name: string } }[],
 });
 
 const flattenedPlayers = [
@@ -120,13 +125,14 @@ const flattenedPlayers = [
   },
 ];
 
-// The game details the repository returns for gameRow(): players flattened, and no tournament
+// The game details the repository returns for gameRow(): players flattened, no equipment and no tournament
 const expectedDetails = () => ({
   ...gameRow(),
   tournamentMatch: undefined,
   players: flattenedPlayers,
   tournament: null,
   scoreProposal: null,
+  equipment: [],
 });
 
 // The tagged template given to $queryRaw, as one string
@@ -198,6 +204,24 @@ describe("Mocked: fetchGameDetails", () => {
 
     expect(game?.tournament).toEqual({ ...tournament, round: 2 });
     expect(game).not.toHaveProperty("tournamentMatch");
+  });
+
+  // Input: a game whose players picked equipment, each item wrapped in its game_equipment row
+  // Expected behavior: the items come back as a flat list that says which player uses each one
+  test("Lists the equipment used in the game, each with its player's user ID", async () => {
+    const racket = { id: 7, userId, type: "RACKET", name: "Training racket" };
+    const shoes = { id: 9, userId: "5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a", type: "SHOES", name: "Court shoes" };
+    db.game.findUnique.mockResolvedValue({ ...gameRow(), equipment: [{ equipment: racket }, { equipment: shoes }] });
+
+    const game = await fetchGameDetails(gameId);
+
+    expect(game?.equipment).toEqual([racket, shoes]);
+    const [args] = db.game.findUnique.mock.calls[0] as [Record<string, unknown>];
+    expect(args).toMatchObject({
+      include: {
+        equipment: { select: { equipment: { select: { id: true, userId: true, type: true, name: true } } } },
+      },
+    });
   });
 
   // Input: a game whose score waits for confirmation, stored as [team 1, team 2] pairs
@@ -550,12 +574,22 @@ describe("Mocked: deleteGameUser", () => {
     });
   });
 
+  // Input: a player leaves a game where they picked equipment
+  // Expected behavior: only their own equipment is taken out of the game, so it isn't counted when the game completes
+  test("Takes the leaving player's equipment out of the game", async () => {
+    await deleteGameUser(gameId, userId);
+
+    expect(db.gameEquipment.deleteMany).toHaveBeenCalledTimes(1);
+    expect(db.gameEquipment.deleteMany).toHaveBeenCalledWith({ where: { gameId, equipment: { userId } } });
+  });
+
   test("Does not reopen the game when the player was not in it", async () => {
     const error = new Error("Record to delete does not exist");
     db.gameUser.delete.mockRejectedValueOnce(error);
 
     await expect(deleteGameUser(gameId, userId)).rejects.toBe(error);
     expect(db.game.updateMany).not.toHaveBeenCalled();
+    expect(db.gameEquipment.deleteMany).not.toHaveBeenCalled();
   });
 });
 
@@ -617,6 +651,8 @@ describe("Mocked: recordScore", () => {
     });
     expect(db.gameUser.updateMany).toHaveBeenCalledWith({ where: { gameId, userId }, data: { scoreConfirmedAt: now } });
     expect(db.game.update).not.toHaveBeenCalled();
+    // The equipment is only counted once the game completes
+    expect(db.equipment.updateMany).not.toHaveBeenCalled();
   });
 
   // Input: a score different from the one waiting
@@ -686,6 +722,11 @@ describe("Mocked: recordScore", () => {
     expect(db.scoreProposal.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
     expect(db.gameRound.deleteMany).toHaveBeenCalledWith({ where: { gameId } });
     expect(mockedApplyGameResult).toHaveBeenCalledWith(db, gameId, Format.DOUBLES, rounds);
+    expect(db.equipment.updateMany).toHaveBeenCalledTimes(1);
+    expect(db.equipment.updateMany).toHaveBeenCalledWith({
+      where: { games: { some: { gameId } } },
+      data: { gamesUsed: { increment: 1 }, hoursUsed: { increment: HOURS_PER_GAME } },
+    });
     expect(mockedAdvanceBracket).not.toHaveBeenCalled();
     expect(db.$transaction).toHaveBeenCalledTimes(1);
   });
@@ -699,6 +740,112 @@ describe("Mocked: recordScore", () => {
 
     expect(mockedAdvanceBracket).toHaveBeenCalledWith(db, gameId, rounds, now);
     expect(firstCallOrder(mockedApplyGameResult)).toBeLessThan(firstCallOrder(mockedAdvanceBracket));
+  });
+
+  // Input: the last player agrees, but the game's teams aren't full, so the rating update throws
+  // Expected behavior: the error propagates out of the transaction, so the equipment counts roll back with it
+  test("Does not count equipment when the game cannot be completed", async () => {
+    db.game.findUnique.mockResolvedValue(inProgress(rounds));
+    db.gameUser.count.mockResolvedValue(0);
+    const error = new Error("Teams are not full");
+    mockedApplyGameResult.mockRejectedValueOnce(error);
+
+    await expect(recordScore(gameId, userId, rounds, true, now)).rejects.toBe(error);
+    expect(db.equipment.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("Mocked: replaceGameEquipment", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // The game is open once locked, the user is in it, and every item they pick is theirs and active
+    db.game.count.mockResolvedValue(1);
+    db.gameUser.count.mockResolvedValue(1);
+    db.equipment.count.mockResolvedValue(2);
+  });
+
+  // Input: two of the user's active items
+  // Expected behavior: the game is locked and checked, the user's earlier picks are deleted and the new ones saved,
+  // in one transaction, without touching other players' equipment
+  // Expected output: "saved"
+  test("Replaces the user's equipment in the game under the game's lock", async () => {
+    const order: string[] = [];
+    db.gameEquipment.deleteMany.mockImplementationOnce(() => Promise.resolve(order.push("delete")));
+    db.gameEquipment.createMany.mockImplementationOnce(() => Promise.resolve(order.push("create")));
+
+    await expect(replaceGameEquipment(gameId, userId, [7, 9])).resolves.toBe("saved");
+
+    expect(lockQuery()).toMatch(/SELECT id FROM games WHERE id = \?::uuid FOR UPDATE/);
+    expect(firstCallOrder(db.$queryRaw)).toBeLessThan(firstCallOrder(db.game.count));
+    expect(db.game.count).toHaveBeenCalledWith({
+      where: { id: gameId, status: { in: [GameStatus.OPEN, GameStatus.BOOKED, GameStatus.IN_PROGRESS] } },
+    });
+    expect(db.gameUser.count).toHaveBeenCalledWith({ where: { gameId, userId } });
+    expect(db.equipment.count).toHaveBeenCalledWith({ where: { id: { in: [7, 9] }, userId, retiredAt: null } });
+    expect(db.gameEquipment.deleteMany).toHaveBeenCalledWith({ where: { gameId, equipment: { userId } } });
+    expect(db.gameEquipment.createMany).toHaveBeenCalledWith({
+      data: [
+        { gameId, equipmentId: 7 },
+        { gameId, equipmentId: 9 },
+      ],
+    });
+    expect(order).toEqual(["delete", "create"]);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  // Input: an empty list
+  // Expected behavior: the user's earlier picks are deleted and nothing is added
+  // Expected output: "saved"
+  test("Clears the user's equipment when given an empty list", async () => {
+    db.equipment.count.mockResolvedValue(0);
+
+    await expect(replaceGameEquipment(gameId, userId, [])).resolves.toBe("saved");
+    expect(db.gameEquipment.deleteMany).toHaveBeenCalledWith({ where: { gameId, equipment: { userId } } });
+    expect(db.gameEquipment.createMany).toHaveBeenCalledWith({ data: [] });
+  });
+
+  // Input: a game that is gone, completed or cancelled once locked
+  // Expected behavior: nothing is written, so a completed game's equipment can't change after it was counted
+  // Expected output: "closed"
+  test("Saves nothing for a game that is gone, completed or cancelled", async () => {
+    db.game.count.mockResolvedValue(0);
+
+    await expect(replaceGameEquipment(gameId, userId, [7, 9])).resolves.toBe("closed");
+    expect(db.gameUser.count).not.toHaveBeenCalled();
+    expect(db.gameEquipment.deleteMany).not.toHaveBeenCalled();
+    expect(db.gameEquipment.createMany).not.toHaveBeenCalled();
+  });
+
+  // Input: a user who is not a player in the game
+  // Expected behavior: nothing is written
+  // Expected output: "notInGame"
+  test("Saves nothing for a user who is not in the game", async () => {
+    db.gameUser.count.mockResolvedValue(0);
+
+    await expect(replaceGameEquipment(gameId, userId, [7, 9])).resolves.toBe("notInGame");
+    expect(db.equipment.count).not.toHaveBeenCalled();
+    expect(db.gameEquipment.deleteMany).not.toHaveBeenCalled();
+    expect(db.gameEquipment.createMany).not.toHaveBeenCalled();
+  });
+
+  // Input: an item that doesn't exist, belongs to another user, or is retired, so fewer items match than were given
+  // Expected behavior: nothing is written, so the user's earlier picks stay
+  // Expected output: "equipmentNotFound"
+  test("Saves nothing when an item is not the user's active equipment", async () => {
+    db.equipment.count.mockResolvedValue(1);
+
+    await expect(replaceGameEquipment(gameId, userId, [7, 9])).resolves.toBe("equipmentNotFound");
+    expect(db.gameEquipment.deleteMany).not.toHaveBeenCalled();
+    expect(db.gameEquipment.createMany).not.toHaveBeenCalled();
+  });
+
+  test("Propagates a failed lock without changing anything", async () => {
+    const error = new Error("Lock timeout");
+    db.$queryRaw.mockRejectedValueOnce(error);
+
+    await expect(replaceGameEquipment(gameId, userId, [7, 9])).rejects.toBe(error);
+    expect(db.game.count).not.toHaveBeenCalled();
+    expect(db.gameEquipment.deleteMany).not.toHaveBeenCalled();
   });
 });
 

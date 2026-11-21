@@ -32,8 +32,12 @@ data class EquipmentDto(
     val createdAt: String? = null,
     val nextMaintenanceAt: String? = null,
     val retiredAt: String? = null,
+    val hoursUsed: Double? = 0.0,
+    val gamesUsed: Int? = 0,
 ) {
     val equipmentType: EquipmentType get() = EquipmentType.fromString(type)
+    val effectiveHoursUsed: Double get() = hoursUsed ?: 0.0
+    val effectiveGamesUsed: Int get() = gamesUsed ?: 0
 }
 
 data class CreateEquipmentRequestDto(

@@ -47,3 +47,8 @@ data class ReportScoreRequestDto(
     val gameId: String,
     val rounds: List<List<Int>>  // [team 1 score, team 2 score] of each round, in order
 )
+
+data class SetGameEquipmentRequestDto(
+    val gameId: String,
+    val equipmentIds: List<Int>
+)

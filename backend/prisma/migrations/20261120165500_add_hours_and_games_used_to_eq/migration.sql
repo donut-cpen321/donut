@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "equipment" ADD COLUMN     "hoursUsed" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "gamesUsed" INTEGER NOT NULL DEFAULT 0;

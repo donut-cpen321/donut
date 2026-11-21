@@ -39,6 +39,7 @@ import {
 // Mocked tests of joining, leaving and cancelling games: POST /games/join, /games/leave, DELETE /games.
 // The fixtures shared by every games.*.test.ts are in gamesFixtures.ts
 jest.mock("../../src/games/games.repository", () => ({
+  replaceGameEquipment: jest.fn(),
   createGame: jest.fn(),
   fetchGame: jest.fn(),
   deleteGame: jest.fn(),
@@ -72,6 +73,8 @@ jest.mock("../../src/users/users.service", () => ({
   ...jest.requireActual<typeof import("../../src/users/users.service")>(
     "../../src/users/users.service",
   ),
+  // No default equipment, so creating or joining a game doesn't look any up
+  getEquipment: jest.fn(() => Promise.resolve([])),
   pushToUsers: jest.fn(),
 }));
 

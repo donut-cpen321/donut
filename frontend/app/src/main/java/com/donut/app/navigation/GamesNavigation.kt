@@ -107,6 +107,9 @@ private fun NavGraphBuilder.gameDetailDestination(
             onBack = { navController.popBackStack() },
             onOpenTournament = { tournamentId ->
                 navController.navigate(Screen.TournamentDetail.createRoute(tournamentId))
+            },
+            onOpenEquipment = {
+                navController.navigate(Screen.Profile.route)
             }
         )
     }

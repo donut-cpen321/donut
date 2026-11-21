@@ -22,6 +22,7 @@
 | 11-20-2026        | 2.1.1, 3.1            | Listed the live update streams and named Matchmaking as the fully tested component. Renumbered the NFRs to match Requirements_and_Design.md and removed the live score NFR. |
 | 11-20-2026        | 4.2.1                 | Added the failure scenarios of Use Case 4 to the end-to-end test, and `CreateGameViewModelTest` for the ones the UI can't cause. |
 | 11-20-2026        | 2.1.1                 | Added no-mock tests for the live update streams (`tests/no-mock/liveUpdates.test.ts`). |
+| 11-21-2026        | 2.1.1                 | Added `PUT /games/equipment`, with mocked and no-mock tests. |
 
 ---
 
@@ -60,6 +61,7 @@
 | **POST /games/invite**        | [`tests/no-mock/games.test.ts`]                      | [`tests/mock/games.matched.test.ts`]               | Game DB, Friendship DB, User DB, Firebase Cloud Messaging |
 | **PATCH /games/time**         | [`tests/no-mock/games.test.ts`]                      | [`tests/mock/games.edit.test.ts`]                  | Game DB                            |
 | **PATCH /games/location**     | [`tests/no-mock/games.test.ts`]                      | [`tests/mock/games.edit.test.ts`]                  | Game DB                            |
+| **PUT /games/equipment**     | [`tests/no-mock/gameEquipment.test.ts`]              | [`tests/mock/games.equipment.test.ts`], [`tests/mock/repositories.test.ts`] | Game DB, Equipment DB |
 | **POST /games/start**         | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.edit.test.ts`], [`tests/mock/repositories.test.ts`] | Game DB |
 | **POST /games/score**         | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/playerStats.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.score.test.ts`], [`tests/mock/repositories.test.ts`], [`tests/mock/bracket.repository.test.ts`] | Game DB, Tournament DB, Firebase Cloud Messaging |
 | **POST /games/score/confirm** | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/playerStats.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.score.test.ts`], [`tests/mock/repositories.test.ts`] | Game DB, Tournament DB |
@@ -123,8 +125,8 @@ Every file has 100% statement, function and line coverage. The branches left are
 | -------- | -------------------- | ----------------------- |
 | `events/eventStreams.ts` | 131: `this.streams.get(key) ?? []` | Only if every client of the key disconnects while its new state loads. `refresh` already returns when nobody is watching, so the gap is one database read. Nothing is written in that case, which is also what happens with an empty list. |
 | `external/weather.ts` | 113: the cache entry is no longer the one that failed | A failed forecast only leaves the cache alone if another request replaced its entry while it was failing. Entries are replaced after 10 minutes, and a request gives up after 2 seconds. |
-| `games/games.service.ts` | 211: `?? []` when the game is gone | Cancelling a game first checks it exists; this is for a game deleted between that check and the player lookup. |
-| `games/games.service.ts` | 576: `?? gameErrors.AlreadyStarted` | Only reached when `startBookedGame` started nothing although the game still looks startable when read again, which a single `UPDATE ... WHERE status = 'BOOKED'` can't do. The fallback keeps the error correct if it ever happens. |
+| `games/games.service.ts` | 230: `?? []` when the game is gone | Cancelling a game first checks it exists; this is for a game deleted between that check and the player lookup. |
+| `games/games.service.ts` | 622: `?? gameErrors.AlreadyStarted` | Only reached when `startBookedGame` started nothing although the game still looks startable when read again, which a single `UPDATE ... WHERE status = 'BOOKED'` can't do. The fallback keeps the error correct if it ever happens. |
 | `live/live.ts` | 101, 116: `?? []` when the game or tournament is gone | A push for a game or tournament deleted after the change was announced and before it was read. The players of a deleted game are passed with the change, so this only covers a delete racing the push. |
 | `matchmaking/matchmaking.service.ts` | 229: `locationsById.get(id) ?? []` | The matches are built from the same candidates the map is built from, so every matched player is in it. |
 | `tournaments/bracket.repository.ts` | 140: `membersBySeed.get(...) ?? []` | Every seed of a full bracket has a team; the map is filled from the same teams the slots are drawn from. |
@@ -289,6 +291,7 @@ These render one screen with injected data, with no backend or signed-in account
 [`tests/mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/matchmaking.test.ts
 [`tests/mock/queueEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/queueEvents.test.ts
 [`tests/mock/gameEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/gameEvents.test.ts
+[`tests/mock/games.equipment.test.ts`]: https://github.com/donut-cpen321/donut/blob/main/backend/tests/mock/games.equipment.test.ts
 [`tests/mock/liveLists.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/liveLists.test.ts
 [`tests/mock/friendEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/friendEvents.test.ts
 [`tests/mock/live.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/live.test.ts
@@ -318,6 +321,7 @@ These render one screen with injected data, with no backend or signed-in account
 [`tests/no-mock/jobs.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/jobs.test.ts
 [`tests/no-mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/matchmaking.test.ts
 [`tests/no-mock/liveUpdates.test.ts`]: https://github.com/donut-cpen321/donut/blob/main/backend/tests/no-mock/liveUpdates.test.ts
+[`tests/no-mock/gameEquipment.test.ts`]: https://github.com/donut-cpen321/donut/blob/main/backend/tests/no-mock/gameEquipment.test.ts
 [`tests/no-mock/playerStats.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/playerStats.test.ts
 [`tests/no-mock/queue.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/queue.test.ts
 [`tests/no-mock/requireAuth.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/requireAuth.test.ts

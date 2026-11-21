@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.donut.app.core.auth.AuthSession
 import com.donut.app.core.data.repository.CourtsRepository
+import com.donut.app.core.data.repository.EquipmentRepository
+import com.donut.app.core.data.repository.EquipmentRepositoryImpl
 import com.donut.app.core.data.repository.FriendsRepository
 import com.donut.app.core.data.model.Game
 import com.donut.app.core.data.repository.GameUpdate
@@ -30,6 +32,7 @@ import java.time.Instant
  * @param currentUsername the signed-in user's username, null if signed out
  * @param friendsRepository the /friends routes, for the friends to invite
  * @param session sends the friends requests as the signed-in user
+ * @param equipmentRepository the /user/equipment routes
  */
 class GameDetailViewModel(
     private val gameId: String,
@@ -37,10 +40,14 @@ class GameDetailViewModel(
     private val courtsRepository: CourtsRepository,
     private val currentUsername: () -> String?,
     private val friendsRepository: FriendsRepository,
-    private val session: AuthSession
+    private val session: AuthSession,
+    private val equipmentRepository: EquipmentRepository = EquipmentRepositoryImpl()
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(GameDetailUiState())
     val uiState: StateFlow<GameDetailUiState> = _uiState.asStateFlow()
+
+    // The user's equipment, and which of it they use in this game. Shares this state
+    val equipment = GameDetailEquipment(gameId, _uiState, viewModelScope, gamesRepository, equipmentRepository, session)
 
     // Waits for the moment the game's actions next change with the time, see showGame
     private var actionsTimer: Job? = null
@@ -49,6 +56,7 @@ class GameDetailViewModel(
         // The screen opens the game's event stream (followUpdates), which sends the game first, so it isn't
         // loaded here too
         _uiState.update { it.copy(isLoading = true) }
+        equipment.load()
     }
 
     fun load() {
@@ -215,9 +223,12 @@ class GameDetailViewModel(
     }
 
     private fun showGame(game: Game) {
+        val username = currentUsername()
+        val selectedIds = myEquipmentIds(game, username)
+
         val now = Instant.now()
-        val actions = gameActions(game, currentUsername(), now)
-        _uiState.update { it.copy(game = game, actions = actions) }
+        val actions = gameActions(game, username, now)
+        _uiState.update { it.copy(game = game, actions = actions, selectedEquipmentIds = selectedIds) }
 
         enrichMissingGamePhotos(game)
 

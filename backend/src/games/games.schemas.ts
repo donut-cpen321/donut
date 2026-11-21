@@ -43,6 +43,18 @@ export const leaveGameSchema = z.strictObject({
   gameId: z.uuid(),
 });
 
+// More than a player could bring to a court; keeps the request small
+const MAX_GAME_EQUIPMENT = 20;
+
+export const setGameEquipmentSchema = z.strictObject({
+  gameId: z.uuid(),
+  // The caller's equipment used in the game. It replaces what they picked before, so an empty list clears it
+  equipmentIds: z
+    .array(z.int32().positive())
+    .max(MAX_GAME_EQUIPMENT)
+    .refine((ids) => new Set(ids).size === ids.length, "must not repeat an item"),
+});
+
 export const acceptMatchSchema = z.strictObject({
   gameId: z.uuid(),
 });
@@ -118,6 +130,7 @@ export type GameIdInput = z.infer<typeof gameIdSchema>;
 export type JoinGameInput = z.infer<typeof joinGameSchema>;
 export type CreateGameUserInput = z.infer<typeof createGameUserSchema>;
 export type LeaveGameInput = z.infer<typeof leaveGameSchema>;
+export type SetGameEquipmentInput = z.infer<typeof setGameEquipmentSchema>;
 export type AcceptMatchInput = z.infer<typeof acceptMatchSchema>;
 export type InviteFriendInput = z.infer<typeof inviteFriendSchema>;
 export type StartGameInput = z.infer<typeof startGameSchema>;

@@ -67,6 +67,13 @@ data class ScoreProposal(
     val proposedAt: Instant
 )
 
+data class GameEquipment(
+    val id: Int,
+    val userId: String,
+    val type: String,
+    val name: String
+)
+
 data class Game(
     val id: String,
     val format: Format,
@@ -76,6 +83,8 @@ data class Game(
     val court: Court,
     val players: List<Player>,
     val rounds: List<Round>,
+    // Equipment selected by players for this game
+    val equipment: List<GameEquipment> = emptyList(),
     // Only games still to be played have one, and it is null when the game is more than 5 days away
     // or OpenWeather could not be reached
     val forecast: Forecast? = null,

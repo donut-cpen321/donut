@@ -43,6 +43,7 @@ export const gameDetails = (overrides: Partial<GameDetails> = {}): GameDetails =
     },
   ],
   rounds: [],
+  equipment: [],
   tournament: null,
   scoreProposal: null,
   ...overrides,

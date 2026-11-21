@@ -77,7 +77,9 @@ data class GameDetailCallbacks(
     val onCancelGame: () -> Unit,
     val onOpenTournament: (tournamentId: String) -> Unit,
     val onOpenInvite: () -> Unit,
-    val onInvite: (userId: String) -> Unit
+    val onInvite: (userId: String) -> Unit,
+    val onToggleEquipment: (Int) -> Unit,
+    val onOpenEquipment: () -> Unit
 )
 
 // What a confirm dialog asks before the game is started early, left or cancelled
@@ -106,13 +108,14 @@ internal enum class GameDialog { TIME, COURT, SCORE, CONFIRM_SCORE, START, LEAVE
 fun GameDetailRoute(
     viewModel: GameDetailViewModel,
     onBack: () -> Unit,
-    onOpenTournament: (tournamentId: String) -> Unit
+    onOpenTournament: (tournamentId: String) -> Unit,
+    onOpenEquipment: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     FollowWhileVisible(viewModel) { viewModel.followUpdates() }
 
-    val callbacks = remember(viewModel, onBack, onOpenTournament) {
+    val callbacks = remember(viewModel, onBack, onOpenTournament, onOpenEquipment) {
         GameDetailCallbacks(
             onJoin = viewModel::join,
             onLeave = viewModel::leave,
@@ -125,7 +128,9 @@ fun GameDetailRoute(
             onCancelGame = { viewModel.cancel(onCancelled = onBack) },
             onOpenTournament = onOpenTournament,
             onOpenInvite = viewModel::loadFriends,
-            onInvite = viewModel::invite
+            onInvite = viewModel::invite,
+            onToggleEquipment = viewModel.equipment::toggle,
+            onOpenEquipment = onOpenEquipment
         )
     }
 
@@ -207,6 +212,16 @@ private fun GameDetails(
         )
 
         GameScoreSection(game = game)
+
+        EquipmentSection(
+            game = game,
+            userEquipment = uiState.userEquipment,
+            selectedEquipmentIds = uiState.selectedEquipmentIds,
+            isLoadingEquipment = uiState.isLoadingEquipment,
+            equipmentErrorMessage = uiState.equipmentErrorMessage,
+            onToggleEquipment = callbacks.onToggleEquipment,
+            onOpenEquipmentScreen = callbacks.onOpenEquipment
+        )
 
         if (uiState.errorMessage != null) {
             Text(

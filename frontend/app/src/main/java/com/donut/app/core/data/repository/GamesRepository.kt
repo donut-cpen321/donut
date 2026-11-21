@@ -20,6 +20,7 @@ import com.donut.app.core.network.dto.InviteFriendRequestDto
 import com.donut.app.core.network.dto.JoinGameRequestDto
 import com.donut.app.core.network.dto.LeaveGameRequestDto
 import com.donut.app.core.network.dto.ReportScoreRequestDto
+import com.donut.app.core.network.dto.SetGameEquipmentRequestDto
 import com.donut.app.core.network.dto.StartGameRequestDto
 import com.donut.app.core.network.dto.toGame
 import retrofit2.HttpException
@@ -59,6 +60,9 @@ interface GamesRepository {
     suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit>
 
     suspend fun changeGameLocation(gameId: String, courtId: Int): Result<Unit>
+
+    // Replaces the signed-in user's equipment selection for the game
+    suspend fun setGameEquipment(gameId: String, equipmentIds: List<Int>): Result<Unit>
 
     // Reports the final score: the (team 1, team 2) score of each round, in order. It replaces any score waiting,
     // and the game ends once every player confirmed it
@@ -145,6 +149,14 @@ class GamesRepositoryImpl(
 
     override suspend fun changeGameLocation(gameId: String, courtId: Int): Result<Unit> =
         request { gamesApi.changeGameLocation(it, ChangeGameLocationRequestDto(gameId, courtId)) }
+
+    override suspend fun setGameEquipment(gameId: String, equipmentIds: List<Int>): Result<Unit> =
+        request { authorization ->
+            val response = gamesApi.setGameEquipment(authorization, SetGameEquipmentRequestDto(gameId, equipmentIds))
+            if (!response.isSuccessful) {
+                throw HttpException(response)
+            }
+        }
 
     override suspend fun reportScore(gameId: String, rounds: List<Pair<Int, Int>>): Result<Unit> =
         request { gamesApi.reportScore(it, scoreRequest(gameId, rounds)) }

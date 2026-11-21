@@ -7,6 +7,9 @@ import { type RoundScores, storedRoundsSchema } from "./games.schemas";
 
 export const MATCH_ANSWER_DEADLINE_MS = 30 * 60 * 1000;
 
+// Hours of use added to each piece of equipment in a completed game
+export const HOURS_PER_GAME = 1;
+
 // The user fields that are safe to show to other players.
 const playerUserSelect = {
   id: true,
@@ -40,6 +43,9 @@ const gameDetailsInclude = {
   tournamentMatch: {
     select: { round: true, tournament: { select: { id: true, name: true } } },
   },
+  equipment: {
+    select: { equipment: { select: { id: true, userId: true, type: true, name: true } } },
+  },
 } satisfies Prisma.GameInclude;
 
 type GameDetailsRow = Prisma.GameGetPayload<{
@@ -61,12 +67,14 @@ function parseStoredRounds(rounds: Prisma.JsonValue): RoundScores {
  * @param game a game fetched with gameDetailsInclude
  * @returns the game with players as { id, username, name, rating, team, acceptedAt, scoreConfirmedAt, ratingBefore,
  * ratingAfter }, its tournament as { id, name, round }, or null if it is not a tournament game, and its scoreProposal
- * as { rounds, proposedById, proposedAt } with rounds shaped like the game's, or null if no score is waiting.
+ * as { rounds, proposedById, proposedAt } with rounds shaped like the game's, or null if no score is waiting,
+ * and its equipment as a list of { id, userId, type, name }, where userId is the player using the item.
  * ratingBefore and ratingAfter are null until the game is completed
  */
-function toGameDetails({ players, tournamentMatch, scoreProposal, ...game }: GameDetailsRow) {
+function toGameDetails({ players, tournamentMatch, scoreProposal, equipment, ...game }: GameDetailsRow) {
   return {
     ...game,
+    equipment: equipment.map((item) => item.equipment),
     players: players.map(({ user, team, acceptedAt, scoreConfirmedAt, ratingBefore, ratingAfter }) => ({
       ...user,
       team,
@@ -304,7 +312,8 @@ export async function startBookedGame(
 /**
  * Saves the final rounds of a game in progress, marks it as completed, updates every player's rating and, for a
  * tournament game, moves the winner on through the bracket, replacing any rounds saved during the game. Its score
- * proposal is deleted, since the rounds now hold the score. The caller holds the game's lock
+ * proposal is deleted, since the rounds now hold the score. Each piece of equipment used in the game gets one more
+ * game and HOURS_PER_GAME more hours. The caller holds the game's lock
  * @param tx the transaction to complete the game in
  * @param gameId the game ID of the game to complete
  * @param rounds the [team 1 score, team 2 score] of each round, in order
@@ -329,6 +338,12 @@ async function completeGame(tx: Prisma.TransactionClient, gameId: string, rounds
     })),
   });
   const ratingChanges = await applyGameResult(tx, gameId, game.format, rounds);
+
+  // Once per game, since a game only completes once, under its lock; a rollback undoes it too
+  await tx.equipment.updateMany({
+    where: { games: { some: { gameId } } },
+    data: { gamesUsed: { increment: 1 }, hoursUsed: { increment: HOURS_PER_GAME } },
+  });
 
   if (game.gameSource === GameSource.TOURNAMENT) {
     await advanceBracket(tx, gameId, rounds, now);
@@ -429,6 +444,47 @@ export async function isUserInGame(userId: string, gameId: string) {
   });
 
   return !!gameUserCount;
+}
+
+export type ReplaceEquipmentResult = "saved" | "closed" | "notInGame" | "equipmentNotFound";
+
+/**
+ * Replaces the equipment a player uses in a game. Only the player's own rows change: other players' equipment stays.
+ * Runs under the game's lock, so the selection can't change while the game is being completed and counted
+ * @param gameId the game ID of the game
+ * @param userId the player
+ * @param equipmentIds the IDs of the player's equipment to use, without repeats
+ * @returns "saved", "closed" if the game is gone, completed or cancelled, "notInGame" if the user is not a player, or
+ * "equipmentNotFound" if an item doesn't exist, isn't the user's, or is retired
+ */
+export async function replaceGameEquipment(
+  gameId: string,
+  userId: string,
+  equipmentIds: number[],
+): Promise<ReplaceEquipmentResult> {
+  return await prisma.$transaction(async (tx) => {
+    await lockGame(tx, gameId);
+
+    const open = await tx.game.count({
+      where: { id: gameId, status: { in: [GameStatus.OPEN, GameStatus.BOOKED, GameStatus.IN_PROGRESS] } },
+    });
+    if (open === 0) {
+      return "closed";
+    }
+
+    if ((await tx.gameUser.count({ where: { gameId, userId } })) === 0) {
+      return "notInGame";
+    }
+
+    const owned = await tx.equipment.count({ where: { id: { in: equipmentIds }, userId, retiredAt: null } });
+    if (owned !== equipmentIds.length) {
+      return "equipmentNotFound";
+    }
+
+    await tx.gameEquipment.deleteMany({ where: { gameId, equipment: { userId } } });
+    await tx.gameEquipment.createMany({ data: equipmentIds.map((equipmentId) => ({ gameId, equipmentId })) });
+    return "saved";
+  });
 }
 
 export type AddPlayerResult = "added" | "notJoinable" | "teamFull";
@@ -546,6 +602,9 @@ export async function deleteGameUser(gameId: string, userId: string) {
     await tx.gameUser.delete({
       where: { gameId_userId: { gameId, userId } },
     });
+
+    // A player who leaves takes their equipment out of the game, so it isn't counted when the game completes
+    await tx.gameEquipment.deleteMany({ where: { gameId, equipment: { userId } } });
 
     await tx.game.updateMany({
       where: {

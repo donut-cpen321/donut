@@ -49,6 +49,8 @@ describe('Mocked: /user/equipment', () => {
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       nextMaintenanceAt: new Date('2026-10-01T00:00:00.000Z'),
       retiredAt: null,
+      hoursUsed: 0,
+      gamesUsed: 0,
     }]);
 
     const response = await request(createApp())
@@ -79,6 +81,8 @@ describe('Mocked: /user/equipment', () => {
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       nextMaintenanceAt: new Date('2026-10-01T00:00:00.000Z'),
       retiredAt: null,
+      hoursUsed: 0,
+      gamesUsed: 0,
     };
     mockedCreateEquipment.mockResolvedValue(equipment);
 
@@ -122,6 +126,8 @@ describe('Mocked: /user/equipment', () => {
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       nextMaintenanceAt: null,
       retiredAt: null,
+      hoursUsed: 0,
+      gamesUsed: 0,
     });
 
     const response = await request(createApp())

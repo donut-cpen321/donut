@@ -241,6 +241,8 @@ model Equipment {
   createdAt DateTime      @default(now()) @db.Timestamptz(3)
   nextMaintenanceAt DateTime? @db.Timestamptz(3)
   retiredAt DateTime?     @db.Timestamptz(3)
+  hoursUsed Float         @default(0) // total hours played with this item
+  gamesUsed Int           @default(0) // number of games played with this item
 
   user  User            @relation(fields: [userId], references: [id])
   games GameEquipment[]

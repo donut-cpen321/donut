@@ -5,10 +5,14 @@ import com.donut.app.core.auth.User
 import com.donut.app.core.data.model.Format
 import com.donut.app.core.data.model.Game
 import com.donut.app.core.data.model.Tournament
+import com.donut.app.core.data.repository.EquipmentRepository
 import com.donut.app.core.data.repository.GameUpdate
 import com.donut.app.core.data.repository.GamesRepository
 import com.donut.app.core.data.repository.TournamentsRepository
 import com.donut.app.core.network.ApiService
+import com.donut.app.core.network.dto.CreateEquipmentRequestDto
+import com.donut.app.core.network.dto.EquipmentDto
+import com.donut.app.core.network.dto.UpdateEquipmentRequestDto
 import kotlinx.coroutines.flow.Flow
 import java.lang.reflect.Proxy
 import java.time.Instant
@@ -32,6 +36,7 @@ open class UnusedGamesRepository : GamesRepository {
     override suspend fun startGame(gameId: String): Result<Unit> = error("unused")
     override suspend fun changeGameTime(gameId: String, startsAt: Instant): Result<Unit> = error("unused")
     override suspend fun changeGameLocation(gameId: String, courtId: Int): Result<Unit> = error("unused")
+    override suspend fun setGameEquipment(gameId: String, equipmentIds: List<Int>): Result<Unit> = error("unused")
     override suspend fun reportScore(gameId: String, rounds: List<Pair<Int, Int>>): Result<Unit> = error("unused")
     override suspend fun confirmScore(gameId: String, rounds: List<Pair<Int, Int>>): Result<Unit> = error("unused")
     override fun gameUpdates(gameId: String): Flow<GameUpdate> = error("unused")
@@ -54,6 +59,20 @@ open class UnusedTournamentsRepository : TournamentsRepository {
     override suspend fun leaveTournament(tournamentId: String): Result<Unit> = error("unused")
     override suspend fun cancelTournament(tournamentId: String): Result<Unit> = error("unused")
     override fun tournamentUpdates(tournamentId: String): Flow<Tournament> = error("unused")
+}
+
+open class UnusedEquipmentRepository : EquipmentRepository {
+    override suspend fun getEquipment(session: AuthSession): Result<List<EquipmentDto>> = Result.success(emptyList())
+    override suspend fun createEquipment(
+        session: AuthSession,
+        request: CreateEquipmentRequestDto
+    ): Result<EquipmentDto> = error("unused")
+    override suspend fun updateEquipment(
+        session: AuthSession,
+        id: Int,
+        request: UpdateEquipmentRequestDto
+    ): Result<EquipmentDto> = error("unused")
+    override suspend fun deleteEquipment(session: AuthSession, id: Int): Result<Unit> = error("unused")
 }
 
 /**

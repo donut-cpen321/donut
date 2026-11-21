@@ -10,6 +10,7 @@ import com.donut.app.core.data.model.GameTournament
 import com.donut.app.core.data.model.Player
 import com.donut.app.core.data.model.Round
 import com.donut.app.core.data.model.ScoreProposal
+import com.donut.app.core.data.model.GameEquipment
 import com.google.gson.annotations.SerializedName
 import java.time.Instant
 
@@ -26,7 +27,16 @@ data class GameDto(
     val rounds: List<RoundDto>,
     val forecast: ForecastDto?,  // null for a completed or cancelled game; GET /games/history leaves it out
     val tournament: GameTournamentDto?,  // null unless the game is a tournament match
-    val scoreProposal: ScoreProposalDto? = null  // null unless a reported score waits for every player to confirm it
+    val scoreProposal: ScoreProposalDto? = null,  // null unless a reported score waits for every player to confirm it
+    val equipment: List<GameEquipmentDto>? = null  // equipment selected by players for this game
+)
+
+data class GameEquipmentDto(
+    @SerializedName("id", alternate = ["_id", "equipmentId"])
+    val id: Int,
+    val userId: String? = null,
+    val type: String? = null,
+    val name: String? = null
 )
 
 data class ScoreProposalDto(
@@ -108,11 +118,19 @@ fun GameDto.toGame(): Game = Game(
     court = court.toCourt(),
     players = players.map { it.toPlayer() },
     rounds = rounds.map { it.toRound() },
+    equipment = equipment?.map { it.toGameEquipment() } ?: emptyList(),
     forecast = forecast?.toForecast(),
     tournament = tournament?.let { GameTournament(it.id, it.name, it.round) },
     scoreProposal = scoreProposal?.let {
         ScoreProposal(it.rounds.map { round -> round.toRound() }, it.proposedById, Instant.parse(it.proposedAt))
     }
+)
+
+fun GameEquipmentDto.toGameEquipment(): GameEquipment = GameEquipment(
+    id = id,
+    userId = userId.orEmpty(),
+    type = type.orEmpty(),
+    name = name.orEmpty()
 )
 
 fun ForecastDto.toForecast(): Forecast = Forecast(temperature, description, precipitationChance)

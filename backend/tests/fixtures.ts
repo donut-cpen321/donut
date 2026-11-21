@@ -46,7 +46,7 @@ export function testPlayer(id: string, team: number): GameDetails["players"][num
 }
 
 /**
- * @returns gameRow with its court, no players, no rounds and no tournament, as fetchGameDetails returns it
+ * @returns gameRow with its court, no players, no rounds, no equipment and no tournament, as fetchGameDetails returns it
  */
 export function gameDetails(overrides: Partial<GameDetails> = {}): GameDetails {
   return {
@@ -56,6 +56,7 @@ export function gameDetails(overrides: Partial<GameDetails> = {}): GameDetails {
     rounds: [],
     tournament: null,
     scoreProposal: null,
+    equipment: [],
     ...overrides,
   };
 }

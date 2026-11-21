@@ -46,6 +46,7 @@ import com.donut.app.core.ui.components.SectionLabel
 import com.donut.app.core.ui.components.SmallButtonHeight
 import com.donut.app.core.ui.components.StatusChip
 import com.donut.app.core.ui.theme.TextFieldShape
+import java.util.Locale
 
 private const val TENNIS_BALLS_NAME = "Tennis Balls"
 
@@ -228,6 +229,11 @@ private fun EquipmentItemInfo(
                 }
             }
         }
+        Text(
+            text = equipmentUsageText(equipment.effectiveGamesUsed, equipment.effectiveHoursUsed),
+            style = MaterialTheme.typography.bodySmall,
+            color = muted,
+        )
         if (equipment.nextMaintenanceAt != null) {
             Text(
                 text = "Service due ${equipment.nextMaintenanceAt.take(10)}",
@@ -415,4 +421,16 @@ private fun RacketMaintenanceNote() {
             modifier = Modifier.padding(12.dp),
         )
     }
+}
+
+/**
+ * How much an item was used, e.g. "3 games used · 3 hrs used" or "1 game used · 1.5 hrs used"
+ * @param games the games played with it
+ * @param hours the hours played with it, shown with one decimal unless whole
+ */
+internal fun equipmentUsageText(games: Int, hours: Double): String {
+    val gamesText = if (games == 1) "1 game" else "$games games"
+    val hoursNumber = if (hours % 1.0 == 0.0) hours.toInt().toString() else String.format(Locale.US, "%.1f", hours)
+    val hoursText = if (hours == 1.0) "1 hr" else "$hoursNumber hrs"
+    return "$gamesText used · $hoursText used"
 }

@@ -2,6 +2,7 @@ package com.donut.app.feature.gamedetail
 
 import com.donut.app.core.data.model.Court
 import com.donut.app.core.data.model.Game
+import com.donut.app.core.network.dto.EquipmentDto
 import com.donut.app.core.network.dto.FriendDto
 
 data class GameDetailUiState(
@@ -17,7 +18,13 @@ data class GameDetailUiState(
     val courtsErrorMessage: String? = null,
 
     // For inviting friends, loaded when the invite dialog opens
-    val invite: InviteUiState = InviteUiState()
+    val invite: InviteUiState = InviteUiState(),
+
+    // For equipment selection
+    val userEquipment: List<EquipmentDto> = emptyList(),
+    val selectedEquipmentIds: Set<Int> = emptySet(),
+    val isLoadingEquipment: Boolean = false,
+    val equipmentErrorMessage: String? = null
 )
 
 data class InviteUiState(

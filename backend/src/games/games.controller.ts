@@ -12,6 +12,7 @@ import {
   joinGameSchema,
   leaveGameSchema,
   reportScoreSchema,
+  setGameEquipmentSchema,
   startGameSchema,
 } from "./games.schemas";
 import {
@@ -29,6 +30,7 @@ import {
   leaveGame,
   newGame,
   reportScore,
+  setGameEquipment,
   startGame,
 } from "./games.service";
 import { gameListStreams, gameStreams } from "./games.events";
@@ -132,6 +134,13 @@ gamesRouter.patch("/location", async (req: Request, res: Response) => {
   const { gameId, courtId } = parseRequest(changeGameLocationSchema, req.body);
   const game = await changeGameLocation(gameId, authedUserId(req), courtId);
   res.status(200).json({ game });
+});
+
+// Replaces the equipment the caller uses in a game. Each item's usage is counted when the game completes
+gamesRouter.put("/equipment", async (req: Request, res: Response) => {
+  const { gameId, equipmentIds } = parseRequest(setGameEquipmentSchema, req.body);
+  await setGameEquipment(gameId, authedUserId(req), equipmentIds);
+  res.sendStatus(204);
 });
 
 // Reports the final score, which waits for every other player to confirm it; the game completes once all agree

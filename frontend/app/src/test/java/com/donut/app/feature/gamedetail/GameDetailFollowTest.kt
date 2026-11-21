@@ -9,6 +9,7 @@ import com.donut.app.core.data.model.Player
 import com.donut.app.core.data.repository.CourtsRepository
 import com.donut.app.core.data.repository.GameUpdate
 import com.donut.app.feature.profile.FakeFriendsRepository
+import com.donut.app.testing.UnusedEquipmentRepository
 import com.donut.app.testing.UnusedGamesRepository
 import com.donut.app.testing.signedInSession
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +82,8 @@ class GameDetailFollowTest {
         courtsRepository = UnusedCourts,
         currentUsername = { "bob" },
         friendsRepository = FakeFriendsRepository(),
-        session = session
+        session = session,
+        equipmentRepository = UnusedEquipmentRepository()
     )
 
     @Before
