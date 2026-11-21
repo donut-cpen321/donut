@@ -14,12 +14,8 @@ import com.donut.app.core.data.repository.FriendsRepositoryImpl
 import com.donut.app.core.data.repository.FriendsPageUpdate
 import com.donut.app.core.data.repository.FriendsPageUpdates
 import com.donut.app.core.data.repository.FriendsPageUpdatesImpl
-import com.donut.app.core.network.dto.CreateEquipmentRequestDto
 import com.donut.app.core.data.repository.reconnecting
 import com.donut.app.core.network.toUserMessage
-import com.donut.app.core.network.dto.EquipmentDto
-import com.donut.app.core.network.dto.EquipmentType
-import com.donut.app.core.network.dto.UpdateEquipmentRequestDto
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,16 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-
-// Only tennis rackets should have a next maintenance date, set to 1 month from now
-private fun nextMaintenanceFor(type: EquipmentType): String? {
-    if (type != EquipmentType.RACKET) return null
-    val nextMonth = Instant.now().plus(30, ChronoUnit.DAYS)
-    return DateTimeFormatter.ISO_INSTANT.format(nextMonth)
-}
 
 class ProfileViewModel(
     private val repository: FriendsRepository = FriendsRepositoryImpl(),
@@ -49,6 +35,9 @@ class ProfileViewModel(
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    // The Equipment tab, which shares this state
+    val equipment = ProfileEquipment(_uiState, viewModelScope, ioDispatcher, equipmentRepository)
 
     /**
      * Shows the friends list and friend requests as the backend pushes them, e.g. when a friend starts or stops
@@ -88,7 +77,7 @@ class ProfileViewModel(
         _uiState.update { it.copy(username = currentUsername) }
         fetchUserMe(session)
         fetchMatchHistory(session)
-        fetchEquipment(session)
+        equipment.fetchEquipment(session)
         fetchPreferredCourts(session)
         fetchAllCourts(session)
         if (_uiState.value.selectedTab == ProfileTab.FRIENDS) {
@@ -110,7 +99,7 @@ class ProfileViewModel(
         fetchFriends(session)
         fetchFriendRequests(session)
         fetchMatchHistory(session)
-        fetchEquipment(session)
+        equipment.fetchEquipment(session)
         fetchPreferredCourts(session)
         fetchAllCourts(session)
     }
@@ -224,28 +213,6 @@ class ProfileViewModel(
         }
     }
 
-    fun fetchEquipment(session: AuthSession) {
-        viewModelScope.launch(ioDispatcher) {
-            _uiState.update { it.copy(isLoadingEquipment = true) }
-            val result = equipmentRepository.getEquipment(session)
-            result.onSuccess { equipmentList ->
-                _uiState.update {
-                    it.copy(
-                        equipment = equipmentList,
-                        isLoadingEquipment = false,
-                    )
-                }
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isLoadingEquipment = false,
-                        errorMessage = error.toUserMessage(),
-                    )
-                }
-            }
-        }
-    }
-
     fun fetchPreferredCourts(session: AuthSession) {
         viewModelScope.launch(ioDispatcher) {
             _uiState.update { it.copy(isLoadingPreferredCourts = true) }
@@ -331,42 +298,6 @@ class ProfileViewModel(
         }
     }
 
-    fun openAddEquipmentDialog() {
-        _uiState.update {
-            it.copy(
-                showEquipmentDialog = true,
-                editingEquipment = null,
-                equipmentNameInput = "",
-                equipmentTypeInput = EquipmentType.RACKET,
-                equipmentIsDefaultInput = false,
-            )
-        }
-    }
-
-    fun openEditEquipmentDialog(equipment: EquipmentDto) {
-        val type = equipment.equipmentType
-        val name = if (type == EquipmentType.BALLS) "Tennis Balls" else equipment.name
-        _uiState.update {
-            it.copy(
-                showEquipmentDialog = true,
-                editingEquipment = equipment,
-                equipmentNameInput = name,
-                equipmentTypeInput = type,
-                equipmentIsDefaultInput = equipment.isDefault,
-            )
-        }
-    }
-
-    fun closeEquipmentDialog() {
-        _uiState.update {
-            it.copy(
-                showEquipmentDialog = false,
-                editingEquipment = null,
-                equipmentNameInput = "",
-            )
-        }
-    }
-
     fun openAddPreferredCourtDialog(session: AuthSession) {
         _uiState.update { it.copy(showAddCourtDialog = true) }
         fetchAllCourts(session)
@@ -374,102 +305,6 @@ class ProfileViewModel(
 
     fun closeAddPreferredCourtDialog() {
         _uiState.update { it.copy(showAddCourtDialog = false) }
-    }
-
-    fun updateEquipmentInputs(name: String, type: EquipmentType, isDefault: Boolean) {
-        val effectiveName = if (type == EquipmentType.BALLS) "Tennis Balls" else name
-        _uiState.update {
-            it.copy(
-                equipmentNameInput = effectiveName,
-                equipmentTypeInput = type,
-                equipmentIsDefaultInput = isDefault,
-            )
-        }
-    }
-
-    fun saveEquipment(session: AuthSession) {
-        val state = _uiState.value
-        val type = state.equipmentTypeInput
-        val name = if (type == EquipmentType.BALLS) "Tennis Balls" else state.equipmentNameInput.trim()
-
-        if (name.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Equipment name cannot be empty") }
-            return
-        }
-
-        val isDefault = state.equipmentIsDefaultInput
-        val editing = state.editingEquipment
-        val nextMaintenanceAt = nextMaintenanceFor(type)
-
-        viewModelScope.launch(ioDispatcher) {
-            _uiState.update { it.copy(isActionInProgress = true, errorMessage = null) }
-            if (editing == null) {
-                val request = CreateEquipmentRequestDto(
-                    type = type.name,
-                    name = name,
-                    isDefault = isDefault,
-                    nextMaintenanceAt = nextMaintenanceAt,
-                )
-                val result = equipmentRepository.createEquipment(session, request)
-                handleEquipmentSaveResult(session, result, "Equipment added")
-            } else {
-                val request = UpdateEquipmentRequestDto(
-                    type = type.name,
-                    name = name,
-                    isDefault = isDefault,
-                    nextMaintenanceAt = nextMaintenanceAt,
-                )
-                val result = equipmentRepository.updateEquipment(session, editing.id, request)
-                handleEquipmentSaveResult(session, result, "Equipment updated")
-            }
-        }
-    }
-
-    private fun handleEquipmentSaveResult(
-        session: AuthSession,
-        result: Result<*>,
-        successMessage: String,
-    ) {
-        result.onSuccess {
-            _uiState.update {
-                it.copy(
-                    isActionInProgress = false,
-                    showEquipmentDialog = false,
-                    successMessage = successMessage,
-                )
-            }
-            fetchEquipment(session)
-        }.onFailure { error ->
-            _uiState.update {
-                it.copy(
-                    isActionInProgress = false,
-                    errorMessage = error.toUserMessage(),
-                )
-            }
-        }
-    }
-
-    fun deleteEquipment(session: AuthSession, equipmentId: Int) {
-        viewModelScope.launch(ioDispatcher) {
-            _uiState.update { it.copy(isActionInProgress = true, errorMessage = null) }
-            val result = equipmentRepository.deleteEquipment(session, equipmentId)
-            result.onSuccess {
-                _uiState.update {
-                    it.copy(
-                        isActionInProgress = false,
-                        successMessage = "Equipment removed",
-                    )
-                }
-                fetchEquipment(session)
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isActionInProgress = false,
-                        errorMessage = error.toUserMessage(),
-                    )
-                }
-            }
-        }
     }
 
     fun addPreferredCourt(session: AuthSession, court: Court) {

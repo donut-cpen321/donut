@@ -81,14 +81,14 @@ fun ProfileRoute(
         onAcceptRequest = { userId -> session?.let { viewModel.acceptFriendRequest(it, userId) } },
         onRefresh = { session?.let { viewModel.loadAll(it) } },
         onClearMessages = { viewModel.clearMessages() },
-        onOpenAddEquipment = { viewModel.openAddEquipmentDialog() },
-        onOpenEditEquipment = { equipment -> viewModel.openEditEquipmentDialog(equipment) },
-        onCloseEquipmentDialog = { viewModel.closeEquipmentDialog() },
+        onOpenAddEquipment = { viewModel.equipment.openAddEquipmentDialog() },
+        onOpenEditEquipment = { equipment -> viewModel.equipment.openEditEquipmentDialog(equipment) },
+        onCloseEquipmentDialog = { viewModel.equipment.closeEquipmentDialog() },
         onUpdateEquipmentInputs = { name, type, isDefault ->
-            viewModel.updateEquipmentInputs(name, type, isDefault)
+            viewModel.equipment.updateEquipmentInputs(name, type, isDefault)
         },
-        onSaveEquipment = { session?.let { viewModel.saveEquipment(it) } },
-        onDeleteEquipment = { equipmentId -> session?.let { viewModel.deleteEquipment(it, equipmentId) } },
+        onSaveEquipment = { session?.let { viewModel.equipment.saveEquipment(it) } },
+        onDeleteEquipment = { equipmentId -> session?.let { viewModel.equipment.deleteEquipment(it, equipmentId) } },
         onOpenAddPreferredCourt = { session?.let { viewModel.openAddPreferredCourtDialog(it) } },
         onCloseAddPreferredCourtDialog = { viewModel.closeAddPreferredCourtDialog() },
         onAddPreferredCourt = { court -> session?.let { viewModel.addPreferredCourt(it, court) } },

@@ -8,7 +8,6 @@ import com.donut.app.core.data.repository.CourtsRepository
 import com.donut.app.core.data.repository.EquipmentRepository
 import com.donut.app.core.data.repository.FriendsRepository
 import com.donut.app.core.network.ApiService
-import com.donut.app.core.network.dto.AcceptFriendRequestDto
 import com.donut.app.core.network.dto.CreateEquipmentRequestDto
 import com.donut.app.core.network.dto.EquipmentDto
 import com.donut.app.core.network.dto.EquipmentType
@@ -18,7 +17,6 @@ import com.donut.app.core.network.dto.FriendRequestDto
 import com.donut.app.core.network.dto.JoinQueueRequestDto
 import com.donut.app.core.network.dto.LoginRequestDto
 import com.donut.app.core.network.dto.RefreshRequestDto
-import com.donut.app.core.network.dto.SendFriendRequestDto
 import com.donut.app.core.network.dto.UpdateEquipmentRequestDto
 import com.donut.app.core.network.dto.UserMeDto
 import kotlinx.coroutines.Dispatchers
@@ -252,9 +250,9 @@ class ProfileViewModelTest {
         val dummyUser = User("Alice", "access", "refresh")
         val session = createDummySession(dummyUser)
 
-        viewModel.openAddEquipmentDialog()
-        viewModel.updateEquipmentInputs("Pro Staff 97", EquipmentType.RACKET, true)
-        viewModel.saveEquipment(session)
+        viewModel.equipment.openAddEquipmentDialog()
+        viewModel.equipment.updateEquipmentInputs("Pro Staff 97", EquipmentType.RACKET, true)
+        viewModel.equipment.saveEquipment(session)
 
         val created = equipmentRepository.lastCreatedRequest
         assertNotNull(created)
@@ -269,9 +267,9 @@ class ProfileViewModelTest {
         val dummyUser = User("Alice", "access", "refresh")
         val session = createDummySession(dummyUser)
 
-        viewModel.openAddEquipmentDialog()
-        viewModel.updateEquipmentInputs("Nike Vapor Shoes", EquipmentType.SHOES, false)
-        viewModel.saveEquipment(session)
+        viewModel.equipment.openAddEquipmentDialog()
+        viewModel.equipment.updateEquipmentInputs("Nike Vapor Shoes", EquipmentType.SHOES, false)
+        viewModel.equipment.saveEquipment(session)
 
         val created = equipmentRepository.lastCreatedRequest
         assertNotNull(created)
@@ -295,11 +293,6 @@ class ProfileViewModelTest {
                 override suspend fun getQueueEntry(authorization: String) = TODO()
                 override suspend fun joinQueue(authorization: String, request: JoinQueueRequestDto) = TODO()
                 override suspend fun leaveQueue(authorization: String) = TODO()
-                override suspend fun getFriends(authorization: String) = TODO()
-                override suspend fun removeFriend(authorization: String, userId: String) = TODO()
-                override suspend fun getFriendRequests(authorization: String) = TODO()
-                override suspend fun acceptFriendRequest(authorization: String, request: AcceptFriendRequestDto) = TODO()
-                override suspend fun sendFriendRequest(authorization: String, request: SendFriendRequestDto) = TODO()
                 override suspend fun getLeaderboard(authorization: String, limit: Int?) = TODO()
                 override suspend fun getCourts(authorization: String) = TODO()
                 override suspend fun getPreferredCourts(authorization: String) = TODO()
