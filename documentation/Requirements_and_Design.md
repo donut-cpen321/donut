@@ -26,7 +26,7 @@
 | Nov 20, 2026 | 3.7, 4.7 | Added NFR 4, rating accuracy for new players, which `backend/tests/nfr/ratingAccuracy.test.ts` checks. |
 | Nov 20, 2026 | 3.1, 3.2, 3.4, 3.5, 4.6 | Reviewer feedback on features and use cases: split use cases that had more than one goal, added the missing user-facing use cases (sign out, profile, leave the queue, decline a match, friends, equipment, match history, stats), moved system-only steps out of the use case list and gave every use case an active, user-focused name. Redrew the use case diagram. |
 | Nov 20, 2026 | 3.1, 3.2, 3.3, 3.4, 3.5, 3.7, 4.1, 4.3, 4.6, 4.7 | Every feature that was not yet built is now implemented, so the notes saying so are removed. Removed the live score feature, its use cases and its non-functional requirement: players report the score once after the game. Added a fifth formal use case, Join a scheduled match. |
-| Nov 20, 2026 | 3.1, 3.2, 3.4, 3.5, 4.1, 4.5, 4.6 | Diagrams matched to the code, plus a Join a scheduled match diagram. Check-in replaced by "Start now" (Use Case 2, Start a scheduled match); players opt out by leaving or cancelling. Courts moved out of Users into their own component. Restored the score confirmation and `GET /matchmaking/events` text lost in a merge. |
+| Nov 20, 2026 | 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.3, 4.5, 4.6 | Removed Google Calendar. Diagrams matched to the code, plus a Join a scheduled match diagram. Check-in replaced by "Start now" (Use Case 2, Start a scheduled match); players opt out by leaving or cancelling. Courts moved out of Users into their own component. Restored the score confirmation and `GET /matchmaking/events` text lost in a merge. |
 
 ---
 
@@ -47,7 +47,7 @@ Users sign in with Google. The backend then issues its own access and refresh to
 Users pick a format (singles, doubles or either) and where they want to play. The system matches nearby players with similar ratings, books a game one hour later at a nearby court and notifies everyone. The game is booked once every player accepts.
 
 #### **Schedule match**
-Users schedule a game for a future time at a court they pick from a list. It shows in the feed with the weather forecast, and others can join it or be invited by a friend. Users can add it to Google Calendar.
+Users schedule a game for a future time at a court they pick from a list. It shows in the feed with the weather forecast, and others can join it or be invited by a friend.
 
 #### **ELO ranking**
 After every player of a game confirms its final score, every player's ELO rating changes, and a leaderboard ranks players by rating. A player's stats screen shows their ELO over time, their match, set and game totals, and how they do against opponents of different ratings.
@@ -58,7 +58,7 @@ Users create an 8-team single-elimination tournament (singles or doubles) that p
 Supporting features: **friends** (requests, friends list, adding players from a match summary), **match history** with a summary per game, and **equipment** tracking (rackets, balls, shoes, with maintenance dates).
 
 **Project scope requirements:**
-- **External API**: Google Maps (picking courts), Google Places (picking where to play), OpenWeather (feed forecasts), Google Calendar (adding booked games).
+- **External API**: Google Maps (picking courts), Google Places (picking where to play), OpenWeather (feed forecasts).
 - **External event**: match notifications, game invites and requests to confirm a score through Firebase Cloud Messaging.
 - **Our own computation**: the matching algorithm, ELO with margin of victory, and the tournament draw (rating-based seeding, balanced doubles teams, moving winners through the bracket).
 
@@ -72,8 +72,7 @@ Use cases are numbered as in §3.4. The User takes part in every use case of eac
 2. **Google Sign-In**: authenticates players.
 3. **Google Maps Platform**: shows a matched game's court on a map, and Places looks up where a player wants to play.
 4. **Firebase Cloud Messaging**: delivers match notifications and game invites.
-5. **OpenWeather**: supplies forecasts for the feed.
-6. **Google Calendar**: stores booked games in the player's calendar.
+5. **OpenWeather**: supplies forecasts for the feed.
 
 ### **3.4. Use Case Description**
 Each use case is one goal of one user, named with an active verb. The numbers match the diagram in §3.2.
@@ -102,40 +101,39 @@ Each use case is one goal of one user, named with an active verb. The numbers ma
 17. **Change a match's court**: A player moves the game to another court.
 18. **Cancel a scheduled match**: A player cancels the game for everyone.
 19. **Start a scheduled match**: At the court, a player of a booked game taps "Start now" to start it for everyone, so its score can be reported.
-20. **Add game to Google Calendar**: The user adds a booked game to their calendar.
 
 - Feature 4: ELO ranking and history
-21. **Submit final score**: A player reports the final score and every other player confirms it, or suggests a correction that everyone confirms again. Once everyone agrees, every player sees the match summary with their rating change. A tournament match is scored the same way.
-22. **View match summary**: The user views a finished game's score and each player's rating before and after.
-23. **View match history**: The user views their finished games, most recent first.
-24. **View leaderboard**: The user views players ranked by rating, with their own rank.
-25. **View player stats**: The user views a player's ELO over time, match, set and game totals, and results against opponents of different ratings.
+20. **Submit final score**: A player reports the final score and every other player confirms it, or suggests a correction that everyone confirms again. Once everyone agrees, every player sees the match summary with their rating change. A tournament match is scored the same way.
+21. **View match summary**: The user views a finished game's score and each player's rating before and after.
+22. **View match history**: The user views their finished games, most recent first.
+23. **View leaderboard**: The user views players ranked by rating, with their own rank.
+24. **View player stats**: The user views a player's ELO over time, match, set and game totals, and results against opponents of different ratings.
 
 - Feature 5: Tournaments
-26. **Create a tournament**: The user creates a tournament with a name, format, court and start time, and is registered as its first player.
-27. **Register for a tournament**: The user registers from the feed until it is full (8 players in singles, 16 in doubles) or starts. The registration that fills it triggers the bracket draw (see *System steps* below).
-28. **Leave a tournament**: The user leaves during registration. The creator can't leave but can cancel it.
-29. **Cancel a tournament**: The creator cancels a tournament that is still in registration.
-30. **View a tournament bracket**: The user views the bracket and opens each match, which is played like any game (use cases 19 and 21).
+25. **Create a tournament**: The user creates a tournament with a name, format, court and start time, and is registered as its first player.
+26. **Register for a tournament**: The user registers from the feed until it is full (8 players in singles, 16 in doubles) or starts. The registration that fills it triggers the bracket draw (see *System steps* below).
+27. **Leave a tournament**: The user leaves during registration. The creator can't leave but can cancel it.
+28. **Cancel a tournament**: The creator cancels a tournament that is still in registration.
+29. **View a tournament bracket**: The user views the bracket and opens each match, which is played like any game (use cases 19 and 20).
 
 - Feature 6: Friends
-31. **Send a friend request**: The user asks another player to be friends, including from a match summary.
-32. **Accept a friend request**: The user accepts a request they received.
-33. **Decline a friend request**: The user declines a request they received.
-34. **Remove a friend**: The user removes a friend from their friends list.
-35. **View friends**: The user views their friends and the game each one is playing.
+30. **Send a friend request**: The user asks another player to be friends, including from a match summary.
+31. **Accept a friend request**: The user accepts a request they received.
+32. **Decline a friend request**: The user declines a request they received.
+33. **Remove a friend**: The user removes a friend from their friends list.
+34. **View friends**: The user views their friends and the game each one is playing.
 
 - Feature 7: Equipment
-36. **View equipment**: The user views their rackets, balls and shoes, with maintenance dates.
-37. **Add equipment**: The user adds an item and can make it their default.
-38. **Update equipment**: The user changes an item's name, default status or maintenance date.
-39. **Remove equipment**: The user retires an item.
+35. **View equipment**: The user views their rackets, balls and shoes, with maintenance dates.
+36. **Add equipment**: The user adds an item and can make it their default.
+37. **Update equipment**: The user changes an item's name, default status or maintenance date.
+38. **Remove equipment**: The user retires an item.
 
 **System steps (not use cases).** The user does not do these directly, so they are not in the diagram:
 - *Matchmaking* (part of use case 6): every 10 seconds, the system groups queued players who want a compatible format, are within 10 km of each other and have close ratings, books a game one hour later at a court near them and notifies everyone.
 - *Cancelling unanswered matches* (part of use cases 9 and 10): if anyone declines, or not everyone has accepted 30 minutes before the start, the system cancels the match for everyone.
-- *ELO change calculation and leaderboard update* (part of use case 21): the system calculates each player's rating change and applies it to the leaderboard.
-- *Bracket draw* (part of use case 27): when a tournament fills, the system forms the teams (in doubles, strongest with weakest), seeds them by rating, draws the bracket (1 v 8, 4 v 5, 3 v 6, 2 v 7) and books the quarterfinals. Each confirmed score moves the winner on, books the next match once both teams are known (semifinals one hour after the start, the final two hours after), and the final completes the tournament.
+- *ELO change calculation and leaderboard update* (part of use case 20): the system calculates each player's rating change and applies it to the leaderboard.
+- *Bracket draw* (part of use case 26): when a tournament fills, the system forms the teams (in doubles, strongest with weakest), seeds them by rating, draws the bracket (1 v 8, 4 v 5, 3 v 6, 2 v 7) and books the quarterfinals. Each confirmed score moves the winner on, books the next match once both teams are known (semifinals one hour after the start, the final two hours after), and the final completes the tournament.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 <a name="uc1"></a>
@@ -436,10 +434,6 @@ Every route except `POST /user/login`, `POST /user/refresh` and `POST /user/logo
     - **Interfaces we call**:
         1. `GET /data/2.5/forecast?lat&lon&units=metric&appid` - called by Games and Tournaments
             - **Purpose**: Picks the 3-hour step nearest the start time (within 1.5 hours). Not called for a start time more than 3 hours ago or more than 5 days away. Cached per court for 10 minutes, with a 2-second timeout; without `OPENWEATHER_API_KEY` or on failure, games have no forecast.
-5. **Google Calendar API**
-    - **Purpose**: Adds a booked game to the player's calendar.
-    - **Interfaces we call**:
-        1. `POST /calendars/primary/events` - called by the front-end
 
 ### **4.4. Frameworks and Libraries**
 1. **Express 5**: HTTP server and routing, with routes → controllers → services → repositories.

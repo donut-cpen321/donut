@@ -34,7 +34,7 @@ The creator picks:
 
 Any player in a game can move it to another time or court, leave it (until 30 minutes before the start) or cancel it, and report or confirm its final score ([§6](#6-scoring)). There is no owner role.
 
-Planned: a calendar view of all games, adding games to Google Calendar, checking in at the court, and a live score during the game.
+Planned: a calendar view of all games.
 
 ## 5. Matchmaking
 
@@ -155,7 +155,6 @@ We will likely move to **Glicko** (the system chess.com uses). It adds a rating 
 | Google Maps Platform (Maps and Places) | Showing a matched game's court on a map, and the address to be matched near |
 | OpenWeather | Forecasts in the feed |
 | Firebase Cloud Messaging | Push notifications for matches, game invites and scores to confirm |
-| Google Calendar API (planned) | Adding games to the user's calendar |
 
 ## 9. Out of scope for now
 
