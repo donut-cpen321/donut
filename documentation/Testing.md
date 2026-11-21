@@ -20,6 +20,7 @@
 | 11-20-2026        | 2.1, 2.3, 2.4         | Added no-mock tests for every interface that had none: the user, friends, courts, leaderboard and game routes, the queue, and both scheduled jobs. Every no-mock test now creates its own users and data, so the tests no longer depend on the order they run in. Split `tests/mock/games.test.ts` (3,200 lines) into five files by area. Added the coverage screenshots, with a justification for every file under 100%, and set the commit and the links |
 | 11-20-2026        | 3                     | Added the tests of the non-functional requirements in `backend/tests/nfr/`: API response time, match found latency, and the new rating accuracy requirement (Requirements_and_Design.md 3.7), with their logs |
 | 11-20-2026        | 2.1.1, 3.1            | Listed the live update streams and named Matchmaking as the fully tested component. Renumbered the NFRs to match Requirements_and_Design.md and removed the live score NFR. |
+| 11-20-2026        | 4.2.1                 | Added the failure scenarios of Use Case 4 to the end-to-end test, and `CreateGameViewModelTest` for the ones the UI can't cause. |
 
 ---
 
@@ -223,7 +224,7 @@ Run them with `npm run test:nfr` in `backend/` (see 2.1.3); the GitHub Actions w
 
 #### 4.2.1. Use Case 4: Create a scheduled match (end-to-end)
 
-[`e2e/ScheduleGameE2ETest.kt`] runs the whole app against the real backend at `API_BASE_URL` (default `http://10.0.2.2:3000`, the host from the emulator), with no mocks. It creates a game, finds it under My games, then cancels it, so a passing run leaves nothing behind.
+[`e2e/ScheduleGameE2ETest.kt`] runs the whole app against the real backend at `API_BASE_URL` (default `http://10.0.2.2:3000`, the host from the emulator), with no mocks. The success test creates a game, finds it under My games, then cancels it, so a passing run leaves nothing behind. The failure tests create no game.
 
 **Before running it:**
 1. Start the backend and its database: `docker compose up -d` in the repository root.
@@ -238,17 +239,26 @@ Run them with `npm run test:nfr` in `backend/` (see 2.1.3); the GitHub Actions w
 | 4. The user submits the form. | Taps "Schedule game". |
 | 5. The system validates the game and creates it with the user on team 1. | The backend creates the game (`POST /games`); the test checks the result in the next step. |
 | 6. The app shows the new game. | Checks the game screen opens with the start time, the court and "Singles". Goes back, opens "My games", refreshes and checks a game with that start time is listed. |
-| *(cleanup, Manage scheduled match)* | Opens the game, taps "Cancel game" and confirms in the "Cancel this game?" dialog. Back on the list, refreshes "My games" and checks the game is gone (`DELETE /games`). |
+| *(cleanup, Cancel a scheduled match)* | Opens the game, taps "Cancel game" and confirms in the "Cancel this game?" dialog. Back on the list, refreshes "My games" and checks the game is gone (`DELETE /games`). |
+
+| **Failure Scenario** | **Test Case Steps** |
+| -------------------- | ------------------- |
+| The form isn't complete (`incompleteForm_cantBeSubmitted`). | Opens the form and checks "Schedule game" is disabled; picks a start time and checks it is still disabled without a court. |
+| 2a. The start time isn't in the future (`startTimeInThePast_isRejected`). | Picks today an hour ago on the time picker, and a court. Taps "Schedule game" and checks the form shows "Pick a start time in the future." and stays open. Skipped after 11 PM, when the picker opens on tomorrow. |
 
 - **Test Logs** (Pixel 9 emulator, Android 16):
   ```
-  $ adb shell am instrument -w -e class com.example.cpen321application.e2e.ScheduleGameE2ETest com.example.cpen321application.test/androidx.test.runner.AndroidJUnitRunner
-  com.example.cpen321application.e2e.ScheduleGameE2ETest:.
+  $ ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.cpen321application.e2e.ScheduleGameE2ETest
+  Starting 3 tests on Pixel_9(AVD) - 16
+  Finished 3 tests on Pixel_9(AVD) - 16
 
-  Time: 7.066
-
-  OK (1 test)
+  com.example.cpen321application.e2e.ScheduleGameE2ETest  tests="3" failures="0" errors="0" skipped="0"
+    incompleteForm_cantBeSubmitted   10.4 s
+    scheduleGame_thenCancelIt         9.2 s
+    startTimeInThePast_isRejected     5.5 s
   ```
+
+The other failure scenarios of Use Case 4 can't be caused from the UI against a real backend, so [`feature/creategame/CreateGameViewModelTest.kt`] covers them with a fake backend: courts that fail to load and Retry, `404 COURT_NOT_FOUND` showing "Court not found" with the form kept, and the server being unreachable, then a retry that creates the game.
 
 #### 4.2.2. Screen tests
 
@@ -258,7 +268,8 @@ These render one screen with injected data, with no backend or signed-in account
 - **Tournament detail screen** ([`feature/tournamentdetail/TournamentDetailScreenTest.kt`]): during registration shows the registrants and a Join button, or Cancel for the creator; in progress shows the bracket columns with team names, and tapping a played match opens its game; when completed shows the champion banner.
 
 <!-- Links to the files at the commit in 2.1.2 -->
-[`e2e/ScheduleGameE2ETest.kt`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/ScheduleGameE2ETest.kt
+[`e2e/ScheduleGameE2ETest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/ScheduleGameE2ETest.kt
+[`feature/creategame/CreateGameViewModelTest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/test/java/com/example/cpen321application/feature/creategame/CreateGameViewModelTest.kt
 [`feature/leaderboard/LeaderboardScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/frontend/app/src/androidTest/java/com/example/cpen321application/feature/leaderboard/LeaderboardScreenTest.kt
 [`feature/tournamentdetail/TournamentDetailScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/frontend/app/src/androidTest/java/com/example/cpen321application/feature/tournamentdetail/TournamentDetailScreenTest.kt
 [`tests/mock/bracket.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/bracket.repository.test.ts
