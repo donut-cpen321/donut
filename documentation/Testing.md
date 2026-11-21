@@ -21,6 +21,7 @@
 | 11-20-2026        | 3                     | Added the tests of the non-functional requirements in `backend/tests/nfr/`: API response time, match found latency, and the new rating accuracy requirement (Requirements_and_Design.md 3.7), with their logs |
 | 11-20-2026        | 2.1.1, 3.1            | Listed the live update streams and named Matchmaking as the fully tested component. Renumbered the NFRs to match Requirements_and_Design.md and removed the live score NFR. |
 | 11-20-2026        | 4.2.1                 | Added the failure scenarios of Use Case 4 to the end-to-end test, and `CreateGameViewModelTest` for the ones the UI can't cause. |
+| 11-20-2026        | 2.1.1                 | Added no-mock tests for the live update streams (`tests/no-mock/liveUpdates.test.ts`). |
 
 ---
 
@@ -62,7 +63,7 @@
 | **POST /games/start**         | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.edit.test.ts`], [`tests/mock/repositories.test.ts`] | Game DB |
 | **POST /games/score**         | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/playerStats.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.score.test.ts`], [`tests/mock/repositories.test.ts`], [`tests/mock/bracket.repository.test.ts`] | Game DB, Tournament DB, Firebase Cloud Messaging |
 | **POST /games/score/confirm** | [`tests/no-mock/tournaments.test.ts`], [`tests/no-mock/playerStats.test.ts`], [`tests/no-mock/games.test.ts`] | [`tests/mock/games.score.test.ts`], [`tests/mock/repositories.test.ts`] | Game DB, Tournament DB |
-| **GET /games/events**, **GET /games/feed/events** | *(mocks only)* | [`tests/mock/gameEvents.test.ts`], [`tests/mock/liveLists.test.ts`], [`tests/mock/live.test.ts`] | Game DB |
+| **GET /games/events**, **GET /games/feed/events** | [`tests/no-mock/liveUpdates.test.ts`], [`tests/no-mock/matchmaking.test.ts`] | [`tests/mock/gameEvents.test.ts`], [`tests/mock/liveLists.test.ts`], [`tests/mock/live.test.ts`] | Game DB |
 | **POST /tournaments**         | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
 | **GET /tournaments**          | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
 | **GET /tournaments/feed**     | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`], [`tests/mock/weather.test.ts`] | Tournament DB, OpenWeather API     |
@@ -70,13 +71,13 @@
 | **POST /tournaments/join**    | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`], [`tests/mock/bracket.repository.test.ts`] | Tournament DB, Game DB             |
 | **POST /tournaments/leave**   | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
 | **DELETE /tournaments**       | [`tests/no-mock/tournaments.test.ts`]                | [`tests/mock/tournaments.test.ts`], [`tests/mock/tournaments.repository.test.ts`] | Tournament DB                      |
-| **GET /tournaments/events** | *(mocks only)* | [`tests/mock/liveLists.test.ts`] | Tournament DB |
+| **GET /tournaments/events** | [`tests/no-mock/liveUpdates.test.ts`] | [`tests/mock/liveLists.test.ts`] | Tournament DB |
 | **GET /friends**              | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **GET /friends/requests**     | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **POST /friends/requests**    | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **POST /friends/requests/accept** | [`tests/no-mock/friends.test.ts`]                | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
 | **DELETE /friends**           | [`tests/no-mock/friends.test.ts`]                    | [`tests/mock/friends.test.ts`]                     | Friendship DB                      |
-| **GET /friends/events** | *(mocks only)* | [`tests/mock/friendEvents.test.ts`], [`tests/mock/live.test.ts`] | Friendship DB |
+| **GET /friends/events** | [`tests/no-mock/liveUpdates.test.ts`] | [`tests/mock/friendEvents.test.ts`], [`tests/mock/live.test.ts`] | Friendship DB |
 
 **Matchmaking** is the component with every interface tested both with and without mocks, including its live stream (`GET /matchmaking/events`) and both jobs.
 
@@ -316,6 +317,7 @@ These render one screen with injected data, with no backend or signed-in account
 [`tests/no-mock/health.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/health.test.ts
 [`tests/no-mock/jobs.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/jobs.test.ts
 [`tests/no-mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/matchmaking.test.ts
+[`tests/no-mock/liveUpdates.test.ts`]: https://github.com/donut-cpen321/donut/blob/main/backend/tests/no-mock/liveUpdates.test.ts
 [`tests/no-mock/playerStats.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/playerStats.test.ts
 [`tests/no-mock/queue.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/queue.test.ts
 [`tests/no-mock/requireAuth.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/requireAuth.test.ts
