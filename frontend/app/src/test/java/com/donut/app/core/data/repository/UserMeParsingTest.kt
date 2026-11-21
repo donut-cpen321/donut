@@ -3,6 +3,7 @@ package com.donut.app.core.data.repository
 import com.donut.app.core.auth.AuthSession
 import com.donut.app.core.auth.User
 import com.donut.app.core.network.ApiService
+import com.donut.app.core.network.FriendsApi
 import com.donut.app.core.network.GamesApi
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
@@ -39,7 +40,12 @@ class UserMeParsingTest {
             .build()
         val api = retrofit.create(ApiService::class.java)
         val session = AuthSession(api, User("chance@example.com", "access", "refresh")) {}
-        return FriendsRepositoryImpl(api, retrofit.create(GamesApi::class.java)) to session
+        val repository = FriendsRepositoryImpl(
+            api,
+            retrofit.create(GamesApi::class.java),
+            retrofit.create(FriendsApi::class.java)
+        )
+        return repository to session
     }
 
     // Input: the profile with a decimal rating that rounds up

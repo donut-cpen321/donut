@@ -4,6 +4,7 @@ import android.util.Log
 import com.donut.app.core.auth.AuthSession
 import com.donut.app.core.data.model.Game
 import com.donut.app.core.network.ApiService
+import com.donut.app.core.network.FriendsApi
 import com.donut.app.core.network.GamesApi
 import com.donut.app.core.network.RetrofitClient
 import com.donut.app.core.network.dto.AcceptFriendRequestDto
@@ -68,6 +69,7 @@ object UserPhotoCache {
 class FriendsRepositoryImpl(
     private val apiService: ApiService = RetrofitClient.apiService,
     private val gamesApi: GamesApi = RetrofitClient.gamesApi,
+    private val friendsApi: FriendsApi = RetrofitClient.friendsApi,
     private val gson: Gson = Gson()
 ) : FriendsRepository {
 
@@ -93,7 +95,7 @@ class FriendsRepositoryImpl(
     override suspend fun getFriends(session: AuthSession): Result<List<FriendDto>> {
         return try {
             val jsonElement = session.authorized { auth ->
-                apiService.getFriends(auth)
+                friendsApi.getFriends(auth)
             }
             val friends = parseFlexibleList<FriendDto>(jsonElement, "friends")
             friends.forEach { friend ->
@@ -110,7 +112,7 @@ class FriendsRepositoryImpl(
     override suspend fun removeFriend(session: AuthSession, userId: String): Result<Unit> {
         return try {
             val response = session.authorized { auth ->
-                apiService.removeFriend(auth, userId)
+                friendsApi.removeFriend(auth, userId)
             }
             if (response != null && response.isSuccessful) {
                 Result.success(Unit)
@@ -129,7 +131,7 @@ class FriendsRepositoryImpl(
     override suspend fun getFriendRequests(session: AuthSession): Result<List<FriendRequestDto>> {
         return try {
             val jsonElement = session.authorized { auth ->
-                apiService.getFriendRequests(auth)
+                friendsApi.getFriendRequests(auth)
             }
             // The backend sends { incoming, outgoing }; this list is the requests to accept
             val requests = parseFlexibleList<FriendRequestDto>(jsonElement, "incoming", "requests", "friendRequests")
@@ -144,7 +146,7 @@ class FriendsRepositoryImpl(
     override suspend fun acceptFriendRequest(session: AuthSession, userId: String): Result<Unit> {
         return try {
             val response = session.authorized { auth ->
-                apiService.acceptFriendRequest(auth, AcceptFriendRequestDto(userId))
+                friendsApi.acceptFriendRequest(auth, AcceptFriendRequestDto(userId))
             }
             if (response != null && response.isSuccessful) {
                 Result.success(Unit)
@@ -163,7 +165,7 @@ class FriendsRepositoryImpl(
     override suspend fun getOutgoingFriendRequests(session: AuthSession): Result<List<FriendRequestDto>> {
         return try {
             val jsonElement = session.authorized { auth ->
-                apiService.getFriendRequests(auth)
+                friendsApi.getFriendRequests(auth)
             }
             val outgoing = jsonElement
                 ?.takeIf { it.isJsonObject }
@@ -186,7 +188,7 @@ class FriendsRepositoryImpl(
     override suspend fun sendFriendRequest(session: AuthSession, userId: String): Result<Unit> {
         return try {
             val response = session.authorized { auth ->
-                apiService.sendFriendRequest(auth, SendFriendRequestDto(userId))
+                friendsApi.sendFriendRequest(auth, SendFriendRequestDto(userId))
             }
             if (response != null && response.isSuccessful) {
                 Result.success(Unit)

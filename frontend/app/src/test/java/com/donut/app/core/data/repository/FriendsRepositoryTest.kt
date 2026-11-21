@@ -3,6 +3,7 @@ package com.donut.app.core.data.repository
 import com.donut.app.core.auth.AuthSession
 import com.donut.app.core.auth.User
 import com.donut.app.core.network.ApiService
+import com.donut.app.core.network.FriendsApi
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -29,12 +30,14 @@ class FriendsRepositoryTest {
     }
 
     private fun repository(): FriendsRepository {
-        val apiService = Retrofit.Builder()
+        val retrofit = Retrofit.Builder()
             .baseUrl(server.url("/"))
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(ApiService::class.java)
-        return FriendsRepositoryImpl(apiService)
+        return FriendsRepositoryImpl(
+            apiService = retrofit.create(ApiService::class.java),
+            friendsApi = retrofit.create(FriendsApi::class.java)
+        )
     }
 
     private fun createSession(): AuthSession {

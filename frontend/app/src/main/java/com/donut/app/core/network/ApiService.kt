@@ -1,6 +1,5 @@
 package com.donut.app.core.network
 
-import com.donut.app.core.network.dto.AcceptFriendRequestDto
 import com.donut.app.core.network.dto.FcmTokenRequestDto
 import com.donut.app.core.network.dto.CourtsResponseDto
 import com.donut.app.core.network.dto.CreateEquipmentRequestDto
@@ -9,7 +8,6 @@ import com.donut.app.core.network.dto.LeaderboardResponseDto
 import com.donut.app.core.network.dto.LoginRequestDto
 import com.donut.app.core.network.dto.QueueEntryResponseDto
 import com.donut.app.core.network.dto.RefreshRequestDto
-import com.donut.app.core.network.dto.SendFriendRequestDto
 import com.donut.app.core.network.dto.TokensResponseDto
 import com.donut.app.core.network.dto.UpdateEquipmentRequestDto
 import com.donut.app.core.network.dto.UserResponseDto
@@ -83,32 +81,6 @@ interface ApiService {
 
     @DELETE("matchmaking")
     suspend fun leaveQueue(@Header("Authorization") authorization: String)
-
-    @GET("friends")
-    suspend fun getFriends(@Header("Authorization") authorization: String): JsonElement
-
-    // Removes a friend, or declines or cancels a pending request
-    @DELETE("friends")
-    suspend fun removeFriend(
-        @Header("Authorization") authorization: String,
-        @Query("userId") userId: String,
-    ): Response<ResponseBody>
-
-    @GET("friends/requests")
-    suspend fun getFriendRequests(@Header("Authorization") authorization: String): JsonElement
-
-    @POST("friends/requests/accept")
-    suspend fun acceptFriendRequest(
-        @Header("Authorization") authorization: String,
-        @Body request: AcceptFriendRequestDto,
-    ): Response<ResponseBody>
-
-    // Sends a friend request, or accepts the other user's pending request to this user
-    @POST("friends/requests")
-    suspend fun sendFriendRequest(
-        @Header("Authorization") authorization: String,
-        @Body request: SendFriendRequestDto,
-    ): Response<ResponseBody>
 
     @GET("leaderboard")
     suspend fun getLeaderboard(
