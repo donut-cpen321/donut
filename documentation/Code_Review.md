@@ -8,6 +8,7 @@
 | 11-03-2026        | 2                     | Updated to `cd0a483`, where Codacy reports 0 unfixed issues |
 | 11-20-2026        | 3.2, 3.3              | Recorded the fault the other group reported (fabricated scores moving ratings) and how score confirmation, the set score rule and the started-game check fix it |
 | 11-20-2026        | 3.1, 3.2, 3.3         | Added our review of TimeTravel, Fabricate's scores and both review PDFs, and the actions taken on Fabricate's other findings |
+| 11-21-2026        | 2                     | Updated to `fa4352b`, the merge of the equipment tracking, where Codacy reports 0 unfixed issues |
 
 ---
 
@@ -15,7 +16,7 @@
 
 ### 2.1. Commit Hash Where Codacy Ran
 
-[`6c68f9a392be5417f0e9752761d51fca83be3d1e`](https://github.com/donut-cpen321/donut/commit/6c68f9a392be5417f0e9752761d51fca83be3d1e)
+[`fa4352b6fd4013614c632628db1f7c13a27c1d17`](https://github.com/donut-cpen321/donut/commit/fa4352b6fd4013614c632628db1f7c13a27c1d17)
 
 ### 2.2. Unfixed Issues per Codacy Category
 
