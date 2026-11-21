@@ -58,29 +58,7 @@ fun MainScreen(
         }
     }
 
-    // Sign-in, sign-out and a rejected refresh token all change the user, so every auth redirect happens here
-    LaunchedEffect(isSignedIn) {
-        val target = authRedirect(isSignedIn, navController.currentDestination?.route)
-        if (target != null) {
-            navController.navigate(target) {
-                popUpTo(navController.graph.id) { inclusive = true }
-            }
-        }
-    }
-
-    // A tapped push notification opens its screen, only for a signed-in user
-    LaunchedEffect(notificationRoute) {
-        if (notificationRoute != null && isSignedIn) {
-            if (notificationRoute.startsWith(GAME_ROUTE_PREFIX)) {
-                navController.openGame(notificationRoute)
-            } else {
-                navController.navigateToTab(notificationRoute)
-            }
-        }
-        if (notificationRoute != null) {
-            onNotificationHandled()
-        }
-    }
+    NavigationEffects(navController, isSignedIn, notificationRoute, onNotificationHandled)
 
     Scaffold(
         bottomBar = {
@@ -112,6 +90,38 @@ fun MainScreen(
             username = username,
             onGoToGame = { gameId -> navController.openGame(Screen.GameDetail.createRoute(gameId)) },
         )
+    }
+}
+
+@Composable
+private fun NavigationEffects(
+    navController: NavHostController,
+    isSignedIn: Boolean,
+    notificationRoute: String?,
+    onNotificationHandled: () -> Unit,
+) {
+    // Sign-in, sign-out and a rejected refresh token all change the user, so every auth redirect happens here
+    LaunchedEffect(isSignedIn) {
+        val target = authRedirect(isSignedIn, navController.currentDestination?.route)
+        if (target != null) {
+            navController.navigate(target) {
+                popUpTo(navController.graph.id) { inclusive = true }
+            }
+        }
+    }
+
+    // A tapped push notification opens its screen, only for a signed-in user
+    LaunchedEffect(notificationRoute) {
+        if (notificationRoute != null && isSignedIn) {
+            if (notificationRoute.startsWith(GAME_ROUTE_PREFIX)) {
+                navController.openGame(notificationRoute)
+            } else {
+                navController.navigateToTab(notificationRoute)
+            }
+        }
+        if (notificationRoute != null) {
+            onNotificationHandled()
+        }
     }
 }
 
