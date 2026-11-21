@@ -219,7 +219,7 @@ Run them with `npm run test:nfr` in `backend/` (see 2.1.3); the GitHub Actions w
 
 ### 4.1. Location in Git of Front-end Test Suite:
 
-`frontend/app/src/androidTest/java/com/example/cpen321application/` (Compose UI tests), and `frontend/app/src/test/java/com/example/cpen321application/` for unit tests of view models, repositories and screen logic.
+`frontend/app/src/androidTest/java/com/donut/app/` (Compose UI tests), and `frontend/app/src/test/java/com/donut/app/` for unit tests of view models, repositories and screen logic.
 
 ### 4.2. Tests
 
@@ -230,7 +230,7 @@ Run them with `npm run test:nfr` in `backend/` (see 2.1.3); the GitHub Actions w
 **Before running it:**
 1. Start the backend and its database: `docker compose up -d` in the repository root.
 2. Add a Google account to the device (Settings → Passwords & accounts). Running the tests reinstalls the app, which clears any saved session, so the test taps "Sign in with Google" itself. Google signs in on its own when the device has one account that used the app before; otherwise the test taps the first account in Google's account sheet with UiAutomator.
-3. Run it from Android Studio, or with `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.cpen321application.e2e.ScheduleGameE2ETest` in `frontend/`.
+3. Run it from Android Studio, or with `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.donut.app.e2e.ScheduleGameE2ETest` in `frontend/`.
 
 | **Scenario Steps** | **Test Case Steps** |
 | ------------------ | ------------------- |
@@ -249,11 +249,11 @@ Run them with `npm run test:nfr` in `backend/` (see 2.1.3); the GitHub Actions w
 
 - **Test Logs** (Pixel 9 emulator, Android 16):
   ```
-  $ ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.cpen321application.e2e.ScheduleGameE2ETest
+  $ ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.donut.app.e2e.ScheduleGameE2ETest
   Starting 3 tests on Pixel_9(AVD) - 16
   Finished 3 tests on Pixel_9(AVD) - 16
 
-  com.example.cpen321application.e2e.ScheduleGameE2ETest  tests="3" failures="0" errors="0" skipped="0"
+  com.donut.app.e2e.ScheduleGameE2ETest  tests="3" failures="0" errors="0" skipped="0"
     incompleteForm_cantBeSubmitted   10.4 s
     scheduleGame_thenCancelIt         9.2 s
     startTimeInThePast_isRejected     5.5 s
@@ -269,8 +269,8 @@ These render one screen with injected data, with no backend or signed-in account
 - **Tournament detail screen** ([`feature/tournamentdetail/TournamentDetailScreenTest.kt`]): during registration shows the registrants and a Join button, or Cancel for the creator; in progress shows the bracket columns with team names, and tapping a played match opens its game; when completed shows the champion banner.
 
 <!-- Links to the files at the commit in 2.1.2 -->
-[`e2e/ScheduleGameE2ETest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/ScheduleGameE2ETest.kt
-[`feature/creategame/CreateGameViewModelTest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/test/java/com/example/cpen321application/feature/creategame/CreateGameViewModelTest.kt
+[`e2e/ScheduleGameE2ETest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/androidTest/java/com/donut/app/e2e/ScheduleGameE2ETest.kt
+[`feature/creategame/CreateGameViewModelTest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/test/java/com/donut/app/feature/creategame/CreateGameViewModelTest.kt
 [`feature/leaderboard/LeaderboardScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/frontend/app/src/androidTest/java/com/example/cpen321application/feature/leaderboard/LeaderboardScreenTest.kt
 [`feature/tournamentdetail/TournamentDetailScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/frontend/app/src/androidTest/java/com/example/cpen321application/feature/tournamentdetail/TournamentDetailScreenTest.kt
 [`tests/mock/bracket.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/bracket.repository.test.ts
