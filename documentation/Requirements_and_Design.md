@@ -27,7 +27,7 @@
 | Nov 20, 2026 | 3.1, 3.2, 3.4, 3.5, 4.6 | Reviewer feedback on features and use cases: split use cases that had more than one goal, added the missing user-facing use cases (sign out, profile, leave the queue, decline a match, friends, equipment, match history, stats), moved system-only steps out of the use case list and gave every use case an active, user-focused name. Redrew the use case diagram. |
 | Nov 20, 2026 | 3.1, 3.2, 3.3, 3.4, 3.5, 3.7, 4.1, 4.3, 4.6, 4.7 | Every feature that was not yet built is now implemented, so the notes saying so are removed. Removed the live score feature, its use cases and its non-functional requirement: players report the score once after the game. Added a fifth formal use case, Join a scheduled match. |
 | Nov 20, 2026 | 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.3, 4.5, 4.6 | Removed Google Calendar and Edit profile (not built). Failure scenarios say what the user sees. Added `GET /user/:userId/photo`. Diagrams matched to the code, plus a Join a scheduled match diagram. Check-in replaced by "Start now" (Use Case 2, Start a scheduled match); players opt out by leaving or cancelling. Courts moved out of Users into their own component. Restored the score confirmation and `GET /matchmaking/events` text lost in a merge. |
-| Nov 21, 2026 | 3.1, 3.2, 3.4, 4.1, 4.2 | Equipment tracking: players choose the equipment they use in a game (`PUT /games/equipment`, use case 38), starting with their default items, and each item counts the games and hours it was used. |
+| Nov 20, 2026 | 3.1, 3.2, 3.4, 4.1, 4.2 | Equipment tracking: players choose the equipment they use in a game (`PUT /games/equipment`, use case 38), starting with their default items, and each item counts the games and hours it was used. |
 
 ---
 

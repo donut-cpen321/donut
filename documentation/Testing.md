@@ -22,7 +22,8 @@
 | 11-20-2026        | 2.1.1, 3.1            | Listed the live update streams and named Matchmaking as the fully tested component. Renumbered the NFRs to match Requirements_and_Design.md and removed the live score NFR. |
 | 11-20-2026        | 4.2.1                 | Added the failure scenarios of Use Case 4 to the end-to-end test, and `CreateGameViewModelTest` for the ones the UI can't cause. |
 | 11-20-2026        | 2.1.1                 | Added no-mock tests for the live update streams (`tests/no-mock/liveUpdates.test.ts`). |
-| 11-21-2026        | 2.1.1                 | Added `PUT /games/equipment`, with mocked and no-mock tests. |
+| 11-20-2026        | 2.1.1                 | Added `PUT /games/equipment`, with mocked and no-mock tests. |
+| 11-20-2026        | 2.1.2, 2.1.1, 3, 4    | Tests now run at `02f2de9`, the current `main`, which includes the live update, failure path and equipment tests; links point at that commit and the renamed app package. |
 
 ---
 
@@ -89,7 +90,7 @@ Every no-mock test runs against a real, migrated Postgres database (see 2.1.3). 
 
 #### 2.1.2. Commit Hash Where Tests Run
 
-[`bfb755e442097a5c7e4fdfa2230cc42d006174a8`](https://github.com/donut-cpen321/donut/commit/bfb755e442097a5c7e4fdfa2230cc42d006174a8)
+[`02f2de91c412b27b311012c21d6f83189db734ce`](https://github.com/donut-cpen321/donut/commit/02f2de91c412b27b311012c21d6f83189db734ce)
 
 #### 2.1.3. Explanation on How to Run the Tests
 
@@ -273,66 +274,66 @@ These render one screen with injected data, with no backend or signed-in account
 <!-- Links to the files at the commit in 2.1.2 -->
 [`e2e/ScheduleGameE2ETest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/androidTest/java/com/donut/app/e2e/ScheduleGameE2ETest.kt
 [`feature/creategame/CreateGameViewModelTest.kt`]: https://github.com/donut-cpen321/donut/blob/main/frontend/app/src/test/java/com/donut/app/feature/creategame/CreateGameViewModelTest.kt
-[`feature/leaderboard/LeaderboardScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/frontend/app/src/androidTest/java/com/example/cpen321application/feature/leaderboard/LeaderboardScreenTest.kt
-[`feature/tournamentdetail/TournamentDetailScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/frontend/app/src/androidTest/java/com/example/cpen321application/feature/tournamentdetail/TournamentDetailScreenTest.kt
-[`tests/mock/bracket.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/bracket.repository.test.ts
-[`tests/mock/courts.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/courts.test.ts
-[`tests/mock/friends.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/friends.test.ts
-[`tests/mock/games.edit.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/games.edit.test.ts
-[`tests/mock/games.matched.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/games.matched.test.ts
-[`tests/mock/games.membership.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/games.membership.test.ts
-[`tests/mock/games.read.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/games.read.test.ts
-[`tests/mock/games.score.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/games.score.test.ts
-[`tests/mock/gamesFixtures.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/gamesFixtures.ts
-[`tests/mock/index.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/index.test.ts
-[`tests/mock/leaderboard.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/leaderboard.test.ts
-[`tests/mock/matchDeadline.job.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/matchDeadline.job.test.ts
-[`tests/mock/matchmaking.job.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/matchmaking.job.test.ts
-[`tests/mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/matchmaking.test.ts
-[`tests/mock/queueEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/queueEvents.test.ts
-[`tests/mock/gameEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/gameEvents.test.ts
+[`feature/leaderboard/LeaderboardScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/frontend/app/src/androidTest/java/com/donut/app/feature/leaderboard/LeaderboardScreenTest.kt
+[`feature/tournamentdetail/TournamentDetailScreenTest.kt`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/frontend/app/src/androidTest/java/com/donut/app/feature/tournamentdetail/TournamentDetailScreenTest.kt
+[`tests/mock/bracket.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/bracket.repository.test.ts
+[`tests/mock/courts.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/courts.test.ts
+[`tests/mock/friends.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/friends.test.ts
+[`tests/mock/games.edit.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/games.edit.test.ts
+[`tests/mock/games.matched.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/games.matched.test.ts
+[`tests/mock/games.membership.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/games.membership.test.ts
+[`tests/mock/games.read.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/games.read.test.ts
+[`tests/mock/games.score.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/games.score.test.ts
+[`tests/mock/gamesFixtures.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/gamesFixtures.ts
+[`tests/mock/index.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/index.test.ts
+[`tests/mock/leaderboard.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/leaderboard.test.ts
+[`tests/mock/matchDeadline.job.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/matchDeadline.job.test.ts
+[`tests/mock/matchmaking.job.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/matchmaking.job.test.ts
+[`tests/mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/matchmaking.test.ts
+[`tests/mock/queueEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/queueEvents.test.ts
+[`tests/mock/gameEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/gameEvents.test.ts
 [`tests/mock/games.equipment.test.ts`]: https://github.com/donut-cpen321/donut/blob/main/backend/tests/mock/games.equipment.test.ts
-[`tests/mock/liveLists.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/liveLists.test.ts
-[`tests/mock/friendEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/friendEvents.test.ts
-[`tests/mock/live.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/live.test.ts
-[`tests/mock/ratings.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/ratings.repository.test.ts
-[`tests/mock/repositories.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/repositories.test.ts
-[`tests/mock/stats.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/stats.test.ts
-[`tests/mock/tournaments.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/tournaments.repository.test.ts
-[`tests/mock/tournaments.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/tournaments.test.ts
-[`tests/mock/userEquipment.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userEquipment.test.ts
-[`tests/mock/userFcmToken.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userFcmToken.test.ts
-[`tests/mock/userLogin.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userLogin.test.ts
-[`tests/mock/userLogout.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userLogout.test.ts
-[`tests/mock/userMe.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userMe.test.ts
-[`tests/mock/userPhoto.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userPhoto.test.ts
-[`tests/mock/userPreferredCourts.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userPreferredCourts.test.ts
-[`tests/mock/userRefresh.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/userRefresh.test.ts
-[`tests/mock/users.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/users.repository.test.ts
-[`tests/mock/validateToken.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/validateToken.test.ts
-[`tests/mock/weather.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/mock/weather.test.ts
-[`tests/nfr/apiResponseTime.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/nfr/apiResponseTime.test.ts
-[`tests/nfr/matchLatency.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/nfr/matchLatency.test.ts
-[`tests/nfr/ratingAccuracy.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/nfr/ratingAccuracy.test.ts
-[`tests/no-mock/courtsLeaderboard.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/courtsLeaderboard.test.ts
-[`tests/no-mock/friends.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/friends.test.ts
-[`tests/no-mock/games.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/games.test.ts
-[`tests/no-mock/health.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/health.test.ts
-[`tests/no-mock/jobs.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/jobs.test.ts
-[`tests/no-mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/matchmaking.test.ts
+[`tests/mock/liveLists.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/liveLists.test.ts
+[`tests/mock/friendEvents.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/friendEvents.test.ts
+[`tests/mock/live.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/live.test.ts
+[`tests/mock/ratings.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/ratings.repository.test.ts
+[`tests/mock/repositories.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/repositories.test.ts
+[`tests/mock/stats.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/stats.test.ts
+[`tests/mock/tournaments.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/tournaments.repository.test.ts
+[`tests/mock/tournaments.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/tournaments.test.ts
+[`tests/mock/userEquipment.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userEquipment.test.ts
+[`tests/mock/userFcmToken.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userFcmToken.test.ts
+[`tests/mock/userLogin.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userLogin.test.ts
+[`tests/mock/userLogout.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userLogout.test.ts
+[`tests/mock/userMe.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userMe.test.ts
+[`tests/mock/userPhoto.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userPhoto.test.ts
+[`tests/mock/userPreferredCourts.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userPreferredCourts.test.ts
+[`tests/mock/userRefresh.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/userRefresh.test.ts
+[`tests/mock/users.repository.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/users.repository.test.ts
+[`tests/mock/validateToken.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/validateToken.test.ts
+[`tests/mock/weather.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/mock/weather.test.ts
+[`tests/nfr/apiResponseTime.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/nfr/apiResponseTime.test.ts
+[`tests/nfr/matchLatency.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/nfr/matchLatency.test.ts
+[`tests/nfr/ratingAccuracy.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/nfr/ratingAccuracy.test.ts
+[`tests/no-mock/courtsLeaderboard.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/courtsLeaderboard.test.ts
+[`tests/no-mock/friends.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/friends.test.ts
+[`tests/no-mock/games.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/games.test.ts
+[`tests/no-mock/health.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/health.test.ts
+[`tests/no-mock/jobs.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/jobs.test.ts
+[`tests/no-mock/matchmaking.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/matchmaking.test.ts
 [`tests/no-mock/liveUpdates.test.ts`]: https://github.com/donut-cpen321/donut/blob/main/backend/tests/no-mock/liveUpdates.test.ts
 [`tests/no-mock/gameEquipment.test.ts`]: https://github.com/donut-cpen321/donut/blob/main/backend/tests/no-mock/gameEquipment.test.ts
-[`tests/no-mock/playerStats.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/playerStats.test.ts
-[`tests/no-mock/queue.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/queue.test.ts
-[`tests/no-mock/requireAuth.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/requireAuth.test.ts
-[`tests/no-mock/tournaments.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/tournaments.test.ts
-[`tests/no-mock/users.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/no-mock/users.test.ts
-[`tests/realDb.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/realDb.ts
-[`tests/unit/bracket.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/bracket.test.ts
-[`tests/unit/elo.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/elo.test.ts
-[`tests/unit/env.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/env.test.ts
-[`tests/unit/eventStreams.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/eventStreams.test.ts
-[`tests/unit/geo.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/geo.test.ts
-[`tests/unit/matchmaking.service.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/matchmaking.service.test.ts
-[`tests/unit/stats.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/stats.test.ts
-[`tests/unit/tokens.test.ts`]: https://github.com/donut-cpen321/donut/blob/bfb755e442097a5c7e4fdfa2230cc42d006174a8/backend/tests/unit/tokens.test.ts
+[`tests/no-mock/playerStats.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/playerStats.test.ts
+[`tests/no-mock/queue.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/queue.test.ts
+[`tests/no-mock/requireAuth.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/requireAuth.test.ts
+[`tests/no-mock/tournaments.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/tournaments.test.ts
+[`tests/no-mock/users.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/no-mock/users.test.ts
+[`tests/realDb.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/realDb.ts
+[`tests/unit/bracket.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/bracket.test.ts
+[`tests/unit/elo.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/elo.test.ts
+[`tests/unit/env.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/env.test.ts
+[`tests/unit/eventStreams.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/eventStreams.test.ts
+[`tests/unit/geo.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/geo.test.ts
+[`tests/unit/matchmaking.service.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/matchmaking.service.test.ts
+[`tests/unit/stats.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/stats.test.ts
+[`tests/unit/tokens.test.ts`]: https://github.com/donut-cpen321/donut/blob/02f2de91c412b27b311012c21d6f83189db734ce/backend/tests/unit/tokens.test.ts

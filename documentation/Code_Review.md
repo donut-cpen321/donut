@@ -8,7 +8,7 @@
 | 11-03-2026        | 2                     | Updated to `cd0a483`, where Codacy reports 0 unfixed issues |
 | 11-20-2026        | 3.2, 3.3              | Recorded the fault the other group reported (fabricated scores moving ratings) and how score confirmation, the set score rule and the started-game check fix it |
 | 11-20-2026        | 3.1, 3.2, 3.3         | Added our review of TimeTravel, Fabricate's scores and both review PDFs, and the actions taken on Fabricate's other findings |
-| 11-21-2026        | 2                     | Updated to `fa4352b`, the merge of the equipment tracking, where Codacy reports 0 unfixed issues |
+| 11-20-2026        | 2                     | Updated to `fa4352b`, the merge of the equipment tracking, where Codacy reports 0 unfixed issues |
 
 ---
 
