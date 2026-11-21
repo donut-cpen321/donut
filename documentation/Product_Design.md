@@ -34,8 +34,6 @@ The creator picks:
 
 Any player in a game can move it to another time or court, leave it (until 30 minutes before the start) or cancel it, and report or confirm its final score ([§6](#6-scoring)). There is no owner role.
 
-Planned: a calendar view of all games.
-
 ## 5. Matchmaking
 
 Players ask for a game now instead of creating one. The system matches them as soon as it can.
@@ -62,7 +60,7 @@ The longest-waiting player is matched first, with the closest-rated players near
 ### 5.3. The proposed game
 
 - It starts **one hour** after the match is found.
-- The court is the one most of the players prefer within 10 km of all of them, or else the court nearest the middle of them. (Picking preferred courts is planned; until then it is always the nearest court.)
+- The court is the one most of the players prefer within 10 km of all of them, or else the court nearest the middle of them.
 - In doubles, the highest- and lowest-rated players play against the middle two, so the teams are balanced.
 
 ### 5.4. Accepting a match
