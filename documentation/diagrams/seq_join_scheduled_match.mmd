@@ -1,0 +1,67 @@
+%% Use Case 5: Join a scheduled match (Requirements_and_Design.md 3.5, 4.6)
+sequenceDiagram
+  actor U as User
+  participant FE as Front-end
+  participant G as Games
+  participant L as Live updates
+  participant DB as PostgreSQL
+  participant OW as OpenWeather
+  participant FCM as Firebase Cloud Messaging
+
+  alt from the feed
+    U->>FE: open the Games tab
+    FE->>L: GET /games/feed/events (SSE)
+    L->>G: getFeed()
+    G->>DB: fetchFeedGames(now)
+    DB-->>G: GameDetails[]
+    G->>OW: getForecast(latitude, longitude, startsAt)
+    OW-->>G: forecast, or null on failure
+    G-->>L: FeedGame[]
+    L-->>FE: feed {games, tournaments}
+    FE-->>U: open games with players and ratings, format, court, forecast
+  else from a friend's invite
+    FCM-->>FE: push "Game invite" {gameId, type: "gameInvite"} (sent by POST /games/invite)
+    FE-->>U: notification
+    U->>FE: tap the notification
+  end
+
+  U->>FE: open a game
+  FE->>G: GET /games?gameId
+  G->>DB: fetchGameDetails(gameId)
+  DB-->>G: GameDetails (court, players, rounds)
+  G->>OW: getForecast(latitude, longitude, startsAt)
+  OW-->>G: forecast, or null
+  G-->>FE: 200 {game}
+  FE->>L: GET /games/events?gameId (SSE, gameUpdated)
+  alt the game is no longer open
+    FE-->>U: show its current state, no Join button
+  else open with a free spot
+    U->>FE: pick a team with a free spot, tap "Join"
+    FE->>G: POST /games/join {gameId, team}
+    G->>DB: fetchGame(gameId)
+    DB-->>G: Game or null
+    alt not found
+      G-->>FE: 404 GAME_NOT_FOUND
+    else not SCHEDULED, not OPEN, or already started
+      G-->>FE: 409 NOT_JOINABLE
+    else joinable
+      G->>DB: addPlayerToTeam(gameId, userId, team, teamSize, now)
+      Note over G,DB: one transaction under the game's row lock (lockGame): checks the game is still joinable,<br/>counts the team, adds the player, and books the game (BOOKED) if it is now full
+      alt game changed meanwhile / team full (e.g. two players took the last spot at once)
+        DB-->>G: "notJoinable" / "teamFull"
+        G-->>FE: 409 NOT_JOINABLE / 409 TEAM_FULL
+      else already a player (unique violation, P2002)
+        DB-->>G: error
+        G-->>FE: 409 ALREADY_IN_GAME
+      else added
+        DB-->>G: "added"
+        G->>L: gameChanged({gameId})
+        G-->>FE: 204 No Content
+        L-->>FE: SSE gameUpdated {game} and mine {games, tournaments}
+        FE-->>U: show the game with the user on their team, also in "My games"
+      end
+    end
+    opt any 409 or server unreachable
+      FE-->>U: show an error, the user can retry
+    end
+  end
