@@ -6,8 +6,10 @@ import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.GameSource
 import com.example.cpen321application.core.data.model.GameStatus
 import com.example.cpen321application.core.data.model.GameTournament
+import com.example.cpen321application.core.data.model.Player
 import com.example.cpen321application.core.data.model.Tournament
 import com.example.cpen321application.core.data.model.TournamentCreator
+import com.example.cpen321application.core.data.model.TournamentPlayer
 import com.example.cpen321application.core.data.model.TournamentStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -100,6 +102,27 @@ class ScheduledGameUiStateTest {
 
         assertEquals(listOf("game-feed", "tournament-open"), state.feedItems.map { it.key })
         assertEquals(listOf("game-mine", "tournament-registered"), state.myItems.map { it.key })
+    }
+
+    // Input: a feed with a game and a tournament the signed-in user (bob) is in, and one of each they are not in
+    // Expected output: the Feed tab only shows the ones bob is not in; his own are on My games
+    @Test
+    fun feedLeavesOutTheUsersOwnGamesAndTournaments() {
+        val bob = Player(id = "u2", username = "bob", name = "Bob B", rating = 1500.0, team = 1)
+        val bobRegistered = TournamentPlayer(id = "u2", username = "bob", name = "Bob B", rating = 1500.0, team = null)
+        val state = ScheduledGameUiState(
+            username = "bob",
+            feed = listOf(
+                game("open", Duration.ofHours(1)),
+                game("bobs", Duration.ofHours(2)).copy(players = listOf(bob))
+            ),
+            tournamentFeed = listOf(
+                tournament("open", Duration.ofHours(3)),
+                tournament("bobs", Duration.ofHours(4)).copy(players = listOf(bobRegistered))
+            )
+        )
+
+        assertEquals(listOf("game-open", "tournament-open"), state.feedItems.map { it.key })
     }
 
     // Input: nothing loaded yet

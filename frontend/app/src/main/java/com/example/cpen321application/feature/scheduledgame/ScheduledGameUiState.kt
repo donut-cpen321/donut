@@ -2,6 +2,7 @@ package com.example.cpen321application.feature.scheduledgame
 
 import com.example.cpen321application.core.data.model.Game
 import com.example.cpen321application.core.data.model.Tournament
+import com.example.cpen321application.core.data.model.isRegistered
 
 enum class GamesTab(val title: String) {
     FEED("Feed"),
@@ -18,9 +19,12 @@ data class ScheduledGameUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 ) {
-    // The Feed tab: games to join and tournaments to register for, soonest first
+    // The Feed tab: games to join and tournaments to register for, soonest first. The user's own are on My games
     val feedItems: List<FeedItem>
-        get() = mergeByStartTime(feed, tournamentFeed)
+        get() = mergeByStartTime(
+            feed.filterNot { game -> game.players.any { it.username == username } },
+            tournamentFeed.filterNot { it.isRegistered(username) }
+        )
 
     // The My games tab: the user's games, including tournament matches, and their tournaments
     val myItems: List<FeedItem>
