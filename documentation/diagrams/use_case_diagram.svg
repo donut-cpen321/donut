@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1065" height="587" viewBox="0 0 2000 1101">
+<!-- Use case diagram (Requirements_and_Design.md 3.2). Hand-placed SVG; see README.md to re-render. -->
+<style>text{font-family:"DejaVu Sans",Verdana,sans-serif;text-anchor:middle} .t{font-size:22px;font-weight:bold;fill:#222} .g{font-size:19px;font-weight:bold;fill:#222}
+.u{font-size:16px;fill:#0f4a35} .e{font-size:16px;fill:#5a3510} .a{font-size:18px;font-weight:bold;fill:#222} .l{font-size:16px;fill:#222;text-anchor:start;dominant-baseline:middle}</style>
+<rect width="2000" height="1101" fill="#fff"/>
+<text x="1000" y="32" class="t">Donut: use case diagram</text>
+<rect x="42" y="93" width="346" height="422" rx="14" fill="#fff" stroke="#888" stroke-width="2"/>
+<text x="215.0" y="122" class="g">Authentication and profile</text>
+<ellipse cx="215" cy="175" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="181" class="u">1. Sign in with Google</text>
+<ellipse cx="215" cy="234" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="240" class="u">2. Sign out</text>
+<ellipse cx="215" cy="293" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="299" class="u">3. View profile</text>
+<ellipse cx="215" cy="352" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="358" class="u">4. Edit profile</text>
+<ellipse cx="215" cy="411" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="417" class="u">5. Choose preferred courts</text>
+<rect x="577" y="93" width="346" height="422" rx="14" fill="#fff" stroke="#888" stroke-width="2"/>
+<text x="750.0" y="122" class="g">Live matchmaking</text>
+<ellipse cx="750" cy="175" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="750" y="181" class="u">6. Initiate live match</text>
+<ellipse cx="750" cy="234" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="750" y="240" class="u">7. Leave the matchmaking queue</text>
+<ellipse cx="750" cy="293" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="750" y="299" class="u">8. View nearby players</text>
+<ellipse cx="750" cy="352" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="750" y="358" class="u">9. Accept a match</text>
+<ellipse cx="750" cy="411" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="750" y="417" class="u">10. Decline a match</text>
+<rect x="1112" y="93" width="703" height="422" rx="14" fill="#fff" stroke="#888" stroke-width="2"/>
+<text x="1463.5" y="122" class="g">Schedule match</text>
+<ellipse cx="1296" cy="175" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1296" y="181" class="u">12. Create a scheduled match</text>
+<ellipse cx="1296" cy="234" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1296" y="240" class="u">13. Join a scheduled match</text>
+<ellipse cx="1296" cy="293" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1296" y="299" class="u">14. Leave a scheduled match</text>
+<ellipse cx="1296" cy="352" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1296" y="358" class="u">16. Change a match's time</text>
+<ellipse cx="1296" cy="411" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1296" y="417" class="u">17. Change a match's court</text>
+<ellipse cx="1296" cy="470" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1296" y="476" class="u">18. Cancel a scheduled match</text>
+<ellipse cx="1631" cy="175" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1631" y="181" class="u">11. Browse scheduled matches</text>
+<ellipse cx="1631" cy="234" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1631" y="240" class="u">15. Invite a friend to a match</text>
+<ellipse cx="1631" cy="293" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1631" y="299" class="u">19. Start a game early</text>
+<ellipse cx="1631" cy="352" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1631" y="358" class="u">20. Check in at the court</text>
+<ellipse cx="1631" cy="411" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1631" y="417" class="u">21. Add game to Google Calendar</text>
+<rect x="42" y="656" width="346" height="363" rx="14" fill="#fff" stroke="#888" stroke-width="2"/>
+<text x="215.0" y="685" class="g">ELO ranking and history</text>
+<ellipse cx="215" cy="738" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="744" class="u">22. Submit final score</text>
+<ellipse cx="215" cy="797" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="803" class="u">23. View match summary</text>
+<ellipse cx="215" cy="856" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="862" class="u">24. View match history</text>
+<ellipse cx="215" cy="915" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="921" class="u">25. View leaderboard</text>
+<ellipse cx="215" cy="974" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="215" y="980" class="u">26. View player stats</text>
+<rect x="408" y="656" width="346" height="363" rx="14" fill="#fff" stroke="#888" stroke-width="2"/>
+<text x="581.0" y="685" class="g">Tournaments</text>
+<ellipse cx="581" cy="738" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="581" y="744" class="u">27. Create a tournament</text>
+<ellipse cx="581" cy="797" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="581" y="803" class="u">28. Register for a tournament</text>
+<ellipse cx="581" cy="856" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="581" y="862" class="u">29. Leave a tournament</text>
+<ellipse cx="581" cy="915" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="581" y="921" class="u">30. Cancel a tournament</text>
+<ellipse cx="581" cy="974" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="581" y="980" class="u">31. View a tournament bracket</text>
+<rect x="774" y="656" width="346" height="363" rx="14" fill="#fff" stroke="#888" stroke-width="2"/>
+<text x="947.0" y="685" class="g">Friends</text>
+<ellipse cx="947" cy="738" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="947" y="744" class="u">32. Send a friend request</text>
+<ellipse cx="947" cy="797" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="947" y="803" class="u">33. Accept a friend request</text>
+<ellipse cx="947" cy="856" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="947" y="862" class="u">34. Decline a friend request</text>
+<ellipse cx="947" cy="915" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="947" y="921" class="u">35. Remove a friend</text>
+<ellipse cx="947" cy="974" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="947" y="980" class="u">36. View friends</text>
+<rect x="1140" y="656" width="346" height="363" rx="14" fill="#fff" stroke="#888" stroke-width="2"/>
+<text x="1313.0" y="685" class="g">Equipment</text>
+<ellipse cx="1313" cy="738" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1313" y="744" class="u">37. View equipment</text>
+<ellipse cx="1313" cy="797" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1313" y="803" class="u">38. Add equipment</text>
+<ellipse cx="1313" cy="856" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1313" y="862" class="u">39. Update equipment</text>
+<ellipse cx="1313" cy="915" rx="160" ry="22" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/>
+<text x="1313" y="921" class="u">40. Remove equipment</text>
+<rect x="411" y="153" width="146" height="42" rx="5" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/>
+<text x="484" y="180" class="e">Google Sign-In</text>
+<rect x="411" y="389" width="146" height="42" rx="5" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/>
+<text x="484" y="416" class="e">Google Maps</text>
+<rect x="946" y="153" width="146" height="42" rx="5" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/>
+<text x="1019" y="180" class="e">Firebase (FCM)</text>
+<rect x="946" y="331" width="146" height="42" rx="5" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/>
+<text x="1019" y="358" class="e">Google Maps</text>
+<rect x="1838" y="153" width="146" height="42" rx="5" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/>
+<text x="1911" y="180" class="e">OpenWeather</text>
+<rect x="1838" y="212" width="146" height="42" rx="5" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/>
+<text x="1911" y="239" class="e">Firebase (FCM)</text>
+<rect x="1838" y="389" width="146" height="42" rx="5" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/>
+<text x="1911" y="416" class="e">Google Calendar</text>
+<line x1="375" y1="175" x2="411" y2="175" stroke="#555" stroke-width="1.6"/>
+<line x1="375" y1="411" x2="411" y2="411" stroke="#555" stroke-width="1.6"/>
+<line x1="910" y1="175" x2="946" y2="175" stroke="#555" stroke-width="1.6"/>
+<line x1="910" y1="175" x2="946" y2="352" stroke="#555" stroke-width="1.6"/>
+<line x1="910" y1="352" x2="946" y2="352" stroke="#555" stroke-width="1.6"/>
+<line x1="1791" y1="175" x2="1838" y2="175" stroke="#555" stroke-width="1.6"/>
+<line x1="1791" y1="234" x2="1838" y2="234" stroke="#555" stroke-width="1.6"/>
+<line x1="1791" y1="411" x2="1838" y2="411" stroke="#555" stroke-width="1.6"/>
+<line x1="88" y1="585" x2="1464" y2="585" stroke="#222" stroke-width="2.4" fill="none"/>
+<line x1="215" y1="515" x2="215" y2="656" stroke="#222" stroke-width="2.4" fill="none"/>
+<line x1="750" y1="515" x2="750" y2="585" stroke="#222" stroke-width="2.4" fill="none"/>
+<line x1="1464" y1="515" x2="1464" y2="585" stroke="#222" stroke-width="2.4" fill="none"/>
+<line x1="581" y1="585" x2="581" y2="656" stroke="#222" stroke-width="2.4" fill="none"/>
+<line x1="947" y1="585" x2="947" y2="656" stroke="#222" stroke-width="2.4" fill="none"/>
+<line x1="1313" y1="585" x2="1313" y2="656" stroke="#222" stroke-width="2.4" fill="none"/>
+<circle cx="53" cy="547" r="12" stroke="#222" stroke-width="2.4" fill="none"/><line x1="53" y1="559" x2="53" y2="590" stroke="#222" stroke-width="2.4" fill="none"/><line x1="34" y1="567" x2="72" y2="567" stroke="#222" stroke-width="2.4" fill="none"/><line x1="53" y1="590" x2="40" y2="610" stroke="#222" stroke-width="2.4" fill="none"/><line x1="53" y1="590" x2="66" y2="610" stroke="#222" stroke-width="2.4" fill="none"/>
+<text x="53" y="632" class="a">User</text>
+<ellipse cx="84" cy="1066" rx="28" ry="12" fill="#e1f4ec" stroke="#1f7357" stroke-width="2"/><text x="124" y="1068" class="l">Use case (numbered as in 3.4)</text>
+<rect x="400" y="1055" width="55" height="24" rx="4" fill="#fcebd6" stroke="#8a5516" stroke-width="2"/><text x="467" y="1068" class="l">External service (shown beside the use cases it supports)</text>
+<line x1="1010" y1="1066" x2="1066" y2="1066" stroke="#222" stroke-width="2.4" fill="none"/><text x="1077" y="1068" class="l">The User takes part in every use case of the group it reaches</text>
+</svg>
