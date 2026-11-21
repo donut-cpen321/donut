@@ -160,7 +160,7 @@ class ScheduleGameE2ETest {
             composeRule.onNodeWithText(if (hour < 12) "AM" else "PM").performClick()
             if (hour % 12 == 0) 12 else hour % 12
         }
-        composeRule.onNode(hasContentDescription("$dialHour o'clock", substring = true)).performClick()
+        composeRule.onNode(hasContentDescription("$dialHour o'clock")).performClick()
     }
 
     private fun openScheduleForm() {
